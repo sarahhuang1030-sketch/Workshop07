@@ -1,0 +1,62 @@
+/* Backgrounds */
+.tc-bg-light {
+    background: linear-gradient(135deg, #f5f3ff, #fce7f3, #dbeafe);
+    min-height: 100vh;
+}
+.tc-bg-dark {
+    background: linear-gradient(135deg, #0b1220, #2a0a4a, #0b1220);
+    min-height: 100vh;
+}
+
+/* Header glass */
+.tc-header-light {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.tc-header-dark {
+    background: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Rounded helpers */
+.tc-rounded-2xl { border-radius: 1.25rem; }
+.tc-rounded-3xl { border-radius: 1.75rem; }
+
+/* Hero gradient */
+.tc-hero-light {
+    background: linear-gradient(135deg, #7c3aed, #ec4899, #f97316);
+}
+.tc-hero-dark {
+    background: linear-gradient(135deg, #4c1d95, #be185d, #c2410c);
+}
+
+/* Plan gradients */
+.tc-grad-cyan { background: linear-gradient(135deg, #22d3ee, #3b82f6); }
+.tc-grad-purple { background: linear-gradient(135deg, #a78bfa, #ec4899); }
+.tc-grad-orange { background: linear-gradient(135deg, #fb923c, #ef4444); }
+
+/* Badge gradient */
+.tc-badge-hot {
+    background: linear-gradient(90deg, #facc15, #fb923c);
+    color: #3b2f00;
+}
+
+/* Cards */
+.tc-card-hover {
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.tc-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 1rem 2rem rgba(0,0,0,0.12);
+}
+
+/* Footer */
+.tc-footer-light { background: #111827; color: #e5e7eb; }
+.tc-footer-dark { background: #000; color: #e5e7eb; }
+
+/* Text helpers */
+.tc-muted-light { color: rgba(0,0,0,0.55); }
+.tc-muted-dark { color: rgba(255,255,255,0.6); }
+.tc-card-dark { background: #111827; border: 1px solid rgba(255,255,255,0.10); color: #fff; }
