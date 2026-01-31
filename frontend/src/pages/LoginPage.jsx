@@ -1,152 +1,128 @@
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Container, Row, Col, Card, Form, Button, Alert } from "react-bootstrap";
-import { useTheme } from "../context/ThemeContext";
-import { Signal, Eye, EyeOff } from "lucide-react";
+import { Container, Card, Form, Button, Alert } from "react-bootstrap";
+import { useTheme } from "../context/ThemeContext"; // adjust path if needed
+import { Eye, EyeOff } from "lucide-react";
 
-export default function LoginPage() {
+export default function LoginPage({ setUser }) {
+    const navigate = useNavigate();
     const { darkMode } = useTheme();
+    const [showPassword, setShowPassword] = useState(false);
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState(true);
-    const [showPw, setShowPw] = useState(false);
-
+    const [form, setForm] = useState({ username: "", password: "" });
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
-
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
-        setSuccess("");
+        setLoading(true);
 
-        // basic validation (frontend only)
-        if (!email.trim() || !password.trim()) {
-            setError("Please enter your email and password.");
-            return;
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(form),
+            });
+
+            if (!res.ok) {
+                const msg = await res.text();
+                setError(msg || "Invalid username or password");
+                setLoading(false);
+                return;
+            }
+
+            const user = await res.json();
+            localStorage.setItem("tc_user", JSON.stringify(user));
+            setUser?.(user); // safe call
+
+            navigate("/");
+        } catch (err) {
+            setError("Cannot reach backend. Is Spring Boot running?");
+        } finally {
+            setLoading(false);
         }
-
-        // TODO later: call backend login endpoint
-        // fetch("/api/auth/login", { ... })
-
-        setSuccess("Login submitted (wire backend later).");
     };
 
     return (
-        <div
-            className="d-flex align-items-center"
-            style={{
-                minHeight: "calc(100vh - 140px)",
-                padding: "2rem 0"
-            }}
-        >
-            <Container>
-                <Row className="justify-content-center">
-                    <Col md={6} lg={5}>
-                        <div className="text-center mb-4">
-                            <div
-                                className="mx-auto mb-3 d-flex align-items-center justify-content-center shadow"
-                                style={{
-                                    width: 56,
-                                    height: 56,
-                                    borderRadius: 18,
-                                    background: "linear-gradient(135deg, #7c3aed, #ec4899, #f97316)",
-                                }}
-                            >
-                                <Signal color="white" size={26} />
-                            </div>
+        <Container className="py-5">
+            <div className="d-flex justify-content-center">
+                <Card
+                    className={darkMode ? "tc-card-dark" : "bg-white shadow-sm border-0"}
+                    style={{ width: "100%", maxWidth: 480, borderRadius: 20 }}
+                >
+                    <Card.Body className="p-4 p-md-5">
+                        <h1 className={`fw-black mb-2 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                            Welcome back
+                        </h1>
+                        <p className={darkMode ? "tc-muted-dark" : "tc-muted-light"}>
+                            Log in to manage your plans and perks.
+                        </p>
 
-                            <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                Welcome back
-                            </h1>
-                            <div className={mutedClass}>Sign in to manage your plans and add-ons</div>
-                        </div>
+                        {error && (
+                            <Alert variant="danger" className="mt-3">
+                                {error}
+                            </Alert>
+                        )}
 
-                        <Card
-                            className={`shadow-lg border ${darkMode ? "tc-card-dark" : "bg-white"}`}
-                            style={{
-                                borderRadius: 22,
-                                borderColor: darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
-                            }}
-                        >
-                            <Card.Body className="p-4 p-md-4">
-                                {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
-                                {success && <Alert variant="success" className="mb-3">{success}</Alert>}
+                        <Form className="mt-3" onSubmit={handleSubmit}>
+                            <Form.Group className="mb-3">
+                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Username</Form.Label>
+                                <Form.Control
+                                    value={form.username}
+                                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                                    placeholder="Enter username"
+                                    autoComplete="username"
+                                />
+                            </Form.Group>
+                            <Form.Group className="mb-4">
+                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>
+                                    Password
+                                </Form.Label>
 
-                                <Form onSubmit={handleSubmit}>
-                                    <Form.Group className="mb-3" controlId="email">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Email</Form.Label>
-                                        <Form.Control
-                                            type="email"
-                                            placeholder="you@example.com"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                        />
-                                    </Form.Group>
-
-                                    <Form.Group className="mb-2" controlId="password">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Password</Form.Label>
-                                        <div className="d-flex gap-2">
-                                            <Form.Control
-                                                type={showPw ? "text" : "password"}
-                                                placeholder="••••••••"
-                                                value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant={darkMode ? "outline-light" : "outline-secondary"}
-                                                onClick={() => setShowPw((v) => !v)}
-                                                title={showPw ? "Hide password" : "Show password"}
-                                            >
-                                                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </Button>
-                                        </div>
-                                    </Form.Group>
-
-                                    <div className="d-flex justify-content-between align-items-center mb-3">
-                                        <Form.Check
-                                            type="checkbox"
-                                            label="Remember me"
-                                            checked={remember}
-                                            onChange={(e) => setRemember(e.target.checked)}
-                                            className={darkMode ? "text-light" : "text-dark"}
-                                        />
-
-                                        <Button variant="link" className="p-0 text-decoration-none">
-                                            Forgot password?
-                                        </Button>
-                                    </div>
+                                <div className="input-group">
+                                    <Form.Control
+                                        type={showPassword ? "text" : "password"}
+                                        value={form.password}
+                                        onChange={(e) =>
+                                            setForm({ ...form, password: e.target.value })
+                                        }
+                                        placeholder="Enter password"
+                                        autoComplete="current-password"
+                                    />
 
                                     <Button
-                                        type="submit"
-                                        className="w-100 fw-bold border-0"
-                                        style={{
-                                            background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                            borderRadius: 999,
-                                            padding: "0.85rem 1rem",
-                                        }}
+                                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        tabIndex={-1}
                                     >
-                                        Sign In
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </Button>
-                                </Form>
-
-                                <div className={`text-center mt-3 ${mutedClass}`}>
-                                    Don’t have an account?{" "}
-                                    <span className="fw-bold" style={{ color: "#7c3aed" }}>
-                    Create one
-                  </span>
                                 </div>
-                            </Card.Body>
-                        </Card>
+                            </Form.Group>
+                            <Button
+                                type="submit"
+                                className="w-100 fw-bold border-0"
+                                disabled={loading}
+                                style={{
+                                    borderRadius: 14,
+                                    padding: "0.8rem 1rem",
+                                    background: "linear-gradient(90deg, #7c3aed, #ec4899)",
+                                }}
+                            >
+                                {loading ? "Signing in..." : "Login"}
+                            </Button>
 
-                        <div className={`text-center mt-3 small ${mutedClass}`}>
-                            By continuing, you agree to TeleConnect Terms & Privacy.
-                        </div>
-                    </Col>
-                </Row>
-            </Container>
-        </div>
+                            <div className={`text-center mt-3 ${darkMode ? "tc-muted-dark" : "tc-muted-light"}`}>
+                                Don’t have an account?{" "}
+                                <Button variant="link" className="p-0 fw-semibold" onClick={() => navigate("/register")}>
+                                    Register
+                                </Button>
+                            </div>
+                        </Form>
+                    </Card.Body>
+                </Card>
+            </div>
+        </Container>
     );
 }

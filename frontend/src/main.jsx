@@ -1,19 +1,20 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import React from "react";
+import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import App from "./App";
 
-import App from "./App.jsx";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../src/style/style.css"; // make sure this is the file with tc-bg-light/tc-bg-dark etc.
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
-
 import { ThemeProvider } from "./context/ThemeContext";
 
-createRoot(document.getElementById("root")).render(
-    <StrictMode>
+ReactDOM.createRoot(document.getElementById("root")).render(
+    <React.StrictMode>
         <ThemeProvider>
             <BrowserRouter>
                 <App />
             </BrowserRouter>
         </ThemeProvider>
-    </StrictMode>
+    </React.StrictMode>
 );

@@ -1,87 +1,155 @@
-import { Navbar, Nav, Container, Button } from "react-bootstrap";
-import { NavLink, useNavigate } from "react-router-dom";
-import { Moon, Sun, Signal } from "lucide-react";
+import React from "react";
+import { Signal, Moon, Sun } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 
-
-export default function AppNavbar() {
+export default function AppNavbar({ user, setUser }) {
     const { darkMode, toggleDarkMode } = useTheme();
     const navigate = useNavigate();
 
-    const linkClass = ({ isActive }) =>
-        `nav-link ${isActive ? "fw-bold" : ""} ${darkMode ? "text-light" : "text-dark"}`;
+    const handleLogout = () => {
+        localStorage.removeItem("tc_user");
+        setUser(null);
+        navigate("/"); // or "/login"
+    };
 
     return (
-        <div className={`sticky-top ${darkMode ? "tc-header-dark" : "tc-header-light"}`}>
-            <Navbar expand="md" className="py-3">
-                <Container fluid>
-                    <Navbar.Brand
-                        className="d-flex align-items-center gap-3"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => navigate("/")}
+        <nav
+            className={[
+                "navbar navbar-expand-lg sticky-top shadow-sm border-bottom",
+                darkMode ? "navbar-dark border-secondary" : "navbar-light",
+            ].join(" ")}
+            style={{
+                backdropFilter: "blur(12px)",
+                backgroundColor: darkMode ? "rgba(33,37,41,0.85)" : "rgba(255,255,255,0.85)",
+            }}
+        >
+            <div className="container-xl px-3 py-2">
+                {/* Brand */}
+                <Link className="navbar-brand d-flex align-items-center gap-3" to="/">
+                    <div
+                        className="d-flex align-items-center justify-content-center shadow"
+                        style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 16,
+                            background:
+                                "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",
+                        }}
                     >
+                        <Signal size={22} color="white" />
+                    </div>
+
+                    <div className="lh-sm">
                         <div
-                            className="tc-rounded-2xl d-flex align-items-center justify-content-center shadow"
+                            className="fw-black"
                             style={{
-                                width: 48,
-                                height: 48,
-                                background: "linear-gradient(135deg, #7c3aed, #ec4899, #f97316)",
+                                fontSize: "1.35rem",
+                                fontWeight: 900,
+                                background: "linear-gradient(90deg, rgb(147,51,234), rgb(236,72,153))",
+                                WebkitBackgroundClip: "text",
+                                backgroundClip: "text",
+                                color: "transparent",
                             }}
                         >
-                            <Signal size={22} color="white" />
+                            TeleConnect
                         </div>
-
-                        <div className="lh-1">
-                            <div
-                                className="fw-black"
-                                style={{
-                                    fontWeight: 900,
-                                    fontSize: "1.35rem",
-                                    background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                    WebkitBackgroundClip: "text",
-                                    color: "transparent",
-                                }}
-                            >
-                                TeleConnect
-                            </div>
-                            <div className={`small ${darkMode ? "tc-muted-dark" : "tc-muted-light"}`}>
-                                Stay Connected, Stay You
-                            </div>
+                        <div className={darkMode ? "text-secondary small fw-semibold" : "text-muted small fw-semibold"}>
+                            Stay Connected, Stay You
                         </div>
-                    </Navbar.Brand>
+                    </div>
+                </Link>
 
-                    <Navbar.Toggle aria-controls="tc-nav" />
-                    <Navbar.Collapse id="tc-nav">
-                        <Nav className="ms-auto align-items-md-center gap-md-3">
-                            <NavLink to="/" className={linkClass}>Home</NavLink>
-                            <NavLink to="/plans" className={linkClass}>Plans</NavLink>
-                            <NavLink to="/login" className={linkClass}>Login</NavLink>
-                            {/*<NavLink to="/profile" className={linkClass}>Login</NavLink>*/}
+                {/* Mobile toggler */}
+                <button
+                    className="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#teleconnectNavbar"
+                    aria-controls="teleconnectNavbar"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation"
+                >
+                    <span className="navbar-toggler-icon" />
+                </button>
 
-                            <Button
-                                variant={darkMode ? "outline-light" : "outline-secondary"}
-                                className="d-flex align-items-center justify-content-center"
+                {/* Links */}
+                <div className="collapse navbar-collapse" id="teleconnectNavbar">
+                    <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2 mt-3 mt-lg-0">
+                        <li className="nav-item">
+                            <Link className="nav-link fw-semibold" to="/plans">
+                                Plans
+                            </Link>
+                        </li>
+
+                        {!user ? (
+                            <>
+                                <li className="nav-item">
+                                    <Link className="nav-link fw-semibold" to="/login">
+                                        Login
+                                    </Link>
+                                </li>
+
+                                <li className="nav-item ms-lg-2">
+                                    <Link
+                                        className="btn text-white fw-bold px-4 py-2"
+                                        to="/register"
+                                        style={{
+                                            borderRadius: 999,
+                                            background: "linear-gradient(90deg, #7c3aed, #ec4899)",
+                                            boxShadow: "0 10px 25px rgba(236,72,153,0.25)",
+                                        }}
+                                    >
+                                        Get Started
+                                    </Link>
+                                </li>
+                            </>
+                        ) : (
+                            <>
+                                <li className="nav-item">
+                                    <Link className="nav-link fw-semibold" to="/profile">
+                                        Profile
+                                    </Link>
+                                </li>
+
+                                <li className="nav-item ms-lg-2">
+                                    <button
+                                        type="button"
+                                        className={darkMode ? "btn btn-outline-light fw-bold" : "btn btn-outline-secondary fw-bold"}
+                                        onClick={handleLogout}
+                                    >
+                                        Logout
+                                    </button>
+                                </li>
+                            </>
+                        )}
+
+                        {/* Theme toggle */}
+                        <li className="nav-item ms-lg-2">
+                            <button
+                                type="button"
+                                className={[
+                                    "btn d-inline-flex align-items-center justify-content-center",
+                                    darkMode ? "btn-outline-light" : "btn-outline-secondary",
+                                ].join(" ")}
                                 onClick={toggleDarkMode}
+                                aria-label="Toggle dark mode"
+                                style={{ width: 42, height: 42, borderRadius: 10 }}
                             >
                                 {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-                            </Button>
+                            </button>
+                        </li>
 
-                            <Button
-                                className="fw-bold border-0"
-                                style={{
-                                    background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                    borderRadius: 999,
-                                    paddingLeft: 18,
-                                    paddingRight: 18,
-                                }}
-                                onClick={() => navigate("/register")}
-                            >
-                                Join us
-                            </Button>
-                        </Nav>
-                    </Navbar.Collapse>
-                </Container>
-            </Navbar>
-        </div>
+                        {user && (
+                            <li className="nav-item me-lg-2">
+                              <span className={darkMode ? "nav-link text-light fw-semibold" : "nav-link text-dark fw-semibold"}>
+                                Hi, {user.firstName}
+                              </span>
+                            </li>
+                        )}
+                    </ul>
+                </div>
+            </div>
+        </nav>
     );
 }

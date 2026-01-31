@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Spring Boot local config (DO NOT COMMIT)
+src/main/resources/application-local.properties
