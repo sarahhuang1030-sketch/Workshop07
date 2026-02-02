@@ -20,60 +20,90 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+<!--    <dependencies>-->
+<!--        &lt;!&ndash; For REST endpoints (optional but recommended) &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-web</artifactId>-->
+<!--        </dependency>-->
+
+<!--        &lt;!&ndash; JDBC support &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-jdbc</artifactId>-->
+<!--        </dependency>-->
+
+<!--        &lt;!&ndash; MySQL driver &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>com.mysql</groupId>-->
+<!--            <artifactId>mysql-connector-j</artifactId>-->
+<!--            <scope>runtime</scope>-->
+<!--        </dependency>-->
+
+<!--            &lt;!&ndash; REST controllers &ndash;&gt;-->
+<!--            <dependency>-->
+<!--                <groupId>org.springframework.boot</groupId>-->
+<!--                <artifactId>spring-boot-starter-web</artifactId>-->
+<!--            </dependency>-->
+
+<!--            &lt;!&ndash; JPA / persistence annotations like @Entity &ndash;&gt;-->
+<!--            <dependency>-->
+<!--                <groupId>org.springframework.boot</groupId>-->
+<!--                <artifactId>spring-boot-starter-data-jpa</artifactId>-->
+<!--            </dependency>-->
+
+<!--            &lt;!&ndash; MySQL driver &ndash;&gt;-->
+<!--            <dependency>-->
+<!--                <groupId>com.mysql</groupId>-->
+<!--                <artifactId>mysql-connector-j</artifactId>-->
+<!--                <scope>runtime</scope>-->
+<!--            </dependency>-->
+
+<!--            &lt;!&ndash; Validation annotations like @NotBlank, @Email &ndash;&gt;-->
+<!--            <dependency>-->
+<!--                <groupId>org.springframework.boot</groupId>-->
+<!--                <artifactId>spring-boot-starter-validation</artifactId>-->
+<!--            </dependency>-->
+
+<!--            &lt;!&ndash; Password hashing (PasswordEncoder / BCrypt) &ndash;&gt;-->
+<!--            <dependency>-->
+<!--                <groupId>org.springframework.boot</groupId>-->
+<!--                <artifactId>spring-boot-starter-security</artifactId>-->
+<!--            </dependency>-->
+<!--    </dependencies>-->
     <dependencies>
-        <!-- For REST endpoints (optional but recommended) -->
+        <!-- Web / REST API -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- JDBC support -->
+        <!-- JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- MySQL driver -->
+        <!-- MySQL -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-            <!-- REST controllers -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-web</artifactId>
-            </dependency>
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
 
-            <!-- JPA / persistence annotations like @Entity -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-data-jpa</artifactId>
-            </dependency>
-
-            <!-- MySQL driver -->
-            <dependency>
-                <groupId>com.mysql</groupId>
-                <artifactId>mysql-connector-j</artifactId>
-                <scope>runtime</scope>
-            </dependency>
-
-            <!-- Validation annotations like @NotBlank, @Email -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-validation</artifactId>
-            </dependency>
-
-            <!-- Password hashing (PasswordEncoder / BCrypt) -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-security</artifactId>
-            </dependency>
-
-
-
+        <!-- Security (如果不需要登录，可暂时移除) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
     </dependencies>
+
 
     <build>
         <plugins>

@@ -2,10 +2,31 @@ import React from "react";
 import { Signal, Moon, Sun } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { Badge } from "react-bootstrap";
+import { ShoppingCart } from "lucide-react";
+import { useCart } from "../../context/CartContext";
+
 
 export default function AppNavbar({ user, setUser }) {
     const { darkMode, toggleDarkMode } = useTheme();
     const navigate = useNavigate();
+
+    const { plan, addOns } = useCart();
+    const cartCount = (plan ? 1 : 0) + addOns.length;
+
+    <Link to="/cart" className="position-relative text-decoration-none">
+        <ShoppingCart size={24} />
+        {cartCount > 0 && (
+            <Badge
+                bg="danger"
+                pill
+                className="position-absolute top-0 start-100 translate-middle"
+            >
+                {cartCount}
+            </Badge>
+        )}
+    </Link>
+
 
     const handleLogout = () => {
         localStorage.removeItem("tc_user");

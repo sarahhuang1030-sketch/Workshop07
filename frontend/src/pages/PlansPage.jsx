@@ -3,6 +3,9 @@ import { Container, Row, Col, Card, Button, Badge, Form, Spinner, Alert } from "
 import { useTheme } from "../context/ThemeContext";
 import { Smartphone, Video, Zap, Music, Users, Gift } from "lucide-react";
 import "../style/style.css";
+import { useCart } from "../context/CartContext";
+import { useNavigate } from "react-router-dom";
+
 
 const ICONS = {
     smartphone: Smartphone,
@@ -36,6 +39,11 @@ function getDataLabel(plan) {
 }
 
 export default function PlansPage() {
+
+    const { addPlan, addAddOn } = useCart();
+    const navigate = useNavigate();
+
+
     const { darkMode } = useTheme();
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
 
@@ -199,15 +207,28 @@ export default function PlansPage() {
                                         <div className={mutedClass}>{selectedPlan.tagline}</div>
                                     </div>
 
+                                    {/*<Button*/}
+                                    {/*    className="fw-bold border-0"*/}
+                                    {/*    style={{*/}
+                                    {/*        background: "linear-gradient(90deg, #7c3aed, #ec4899)",*/}
+                                    {/*        borderRadius: 999,*/}
+                                    {/*        padding: "0.75rem 1.25rem",*/}
+                                    {/*        whiteSpace: "nowrap",*/}
+                                    {/*    }}*/}
+                                    {/*    onClick={() => alert(`Checkout flow later: ${selectedPlan.name}`)}*/}
+                                    {/*>*/}
+                                    {/*    Continue to Checkout*/}
+                                    {/*</Button>*/}
                                     <Button
                                         className="fw-bold border-0"
                                         style={{
                                             background: "linear-gradient(90deg, #7c3aed, #ec4899)",
                                             borderRadius: 999,
-                                            padding: "0.75rem 1.25rem",
-                                            whiteSpace: "nowrap",
                                         }}
-                                        onClick={() => alert(`Checkout flow later: ${selectedPlan.name}`)}
+                                        onClick={() => {
+                                            addPlan(selectedPlan);
+                                            navigate("/cart");
+                                        }}
                                     >
                                         Continue to Checkout
                                     </Button>
@@ -333,13 +354,19 @@ export default function PlansPage() {
                                                     <div className={`small ${mutedClass}`}>/month</div>
                                                 </div>
                                                 <div className={`small mt-2 ${mutedClass}`}>{a.description}</div>
+                                                {/*<Button*/}
+                                                {/*    variant={darkMode ? "outline-light" : "outline-secondary"}*/}
+                                                {/*    className="w-100 mt-3 fw-bold"*/}
+                                                {/*    style={{ borderRadius: 14 }}*/}
+                                                {/*    onClick={() => alert(`Addon later: ${a.addOnName}`)}*/}
+                                                {/*>*/}
+                                                {/*    Add to Plan*/}
+                                                {/*</Button>*/}
                                                 <Button
-                                                    variant={darkMode ? "outline-light" : "outline-secondary"}
                                                     className="w-100 mt-3 fw-bold"
-                                                    style={{ borderRadius: 14 }}
-                                                    onClick={() => alert(`Addon later: ${a.addOnName}`)}
+                                                    onClick={() => addAddOn(a)}
                                                 >
-                                                    Add to Plan
+                                                    Add to Cart
                                                 </Button>
                                             </Card.Body>
                                         </Card>
