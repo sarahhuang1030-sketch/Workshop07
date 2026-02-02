@@ -1,37 +1,22 @@
 import React from "react";
-import { Signal, Moon, Sun } from "lucide-react";
+import { Signal, Moon, Sun, ShoppingCart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { Badge } from "react-bootstrap";
-import { ShoppingCart } from "lucide-react";
 import { useCart } from "../../context/CartContext";
-
 
 export default function AppNavbar({ user, setUser }) {
     const { darkMode, toggleDarkMode } = useTheme();
     const navigate = useNavigate();
-
     const { plan, addOns } = useCart();
+
+    // Calculate total cart items (plan counts as 1)
     const cartCount = (plan ? 1 : 0) + addOns.length;
-
-    <Link to="/cart" className="position-relative text-decoration-none">
-        <ShoppingCart size={24} />
-        {cartCount > 0 && (
-            <Badge
-                bg="danger"
-                pill
-                className="position-absolute top-0 start-100 translate-middle"
-            >
-                {cartCount}
-            </Badge>
-        )}
-    </Link>
-
 
     const handleLogout = () => {
         localStorage.removeItem("tc_user");
         setUser(null);
-        navigate("/"); // or "/login"
+        navigate("/");
     };
 
     return (
@@ -54,13 +39,11 @@ export default function AppNavbar({ user, setUser }) {
                             width: 48,
                             height: 48,
                             borderRadius: 16,
-                            background:
-                                "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",
+                            background: "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",
                         }}
                     >
                         <Signal size={22} color="white" />
                     </div>
-
                     <div className="lh-sm">
                         <div
                             className="fw-black"
@@ -69,7 +52,6 @@ export default function AppNavbar({ user, setUser }) {
                                 fontWeight: 900,
                                 background: "linear-gradient(90deg, rgb(147,51,234), rgb(236,72,153))",
                                 WebkitBackgroundClip: "text",
-                                backgroundClip: "text",
                                 color: "transparent",
                             }}
                         >
@@ -98,28 +80,19 @@ export default function AppNavbar({ user, setUser }) {
                 <div className="collapse navbar-collapse" id="teleconnectNavbar">
                     <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2 mt-3 mt-lg-0">
                         <li className="nav-item">
-                            <Link className="nav-link fw-semibold" to="/plans">
-                                Plans
-                            </Link>
+                            <Link className="nav-link fw-semibold" to="/plans">Plans</Link>
                         </li>
 
                         {!user ? (
                             <>
                                 <li className="nav-item">
-                                    <Link className="nav-link fw-semibold" to="/login">
-                                        Login
-                                    </Link>
+                                    <Link className="nav-link fw-semibold" to="/login">Login</Link>
                                 </li>
-
                                 <li className="nav-item ms-lg-2">
                                     <Link
                                         className="btn text-white fw-bold px-4 py-2"
                                         to="/register"
-                                        style={{
-                                            borderRadius: 999,
-                                            background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                            boxShadow: "0 10px 25px rgba(236,72,153,0.25)",
-                                        }}
+                                        style={{ borderRadius: 999, background: "linear-gradient(90deg, #7c3aed, #ec4899)" }}
                                     >
                                         Get Started
                                     </Link>
@@ -128,11 +101,8 @@ export default function AppNavbar({ user, setUser }) {
                         ) : (
                             <>
                                 <li className="nav-item">
-                                    <Link className="nav-link fw-semibold" to="/profile">
-                                        Profile
-                                    </Link>
+                                    <Link className="nav-link fw-semibold" to="/profile">Profile</Link>
                                 </li>
-
                                 <li className="nav-item ms-lg-2">
                                     <button
                                         type="button"
@@ -149,9 +119,8 @@ export default function AppNavbar({ user, setUser }) {
                         <li className="nav-item ms-lg-2">
                             <button
                                 type="button"
-                                className={[
-                                    "btn d-inline-flex align-items-center justify-content-center",
-                                    darkMode ? "btn-outline-light" : "btn-outline-secondary",
+                                className={["btn d-inline-flex align-items-center justify-content-center",
+                                    darkMode ? "btn-outline-light" : "btn-outline-secondary"
                                 ].join(" ")}
                                 onClick={toggleDarkMode}
                                 aria-label="Toggle dark mode"
@@ -159,6 +128,22 @@ export default function AppNavbar({ user, setUser }) {
                             >
                                 {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                             </button>
+                        </li>
+
+                        {/* Shopping cart icon */}
+                        <li className="nav-item ms-lg-2">
+                            <Link to="/cart" className="position-relative text-decoration-none">
+                                <ShoppingCart size={24} />
+                                {cartCount > 0 && (
+                                    <Badge
+                                        bg="danger"
+                                        pill
+                                        className="position-absolute top-0 start-100 translate-middle"
+                                    >
+                                        {cartCount}
+                                    </Badge>
+                                )}
+                            </Link>
                         </li>
 
                         {user && (

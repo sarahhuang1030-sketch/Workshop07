@@ -192,49 +192,37 @@ export default function PlansPage() {
 
                 {!loading && !error && (
                     <>
-                        {/* Selected plan banner */}
-                        {selectedPlan && (
-                            <div
-                                className={`p-3 p-md-4 mb-4 tc-rounded-3xl shadow-sm ${darkMode ? "tc-card-dark" : "bg-white"}`}
-                                style={{ borderRadius: 24 }}
-                            >
-                                <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-                                    <div>
-                                        <div className={`small ${mutedClass}`}>Selected plan</div>
-                                        <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900, fontSize: "1.4rem" }}>
-                                            {selectedPlan.name} • ${selectedPlan.price}/mo • {selectedPlan.data}
-                                        </div>
-                                        <div className={mutedClass}>{selectedPlan.tagline}</div>
-                                    </div>
+                        {/*/!* Selected plan banner *!/*/}
+                        {/*{selectedPlan && (*/}
+                        {/*    <div*/}
+                        {/*        className={`p-3 p-md-4 mb-4 tc-rounded-3xl shadow-sm ${darkMode ? "tc-card-dark" : "bg-white"}`}*/}
+                        {/*        style={{ borderRadius: 24 }}*/}
+                        {/*    >*/}
+                        {/*        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">*/}
+                        {/*            <div>*/}
+                        {/*                <div className={`small ${mutedClass}`}>Selected plan</div>*/}
+                        {/*                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900, fontSize: "1.4rem" }}>*/}
+                        {/*                    {selectedPlan.name} • ${selectedPlan.price}/mo • {selectedPlan.data}*/}
+                        {/*                </div>*/}
+                        {/*                <div className={mutedClass}>{selectedPlan.tagline}</div>*/}
+                        {/*            </div>*/}
 
-                                    {/*<Button*/}
-                                    {/*    className="fw-bold border-0"*/}
-                                    {/*    style={{*/}
-                                    {/*        background: "linear-gradient(90deg, #7c3aed, #ec4899)",*/}
-                                    {/*        borderRadius: 999,*/}
-                                    {/*        padding: "0.75rem 1.25rem",*/}
-                                    {/*        whiteSpace: "nowrap",*/}
-                                    {/*    }}*/}
-                                    {/*    onClick={() => alert(`Checkout flow later: ${selectedPlan.name}`)}*/}
-                                    {/*>*/}
-                                    {/*    Continue to Checkout*/}
-                                    {/*</Button>*/}
-                                    <Button
-                                        className="fw-bold border-0"
-                                        style={{
-                                            background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                            borderRadius: 999,
-                                        }}
-                                        onClick={() => {
-                                            addPlan(selectedPlan);
-                                            navigate("/cart");
-                                        }}
-                                    >
-                                        Continue to Checkout
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
+                        {/*            <Button*/}
+                        {/*                className="fw-bold border-0"*/}
+                        {/*                style={{*/}
+                        {/*                    background: "linear-gradient(90deg, #7c3aed, #ec4899)",*/}
+                        {/*                    borderRadius: 999,*/}
+                        {/*                }}*/}
+                        {/*                onClick={() => {*/}
+                        {/*                    addPlan(selectedPlan);*/}
+                        {/*                    navigate("/cart");*/}
+                        {/*                }}*/}
+                        {/*            >*/}
+                        {/*                Continue to Checkout*/}
+                        {/*            </Button>*/}
+                        {/*        </div>*/}
+                        {/*    </div>*/}
+                        {/*)}*/}
 
                         {/* Plans grid */}
                         <Row className="g-4">
@@ -323,10 +311,14 @@ export default function PlansPage() {
                                                         borderRadius: 14,
                                                         padding: "0.75rem 1rem",
                                                     }}
-                                                    onClick={() => setSelectedPlanId(plan.id)}
+                                                    onClick={() => {
+                                                        setSelectedPlanId(plan.id);
+                                                        addPlan(plan);
+                                                    }}
                                                 >
-                                                    {isSelected ? "Selected" : "Select Plan"}
+                                                    {selectedPlanId === plan.id ? "Selected" : "Select Plan"}
                                                 </Button>
+
                                             </Card.Body>
                                         </Card>
                                     </Col>
@@ -354,20 +346,15 @@ export default function PlansPage() {
                                                     <div className={`small ${mutedClass}`}>/month</div>
                                                 </div>
                                                 <div className={`small mt-2 ${mutedClass}`}>{a.description}</div>
-                                                {/*<Button*/}
-                                                {/*    variant={darkMode ? "outline-light" : "outline-secondary"}*/}
-                                                {/*    className="w-100 mt-3 fw-bold"*/}
-                                                {/*    style={{ borderRadius: 14 }}*/}
-                                                {/*    onClick={() => alert(`Addon later: ${a.addOnName}`)}*/}
-                                                {/*>*/}
-                                                {/*    Add to Plan*/}
-                                                {/*</Button>*/}
                                                 <Button
                                                     className="w-100 mt-3 fw-bold"
+                                                    style={{ borderRadius: 14 }}
+                                                    disabled={useCart().addOns.some(x => x.addOnId === a.addOnId)}
                                                     onClick={() => addAddOn(a)}
                                                 >
-                                                    Add to Cart
+                                                    {useCart().addOns.some(x => x.addOnId === a.addOnId) ? "Added" : "Add to Cart"}
                                                 </Button>
+
                                             </Card.Body>
                                         </Card>
                                     </Col>
