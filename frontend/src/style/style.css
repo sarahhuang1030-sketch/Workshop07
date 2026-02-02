@@ -76,3 +76,23 @@ body {
 .tc-muted-light { color: rgba(0,0,0,0.55); }
 .tc-muted-dark { color: rgba(255,255,255,0.6); }
 .tc-card-dark { background: #111827; border: 1px solid rgba(255,255,255,0.10); color: #fff; }
+
+
+/*Scrollbar*/
+.d-flex.overflow-x-auto {
+    scrollbar-width: thin;
+    scrollbar-color: #888 transparent;
+}
+
+.d-flex.overflow-x-auto::-webkit-scrollbar {
+    height: 6px;
+}
+
+.d-flex.overflow-x-auto::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 3px;
+}
+
+.d-flex.overflow-x-auto::-webkit-scrollbar-track {
+    background: transparent;
+}
