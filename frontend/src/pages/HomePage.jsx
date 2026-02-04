@@ -1,275 +1,244 @@
-import { useEffect, useMemo, useState } from "react";
-import { Container, Row, Col, Button, Card, Badge, Stack, Spinner } from "react-bootstrap";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+    Container,
+    Row,
+    Col,
+    Button,
+    Card,
+    Spinner
+} from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
+import { useCart } from "../context/CartContext";
 import {
     Smartphone, Video, Zap,
-    Music, Users, Gift,
-    Signal, Headphones, Heart
+    Users, Gift, Signal, Headphones, Heart,
+    ChevronLeft, ChevronRight
 } from "lucide-react";
-
 import "../style/style.css";
+import { useNavigate } from "react-router-dom";
+import HomepageDock from "../components/HomepageDock";
 
-const ICONS = {
-    smartphone: Smartphone,
-    video: Video,
-    zap: Zap,
-    music: Music,
-    users: Users,
-    gift: Gift,
-    signal: Signal,
-    headphones: Headphones,
-    heart: Heart,
-};
+/* ---------- icons ---------- */
+const ICONS = { smartphone: Smartphone, video: Video, zap: Zap, users: Users, gift: Gift, signal: Signal, headphones: Headphones, heart: Heart };
 
-function planIconKey(planName) {
-    const n = (planName || "").toLowerCase();
+function planIconKey(name = "") {
+    const n = name.toLowerCase();
     if (n.includes("stream")) return "video";
     if (n.includes("power")) return "zap";
     return "smartphone";
 }
 
-function planTheme(planName) {
-    const n = (planName || "").toLowerCase();
+function planTheme(name = "") {
+    const n = name.toLowerCase();
     if (n.includes("stream")) return "tc-grad-purple";
     if (n.includes("power")) return "tc-grad-orange";
     return "tc-grad-cyan";
 }
 
-// Extract a "data label" from features (Data row if present)
-function getDataLabel(plan) {
-    const data = (plan.features ?? []).find(f => (f.name || "").toLowerCase() === "data");
-    if (!data) return "";
-    if (data.unit) return `${data.value}${data.unit}`;
-    return data.value ?? "";
-}
-
-
 export default function HomePage() {
     const { darkMode } = useTheme();
+    const { addPlan, addAddOn } = useCart();
+    const navigate = useNavigate();
+
     const [selectedTab, setSelectedTab] = useState("mobile");
     const [mobilePlans, setMobilePlans] = useState([]);
     const [homePlans, setHomePlans] = useState([]);
     const [addOns, setAddOns] = useState([]);
-    const [features, setFeatures] = useState([]);
     const [loading, setLoading] = useState(true);
-    const heroClass = darkMode ? "tc-hero-dark" : "tc-hero-light";
-    const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
 
+    const PLAN_PAGE_SIZE = 3;
+    const ADDON_PAGE_SIZE = 4;
+    const [planPage, setPlanPage] = useState(0);
+    const [addonPage, setAddonPage] = useState(0);
+
+    const heroClass = darkMode ? "bg-dark text-white" : "bg-primary text-white";
+    const mutedClass = darkMode ? "text-muted" : "text-white-50";
 
     useEffect(() => {
         let cancelled = false;
-
         async function load() {
-            try {
-                setLoading(true);
-
-                const [mRes, hRes, aRes, fRes] = await Promise.all([
-                    fetch("/api/plans?type=Mobile&includeAddOns=true"),
-                    fetch("/api/plans?type=Internet&includeAddOns=true"),
-                    fetch("/api/addons"),
-                    fetch("/api/site-features"),
-                ]);
-
-                const [m, h, a, f] = await Promise.all([
-                    mRes.json(),
-                    hRes.json(),
-                    aRes.json(),
-                    fRes.json(),
-                ]);
-
-                if (cancelled) return;
-                setMobilePlans(m ?? []);
-                setHomePlans(h ?? []);
-                setAddOns(a ?? []);
-                setFeatures(f ?? []);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
+            setLoading(true);
+            const [m, h, a] = await Promise.all([
+                fetch("/api/plans?type=Mobile").then(r => r.json()),
+                fetch("/api/plans?type=Internet").then(r => r.json()),
+                fetch("/api/addons").then(r => r.json())
+            ]);
+            if (cancelled) return;
+            setMobilePlans(m ?? []);
+            setHomePlans(h ?? []);
+            setAddOns(a ?? []);
+            setLoading(false);
         }
-
         load();
-        return () => { cancelled = true; };
+        return () => (cancelled = true);
     }, []);
 
-    const currentPlans = useMemo(() => (
-        selectedTab === "mobile" ? mobilePlans : homePlans
-    ), [selectedTab, mobilePlans, homePlans]);
+    const plans = useMemo(() => {
+        const raw = selectedTab === "mobile" ? mobilePlans : homePlans;
+        return raw.map(p => ({
+            ...p,
+            price: p.monthlyPrice,
+            gradClass: planTheme(p.name),
+            icon: ICONS[planIconKey(p.name)] || Smartphone
+        }));
+    }, [selectedTab, mobilePlans, homePlans]);
+
+    const planPageCount = Math.ceil(plans.length / PLAN_PAGE_SIZE);
+    const addonPageCount = Math.ceil(addOns.length / ADDON_PAGE_SIZE);
+    const visiblePlans = plans.slice(planPage * PLAN_PAGE_SIZE, planPage * PLAN_PAGE_SIZE + PLAN_PAGE_SIZE);
+    const visibleAddOns = addOns.slice(addonPage * ADDON_PAGE_SIZE, addonPage * ADDON_PAGE_SIZE + ADDON_PAGE_SIZE);
 
     if (loading) {
         return (
             <div className="py-5 text-center">
                 <Spinner animation="border" />
-                <div className={`mt-2 ${mutedClass}`}>Loading from backend…</div>
+                <div className={`mt-2 ${mutedClass}`}>Loading…</div>
             </div>
         );
     }
 
     return (
         <>
-            {/* Hero */}
-            <section className="py-4 py-md-5">
+            {/* HERO */}
+            <section className={`py-5 ${heroClass} text-center`}>
                 <Container>
-                    <div className={`p-4 p-md-5 tc-rounded-3xl shadow-lg ${heroClass}`}>
-                        <Row className="g-4 align-items-center">
-                            <Col md={8}>
-                                <Badge bg="light" text="dark" className="px-3 py-2 tc-rounded-2xl">
-                                    ✨ New Customer Offer
-                                </Badge>
-
-                                <h1 className="text-white fw-black mt-3" style={{ fontWeight: 900 }}>
-                                    Stay Connected
-                                    <span className="d-block">On Your Terms</span>
-                                </h1>
-
-                                <p className="text-white-50 fs-5">
-                                    Get 3 months FREE + umlimited data on Canada's fastest 5G network
+                    <h1 className="display-4 fw-bold mb-3">Stay Connected on Your Terms</h1>
+                    <p className="mb-4 fs-5 text-white-50">
+                        Get 3 months FREE + unlimited data on Canada’s fastest 5G network
+                    </p>
+                    <Button
+                        variant="light"
+                        className="fw-bold px-4 py-2 rounded-pill"
+                        style={{ color: "#7c3aed" }}
+                        onClick={() => navigate("/plans")}
+                    >
+                        See Plans
+                    </Button>
+                </Container>
+            </section>
+            {/* AD SECTION */}
+            <section className="py-5" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", borderRadius: "1rem", margin: "2rem 0" }}>
+                <Container>
+                    <Row className="align-items-center g-4">
+                        {/* Left content */}
+                        <Col md={7}>
+                            <div className="d-flex flex-column gap-3 text-white">
+                                <h2 className="fw-bold display-5">
+                                    Pair iPhone 16 with Apple Watch Series 11
+                                </h2>
+                                <p className="fs-5 text-white-50">
+                                    For a limited time, finance the Apple Watch Series 11 and save $240 over 24 months and get a smartwatch plan for $43/mo for 24 months. Plus, get Rogers Satellite at no extra cost.
                                 </p>
-
-                                <Stack direction="horizontal" gap={3} className="flex-wrap">
-                                    <Button variant="light" className="fw-bold" style={{ borderRadius: 999, color: "#7c3aed" }} onClick={() => setSelectedTab("mobile")}>
-                                        See Plans
-                                    </Button>
-                                    {/*<Button variant="outline-light" className="fw-bold" style={{ borderRadius: 999 }} onClick={() => setSelectedTab("home")}>*/}
-                                    {/*    See Home*/}
-                                    {/*</Button>*/}
-                                </Stack>
-                            </Col>
-
-                            <Col md={3}>
-                                <Card
-                                    className="border-1 shadow-lg tc-rounded-3xl border-white"
-                                    style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(12px)", color: "white" }}
+                                <div className="d-flex align-items-baseline gap-2">
+                                    <span className="fs-3 fw-bold">$43/mo</span>
+                                    <small className="text-white-50">after bill credit with 24-month financing*</small>
+                                </div>
+                                <p className="mb-3 text-white-50">
+                                    Full price: $1,027. <b>iPhone offer ends February 2.</b>
+                                </p>
+                                <Button
+                                    variant="light"
+                                    className="fw-bold px-5 py-3 rounded-pill text-gradient"
+                                    style={{
+                                        background: "linear-gradient(90deg, #fff 0%, #e0e0ff 100%)",
+                                        color: "#4f46e5",
+                                        fontWeight: 700,
+                                        transition: "transform 0.2s, box-shadow 0.2s"
+                                    }}
+                                    onMouseOver={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.3)"; }}
+                                    onMouseOut={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
+                                    onClick={() => window.open("https://www.rogers.com/phones/iphone-16?icid=R_WIR_5AO_WE6CZL", "_blank")}
                                 >
-                                    <Card.Body className="p-4">
-                                        <div className="text-center">
-                                            <div className="display-5 fw-black" style={{ fontWeight: 900 }}>
-                                                {mobilePlans?.[0]?.monthlyPrice ? `$${mobilePlans[0].monthlyPrice}` : "$--"}
-                                            </div>
-                                            <div className="text-white-50">starting price</div>
-                                            <Badge
-                                                bg="warning"
-                                                text="dark"
-                                                className="mt-3 px-3 py-2 rounded-pill fw-bold"
-                                            >
-                                                Save $45/month
-                                            </Badge>                                        </div>
+                                    Get Offer
+                                </Button>
+                            </div>
+                        </Col>
 
-                                        <div className="mt-4">
-                                            {["Plans", "Features", "Perks", "Add-ons"].map(item => (
-                                                <div key={item} className="d-flex align-items-center gap-2 mb-2">
-                                                    <Badge bg="success" className="rounded-circle" style={{ width: 22, height: 22 }}>✓</Badge>
-                                                    <span className="fw-semibold">{item}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <Button
-                                            variant="light"
-                                            className="w-100 mt-3 fw-bold rounded-pill py-3"
-                                            style={{ color: "#7c3aed" }}
-                                        >
-                                            Claim Offer
-                                        </Button>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                        </Row>
-                    </div>
+                        {/* Right image */}
+                        <Col md={5}>
+                            <div className="ratio ratio-16x9 shadow-lg rounded">
+                                <img src="././Iphone.jpg" alt="iPhone + Apple Watch" className="img-fluid rounded" />
+                            </div>
+                        </Col>
+                    </Row>
                 </Container>
             </section>
 
-            {/* Tabs */}
-            <section className="py-3">
-                <Container>
-                    <div className="d-flex justify-content-center">
-                        <div className={`p-2 shadow-sm tc-rounded-2xl d-inline-flex gap-2 ${darkMode ? "tc-card-dark" : "bg-white"}`}>
-                            <Button
-                                onClick={() => setSelectedTab("mobile")}
-                                variant="link"
-                                className={`fw-bold ${selectedTab === "mobile" ? "" : darkMode ? "text-light" : "text-dark"}`}
-                                style={{ borderRadius: 16, background: selectedTab === "mobile" ? "linear-gradient(90deg,#7c3aed,#ec4899)" : "transparent", color: selectedTab === "mobile" ? "white" : "", textDecoration: "none" }}
-                            >
-                                📱 Mobile
-                            </Button>
 
-                            <Button
-                                onClick={() => setSelectedTab("home")}
-                                variant="link"
-                                className={`fw-bold ${selectedTab === "home" ? "" : darkMode ? "text-light" : "text-dark"}`}
-                                style={{ borderRadius: 16, background: selectedTab === "home" ? "linear-gradient(90deg,#7c3aed,#ec4899)" : "transparent", color: selectedTab === "home" ? "white" : "", textDecoration: "none" }}
-                            >
-                                🏠 Home
-                            </Button>
+            {/* CARD GROUP */}
+            <Container className="my-5">
+                <Row className="g-4">
+                    <Col md={4}>
+                        <Card className="shadow-lg border-0 h-100">
+                            <img src="././Personal-Use.jpg" className="card-img-top" alt="..."/>
+                            <Card.Body>
+                                <h5 className="card-title fw-bold">Premium Plan</h5>
+                                <p className="card-text text-muted">Get the best experience with unlimited data and priority support.</p>
+                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                    <Col md={4}>
+                        <Card className="shadow-lg border-0 h-100">
+                            <img src="././Home-Set.jpg" className="card-img-top" alt="..."/>
+                            <Card.Body>
+                                <h5 className="card-title fw-bold">Family Plan</h5>
+                                <p className="card-text text-muted">Share your plan with the whole family without compromise.</p>
+                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                    <Col md={4}>
+                        <Card className="shadow-lg border-0 h-100">
+                            <img src="././Bussiness-Use.jpg" className="card-img-top" alt="..."/>
+                            <Card.Body>
+                                <h5 className="card-title fw-bold">Business Plan</h5>
+                                <p className="card-text text-muted">Advanced features for teams and businesses of all sizes.</p>
+                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                </Row>
+            </Container>
+
+            {/* DOCK */}
+            <HomepageDock onSelect={setSelectedTab}/>
+
+            {/* TABS */}
+            <section className="py-3 text-center">
+                <Container>
+                    <Button className="me-2" variant={selectedTab === "mobile" ? "primary" : "outline-primary"} onClick={() => { setSelectedTab("mobile"); setPlanPage(0); }}>
+                        📱 Mobile
+                    </Button>
+                    <Button variant={selectedTab === "home" ? "primary" : "outline-primary"} onClick={() => { setSelectedTab("home"); setPlanPage(0); }}>
+                        🏠 Home
+                    </Button>
+                </Container>
+            </section>
+
+            {/* PLANS */}
+            <section className="py-5">
+                <Container>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h2 className="fw-bold">Plans</h2>
+                        <div>
+                            <Button variant="light" disabled={planPage === 0} onClick={() => setPlanPage(p => p - 1)}><ChevronLeft/></Button>
+                            <Button variant="light" className="ms-2" disabled={planPage >= planPageCount - 1} onClick={() => setPlanPage(p => p + 1)}><ChevronRight/></Button>
                         </div>
                     </div>
-                </Container>
-            </section>
-
-            {/* Plans */}
-            <section className="py-4">
-                <Container>
                     <Row className="g-4">
-                        {currentPlans.map((p) => {
-                            const Icon = ICONS[planIconKey(p.planName)] || Smartphone;
-                            const gradClass = planTheme(p.planName);
-                            const dataLabel = getDataLabel(p);
-
+                        {visiblePlans.map(plan => {
+                            const Icon = plan.icon;
                             return (
-                                <Col md={4} key={p.planId}>
-                                    <Card className={`tc-card-hover tc-rounded-3xl overflow-hidden ${darkMode ? "tc-card-dark" : "bg-white border-0 shadow-sm"}`}>
-                                        <Card.Body className="p-4">
-                                            <div className={`d-flex align-items-center justify-content-center mb-3 tc-rounded-2xl ${gradClass}`} style={{ width: 64, height: 64 }}>
-                                                <Icon size={30} color="white" />
-                                            </div>
-
-                                            <h3 className="fw-black mb-1" style={{ fontWeight: 900 }}>{p.planName}</h3>
-                                            <div className={`small mb-3 ${mutedClass}`}>{p.tagline}</div>
-
-                                            <div className="mb-2">
-                                                <div className="display-6 fw-black" style={{ fontWeight: 900 }}>${p.monthlyPrice}</div>
-                                                <div className={`small ${mutedClass}`}>per month</div>
-                                            </div>
-
-                                            {!!dataLabel && (
-                                                <div className={`fw-bold mb-3 ${darkMode ? "text-light" : "text-dark"}`}>
-                                                    {dataLabel} <span className={`small ${mutedClass}`}>data</span>
-                                                </div>
-                                            )}
-
-                                            {/* Perks */}
-                                            <div className="mb-3">
-                                                {(p.perks ?? []).map((perk) => (
-                                                    <div key={perk} className="d-flex align-items-center gap-2 mb-2">
-                                                        <Badge bg="success" className="rounded-circle" style={{ width: 20, height: 20 }}>✓</Badge>
-                                                        <span className={darkMode ? "text-light" : ""}>{perk}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            {/* Allowed add-ons */}
-                                            <div className={`small ${mutedClass}`}>Allowed add-ons:</div>
-                                            <div className="mb-3">
-                                                {(p.addOns ?? []).slice(0, 3).map((a) => (
-                                                    <Badge key={a.addOnId} bg={darkMode ? "secondary" : "light"} text={darkMode ? "light" : "dark"} className="me-2 mt-2">
-                                                        {a.addOnName}
-                                                    </Badge>
-                                                ))}
-                                                {(p.addOns ?? []).length > 3 && (
-                                                    <Badge bg="warning" text="dark" className="mt-2">
-                                                        +{(p.addOns ?? []).length - 3} more
-                                                    </Badge>
-                                                )}
-                                            </div>
-
-                                            <Button className="w-100 fw-bold border-0"
-                                                    style={{
-                                                        background:
-                                                            gradClass === "tc-grad-cyan" ? "linear-gradient(90deg,#22d3ee,#3b82f6)"
-                                                                : gradClass === "tc-grad-purple" ? "linear-gradient(90deg,#a78bfa,#ec4899)"
-                                                                    : "linear-gradient(90deg,#fb923c,#ef4444)",
-                                                        borderRadius: 14,
-                                                    }}>
-                                                Choose Plan
-                                            </Button>
+                                <Col md={4} key={plan.id}>
+                                    <Card className="h-100 shadow-lg border-0 tc-card-hover">
+                                        <div className={`${plan.gradClass} text-center py-4 rounded-top`}>
+                                            <Icon size={40} color="white"/>
+                                        </div>
+                                        <Card.Body className="d-flex flex-column">
+                                            <h5>{plan.name}</h5>
+                                            <div className="fw-bold fs-4 mb-2">${plan.price}/mo</div>
+                                            <Button className="mt-auto fw-bold" onClick={() => addPlan(plan)}>Add to Cart</Button>
                                         </Card.Body>
                                     </Card>
                                 </Col>
@@ -279,24 +248,25 @@ export default function HomePage() {
                 </Container>
             </section>
 
-            {/* Global Add-ons */}
-            <section className="py-5">
-                <Container >
-                    <h2 className={`text-center fw-black mb-4 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                        Add-ons
-                    </h2>
-
+            {/* ADD-ONS */}
+            <section className={`py-5 ${darkMode ? "tc-bg-dark" : "tc-bg-light"}`}>
+                <Container>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h2 className="fw-bold">Add-ons</h2>
+                        <div>
+                            <Button variant="light" disabled={addonPage === 0} onClick={() => setAddonPage(p => p - 1)}><ChevronLeft/></Button>
+                            <Button variant="light" className="ms-2" disabled={addonPage >= addonPageCount - 1} onClick={() => setAddonPage(p => p + 1)}><ChevronRight/></Button>
+                        </div>
+                    </div>
                     <Row className="g-3">
-                        {addOns.map((a) => (
+                        {visibleAddOns.map(a => (
                             <Col md={3} key={a.addOnId}>
-                                <Card className={`tc-card-hover tc-rounded-2xl ${darkMode ? "tc-card-dark" : "bg-white border-0 shadow-sm"}`}>
-                                    <Card.Body className="p-4">
+                                <Card className="h-100 shadow-lg border-0 tc-card-hover">
+                                    <Card.Body>
                                         <div className="fw-bold">{a.addOnName}</div>
-                                        <div className="display-6 fw-black text-primary" style={{ fontWeight: 900 }}>
-                                            +${a.monthlyPrice}
-                                        </div>
-                                        <div className={`small ${mutedClass}`}>per month</div>
-                                        <div className={`small mt-2 ${mutedClass}`}>{a.description}</div>
+                                        <div className="fs-4 fw-bold text-primary">+${a.monthlyPrice}</div>
+                                        <div className={`small ${mutedClass}`}>{a.description}</div>
+                                        <Button size="sm" className="mt-3" onClick={() => addAddOn(a)}>Add to Cart</Button>
                                     </Card.Body>
                                 </Card>
                             </Col>
@@ -305,67 +275,20 @@ export default function HomePage() {
                 </Container>
             </section>
 
-            {/* Site features */}
-            <section className="py-5">
-                <Container>
-                    <div
-                        className="p-4 p-md-5 tc-rounded-3xl shadow-lg"
-                        style={{
-                            background: darkMode ? "linear-gradient(135deg,#1d4ed8,#4c1d95)" : "linear-gradient(135deg,#3b82f6,#7c3aed)",
-                            color: "white",
-                        }}
-                    >
-                        <h2 className="text-center fw-black mb-4" style={{ fontWeight: 900 }}>
-                            Why Choose TeleConnect?
-                        </h2>
-
-                        <Row className="g-4">
-                            {features.map((f) => {
-                                const Icon = ICONS[f.iconKey] || Signal;
-                                return (
-                                    <Col md={3} key={f.title}>
-                                        <div className="text-center">
-                                            <div className="mx-auto mb-3 d-flex align-items-center justify-content-center tc-rounded-2xl"
-                                                 style={{ width: 64, height: 64, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)" }}>
-                                                <Icon size={30} color="white" />
-                                            </div>
-                                            <div className="fw-bold">{f.title}</div>
-                                            <div className="small text-white-50">{f.desc}</div>
-                                        </div>
-                                    </Col>
-                                );
-                            })}
-                        </Row>
-                    </div>
-                </Container>
-            </section>
-
-
-            {/* Stats */}
+            {/* STATS */}
             <section className="py-5">
                 <Container>
                     <Row className="g-4 text-center">
                         {[
-                            { value: "10M+", label: "Happy Customers" },
-                            { value: "99.9%", label: "Network Uptime" },
-                            { value: "#1", label: "5G Coverage" },
-                            { value: "24/7", label: "Support" },
-                        ].map((s) => (
+                            {value: "10M+", label: "Happy Customers"},
+                            {value: "99.9%", label: "Network Uptime"},
+                            {value: "#1", label: "5G Coverage"},
+                            {value: "24/7", label: "Support"},
+                        ].map(s => (
                             <Col md={3} key={s.label}>
-                                <Card className={`tc-rounded-2xl ${darkMode ? "tc-card-dark" : "bg-white border-0 shadow-sm"}`}>
+                                <Card className="shadow-lg border-0 rounded-4">
                                     <Card.Body className="p-4">
-                                        <div
-                                            className="fw-black"
-                                            style={{
-                                                fontWeight: 900,
-                                                fontSize: "2rem",
-                                                background: "linear-gradient(90deg, #7c3aed, #ec4899)",
-                                                WebkitBackgroundClip: "text",
-                                                color: "transparent",
-                                            }}
-                                        >
-                                            {s.value}
-                                        </div>
+                                        <div className="fw-bold fs-2 text-gradient">{s.value}</div>
                                         <div className={mutedClass}>{s.label}</div>
                                     </Card.Body>
                                 </Card>
@@ -376,28 +299,35 @@ export default function HomePage() {
             </section>
 
             {/* CTA */}
-            <section className="py-5">
+            <section className="py-5 bg-gradient-primary text-white text-center">
                 <Container>
-                    <div
-                        className="tc-rounded-3xl p-4 p-md-5 text-center shadow-lg"
-                        style={{ background: "linear-gradient(90deg, #7c3aed, #ec4899)", color: "white" }}
+                    <h2 className="fw-bold mb-3">Ready to Connect?</h2>
+                    <p className="mb-4 text-white-50">Join millions who switched and never looked back</p>
+                    <Button variant="light" className="fw-bold px-5 py-3 rounded-pill" style={{color: "#7c3aed"}}
+                            onClick={() => navigate("/plans")}
                     >
-                        <h2 className="fw-black" style={{ fontWeight: 900 }}>
-                            Ready to Connect?
-                        </h2>
-                        <p className="text-white-50 fs-5">
-                            Join millions who switched and never looked back
-                        </p>
-                        <Button
-                            variant="light"
-                            className="fw-black"
-                            style={{ borderRadius: 999, padding: "0.9rem 1.6rem", fontWeight: 900 }}
-                        >
-                            Get Your Plan Now 🎉
-                        </Button>
-                    </div>
+                        Get Your Plan Now 🎉
+                    </Button>
                 </Container>
             </section>
+
+            {/* CHAT FLOATING BUTTON */}
+            <Button
+                variant="primary"
+                className="position-fixed d-flex align-items-center justify-content-center shadow-lg"
+                style={{
+                    bottom: 30,
+                    right: 30,
+                    borderRadius: "50%",
+                    width: "60px",
+                    height: "60px",
+                    padding: 0,
+                    zIndex: 1000,
+                }}
+                onClick={() => alert("Chat with Anna clicked!")}
+            >
+                <i className="bi bi-chat-dots" style={{fontSize: "28px", color: "white"}}></i>
+            </Button>
         </>
     );
 }
