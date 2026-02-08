@@ -19,6 +19,13 @@ export default function AppNavbar({ user, setUser }) {
         navigate("/");
     };
 
+    const displayName =
+        user?.firstName ||
+        user?.oauth?.given_name ||
+        user?.raw?.given_name ||
+        user?.email ||
+        "there";
+
     return (
         <nav
             className={[
@@ -149,7 +156,7 @@ export default function AppNavbar({ user, setUser }) {
                         {user && (
                             <li className="nav-item me-lg-2">
                               <span className={darkMode ? "nav-link text-light fw-semibold" : "nav-link text-dark fw-semibold"}>
-                                Hi, {user.firstName}
+                                Hi, {displayName}
                               </span>
                             </li>
                         )}

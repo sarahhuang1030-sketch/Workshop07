@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { Signal, Eye, EyeOff } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 
 export default function RegisterPage() {
     const { darkMode } = useTheme();
@@ -10,8 +10,20 @@ export default function RegisterPage() {
     const [showPw, setShowPw] = useState(false);
     const [showConfirmPw, setShowConfirmPw] = useState(false);
 
+    //for employee/agent login as customer logic
+    const { search } = useLocation();
+    const mode = new URLSearchParams(search).get("mode");
+    const isEmployeeMode = mode === "employee";
+
+    //Normal customer signup → POST /api/auth/register
+    // Employee “register as customer” → POST /api/me/register-as-customer
+    const url = isEmployeeMode
+        ? "/api/me/register-as-customer"
+        : "/api/auth/register";
+
+
     const [form, setForm] = useState({
-        customerType: "individual",
+        customerType: "Individual",
         firstName: "",
         lastName: "",
         homephone: "",
@@ -46,7 +58,7 @@ export default function RegisterPage() {
     const [success, setSuccess] = useState("");
 
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
-    const isBusiness = form.customerType === "business";
+    const isBusiness = form.customerType === "Business";
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -56,8 +68,8 @@ export default function RegisterPage() {
             const newValue = type === "checkbox" ? checked : value;
 
             // if switching away from business clear businessName
-            if (name === "customerType" && value !== "business") {
-                return { ...prev, customerType: value, businessName: "" };
+            if (name === "customerType" && newValue !== "Business") {
+                return { ...prev, customerType: newValue, businessName: "" };
             }
 
             // if turning "sameAsBilling" ON, clear service fields
@@ -78,6 +90,9 @@ export default function RegisterPage() {
         });
     };
 
+
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         console.log("SUBMIT CLICKED", form);
@@ -88,7 +103,7 @@ export default function RegisterPage() {
         if (
             !form.firstName ||
             !form.lastName ||
-            !form.email ||
+            (!isEmployeeMode && !form.email) ||
             !form.homephone ||
             !form.billingStreet1 ||
             !form.billingCity ||
@@ -118,62 +133,136 @@ export default function RegisterPage() {
             }
         }
 
-        if (!form.username || !form.password) { setError("Username and password required"); return; }
-        if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
+        if (!isEmployeeMode) {
+            if (!form.username || !form.password) { setError("Username and password required"); return; }
+            if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
+        }
 
+        const payload = isEmployeeMode
+            ? {
+                customerType: form.customerType,
+                firstName: form.firstName,
+                lastName: form.lastName,
+                businessName: form.businessName,
+                homephone: form.homephone,
+
+                billingStreet1: form.billingStreet1,
+                billingStreet2: form.billingStreet2,
+                billingCity: form.billingCity,
+                billingProvince: form.billingProvince,
+                billingPostalCode: form.billingPostalCode,
+                billingCountry: form.billingCountry,
+
+                sameAsBilling: form.sameAsBilling,
+
+                serviceStreet1: form.serviceStreet1,
+                serviceStreet2: form.serviceStreet2,
+                serviceCity: form.serviceCity,
+                serviceProvince: form.serviceProvince,
+                servicePostalCode: form.servicePostalCode,
+                serviceCountry: form.serviceCountry,
+            }
+            : {
+                customerType: form.customerType,
+                firstName: form.firstName,
+                lastName: form.lastName,
+                businessName: form.businessName,
+                email: form.email,
+                homephone: form.homephone,
+
+                billingStreet1: form.billingStreet1,
+                billingStreet2: form.billingStreet2,
+                billingCity: form.billingCity,
+                billingProvince: form.billingProvince,
+                billingPostalCode: form.billingPostalCode,
+                billingCountry: form.billingCountry,
+
+                sameAsBilling: form.sameAsBilling,
+
+                serviceStreet1: form.serviceStreet1,
+                serviceStreet2: form.serviceStreet2,
+                serviceCity: form.serviceCity,
+                serviceProvince: form.serviceProvince,
+                servicePostalCode: form.servicePostalCode,
+                serviceCountry: form.serviceCountry,
+
+                username: form.username,
+                password: form.password,
+            };
 
         try {
-            const res = await fetch("/api/auth/register", {
+            //send the data when employee register as customer
+            const regemployee = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    customerType: form.customerType,
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    businessName: form.businessName,
-                    email: form.email,
-                    homephone: form.homephone,
-
-                    billingStreet1: form.billingStreet1,
-                    billingStreet2: form.billingStreet2,
-                    billingCity: form.billingCity,
-                    billingProvince: form.billingProvince,
-                    billingPostalCode: form.billingPostalCode,
-                    billingCountry: form.billingCountry,
-
-                    sameAsBilling: form.sameAsBilling,
-
-                    serviceStreet1: form.serviceStreet1,
-                    serviceStreet2: form.serviceStreet2,
-                    serviceCity: form.serviceCity,
-                    serviceProvince: form.serviceProvince,
-                    servicePostalCode: form.servicePostalCode,
-                    serviceCountry: form.serviceCountry,
-
-                    username: form.username,
-                    password: form.password,
-
-                }),
+                credentials: isEmployeeMode ? "include" : "omit",
+                body: JSON.stringify(payload),
             });
 
-            const text = await res.text();
+            const data = await regemployee.json().catch(async () => ({ message: await regemployee.text() }));
 
-            if (!res.ok) {
-                setError(text || "Registration failed.");
+            if (!regemployee.ok) {
+                setError(data?.message || "Registration failed.");
                 return;
             }
 
-            setSuccess(text || "Registered successfully!");
+            setSuccess(isEmployeeMode ? "Customer profile created!" : "Registered successfully!");
+            navigate(isEmployeeMode ? "/" : "/login");
+            return;
 
-            // Optional redirect after a moment
-            //setTimeout(() => navigate("/login"), 800);
-            if (!res.ok) { setError(await res.text()); return; }
-
-            const user = await res.json();
-            localStorage.setItem("tc_user", JSON.stringify(user));
-            setUser(user);
-            navigate("/");
-        } catch (err) {
+// this is normal registration data
+//             const res = await fetch("/api/auth/register", {
+//                 method: "POST",
+//                 headers: { "Content-Type": "application/json" },
+//                 body: JSON.stringify({
+//                     customerType: form.customerType,
+//                     firstName: form.firstName,
+//                     lastName: form.lastName,
+//                     businessName: form.businessName,
+//                     email: form.email,
+//                     homephone: form.homephone,
+//
+//                     billingStreet1: form.billingStreet1,
+//                     billingStreet2: form.billingStreet2,
+//                     billingCity: form.billingCity,
+//                     billingProvince: form.billingProvince,
+//                     billingPostalCode: form.billingPostalCode,
+//                     billingCountry: form.billingCountry,
+//
+//                     sameAsBilling: form.sameAsBilling,
+//
+//                     serviceStreet1: form.serviceStreet1,
+//                     serviceStreet2: form.serviceStreet2,
+//                     serviceCity: form.serviceCity,
+//                     serviceProvince: form.serviceProvince,
+//                     servicePostalCode: form.servicePostalCode,
+//                     serviceCountry: form.serviceCountry,
+//
+//                     username: form.username,
+//                     password: form.password,
+//
+//                 }),
+//             });
+//
+//             const text = await res.text();
+//
+//             if (!res.ok) {
+//                 setError(text || "Registration failed.");
+//                 return;
+//             }
+//
+//             setSuccess(text || "Registered successfully!");
+//
+//             // Optional redirect after a moment
+//             //setTimeout(() => navigate("/login"), 800);
+//             if (!res.ok) { setError(await res.text()); return; }
+//
+//             const user = await res.json();
+//             localStorage.setItem("tc_user", JSON.stringify(user));
+//             setUser(user);
+//             navigate("/");
+         }
+        catch (err) {
             setError("Cannot reach backend. Make sure Spring Boot is running.");
         }
     };
@@ -217,8 +306,8 @@ export default function RegisterPage() {
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Account Type</Form.Label>
                                         <Form.Select name="customerType" value={form.customerType} onChange={handleChange}>
-                                            <option value="individual">Individual</option>
-                                            <option value="business">Business</option>
+                                            <option value="Individual">Individual</option>
+                                            <option value="Business">Business</option>
                                         </Form.Select>
                                     </Form.Group>
 
@@ -260,7 +349,8 @@ export default function RegisterPage() {
                                             />
                                         </Form.Group>
                                     )}
-
+                                    {!isEmployeeMode && (
+                                        <>
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Email</Form.Label>
                                         <Form.Control
@@ -271,6 +361,7 @@ export default function RegisterPage() {
                                             onChange={handleChange}
                                         />
                                     </Form.Group>
+
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Username</Form.Label>
                                         <Form.Control
@@ -327,7 +418,8 @@ export default function RegisterPage() {
                                     {/*<hr className={darkMode ? "border-light" : "border-secondary"} />*/}
 
                                     {/*<h5 className={darkMode ? "text-light" : "text-dark"}>Billing Address</h5>*/}
-
+                                        </>
+                                    )}
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Street 1</Form.Label>
                                         <Form.Control name="billingStreet1" value={form.billingStreet1} onChange={handleChange} />
@@ -425,6 +517,7 @@ export default function RegisterPage() {
                                         </>
                                     )}
 
+
                                     <Button
                                         type="submit"
                                         className="w-100 fw-bold border-0"
@@ -434,8 +527,20 @@ export default function RegisterPage() {
                                             padding: "0.85rem 1rem",
                                         }}
                                     >
-                                        Create Account
+                                        {isEmployeeMode ? "Create Customer Profile" : "Create Account"}
                                     </Button>
+
+                                    {/*<Button*/}
+                                    {/*    type="submit"*/}
+                                    {/*    className="w-100 fw-bold border-0"*/}
+                                    {/*    style={{*/}
+                                    {/*        background: "linear-gradient(90deg, #7c3aed, #ec4899)",*/}
+                                    {/*        borderRadius: 999,*/}
+                                    {/*        padding: "0.85rem 1rem",*/}
+                                    {/*    }}*/}
+                                    {/*>*/}
+                                    {/*    Create Account*/}
+                                    {/*</Button>*/}
                                 </Form>
 
                                 <div className={`text-center mt-3 ${mutedClass}`}>

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext"; // adjust path if needed
 import { Eye, EyeOff } from "lucide-react";
+import { FaGoogle, FaGithub, FaFacebook } from "react-icons/fa";
+
 
 export default function LoginPage({ setUser }) {
     const navigate = useNavigate();
@@ -22,6 +24,7 @@ export default function LoginPage({ setUser }) {
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(form),
             });
 
@@ -43,6 +46,14 @@ export default function LoginPage({ setUser }) {
             setLoading(false);
         }
     };
+
+    function loginWithProvider(provider) {
+        return (e) => {
+            e?.preventDefault?.();            // stop form submit
+            window.location.assign(`/oauth2/authorization/${provider}`);
+        };
+    }
+
 
     return (
         <Container className="py-5">
@@ -89,6 +100,7 @@ export default function LoginPage({ setUser }) {
                                         }
                                         placeholder="Enter password"
                                         autoComplete="current-password"
+
                                     />
 
                                     <Button
@@ -112,10 +124,20 @@ export default function LoginPage({ setUser }) {
                             >
                                 {loading ? "Signing in..." : "Login"}
                             </Button>
-
+                            <div className="text-center m-2">
+                                <button  className="btn m-1" onClick={loginWithProvider("google")}>
+                                    <FaGoogle size={22} />
+                                </button>
+                                <button className="btn m-1" onClick={loginWithProvider("github")}>
+                                    <FaGithub size={22} />
+                                </button>
+                                <button className="btn m-1" onClick={loginWithProvider("facebook")}>
+                                    <FaFacebook size={22} />
+                                </button>
+                            </div>
                             <div className={`text-center mt-3 ${darkMode ? "tc-muted-dark" : "tc-muted-light"}`}>
-                                Don’t have an account?{" "}
-                                <Button variant="link" className="p-0 fw-semibold" onClick={() => navigate("/register")}>
+                                <Button variant="link" className="fw-semibold" onClick={() => navigate("/forgetpassword")}>Forget Password?</Button> |
+                                <Button variant="link" className="pl-3 fw-semibold" onClick={() => navigate("/register")}>
                                     Register
                                 </Button>
                             </div>
