@@ -10,7 +10,7 @@ public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "CustomerId")
-    private Long CustomerId;
+    private Integer CustomerId;
 
     @Column(name = "CustomerType", nullable = false)
     private String CustomerType; // "Individual" or "Business"
@@ -47,10 +47,11 @@ public class Customer {
     }
 
     // getters/setters
-    public Long getCustomerId() { return CustomerId; }
+    public Integer getCustomerId() { return CustomerId; }
 
     public String getCustomerType() { return CustomerType; }
     public void setCustomerType(String customerType) { this.CustomerType = customerType; }
+
 
     public String getFirstName() { return FirstName; }
     public void setFirstName(String firstName) { this.FirstName = firstName; }
@@ -75,4 +76,6 @@ public class Customer {
 
     public String getPasswordHash() { return PasswordHash; }
     public void setPasswordHash(String passwordHash) { this.PasswordHash = passwordHash; }
+
+
 }

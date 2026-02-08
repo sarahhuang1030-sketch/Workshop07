@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 export default function ForgetPasswordPage() {
     const { darkMode } = useTheme();
     const navigate = useNavigate();
-
+    const [status, setStatus] = useState("idle");
     const [value, setValue] = useState(""); // email or username
     const [msg, setMsg] = useState("");
     const [error, setError] = useState("");

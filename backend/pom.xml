@@ -102,6 +102,23 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!-- Authentication for social media oauth2 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+
     </dependencies>
 
 
@@ -118,6 +135,8 @@
                 <version>3.11.0</version>
                 <configuration>
                     <release>17</release>
+                    <source>25</source>
+                    <target>25</target>
                 </configuration>
             </plugin>
         </plugins>

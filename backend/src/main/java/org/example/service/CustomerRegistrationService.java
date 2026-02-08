@@ -115,6 +115,12 @@ public class CustomerRegistrationService {
 
         userAccountRepo.save(ua);
 
-        return new LoginResponseDTO(saved.getCustomerId(), saved.getFirstName(), ua.getUsername());
+        return new LoginResponseDTO(
+                saved.getCustomerId(),  // customerId
+                null,                   // employeeId (customers are not employees)
+                saved.getFirstName(),   // firstName
+                ua.getUsername(),       // username
+                "Customer"              // role
+        );
     }
 }

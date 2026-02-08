@@ -2,6 +2,7 @@ package org.example.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Entity
 @Table(name = "UserAccounts")
@@ -10,13 +11,13 @@ public class UserAccount {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "UserId")
-    private Long userId;
+    private Integer userId;
 
-    @Column(name = "CustomerId", nullable = false)
-    private Long customerId;
+    @Column(name = "CustomerId")
+    private Integer customerId;
 
     @Column(name = "EmployeeId")
-    private Long employeeId; // null for customer
+    private Integer employeeId; // null for customer
 
     @Column(name = "Username", nullable = false)
     private String username;
@@ -39,13 +40,13 @@ public class UserAccount {
         if (isLocked == null) isLocked = 0;
     }
 
-    public Long getUserId() { return userId; }
+    public Integer getUserId() { return userId; }
 
-    public Long getCustomerId() { return customerId; }
-    public void setCustomerId(Long customerId) { this.customerId = customerId; }
+    public Integer getCustomerId() { return customerId; }
+    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
 
-    public Long getEmployeeId() { return employeeId; }
-    public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
+    public Integer getEmployeeId() { return employeeId; }
+    public void setEmployeeId(Integer employeeId) { this.employeeId = employeeId; }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -61,4 +62,5 @@ public class UserAccount {
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+
 }

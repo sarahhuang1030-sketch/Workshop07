@@ -1,8 +1,6 @@
 package org.example.model;
 
 import jakarta.persistence.*;
-import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,41 +9,38 @@ public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    // matches user_id INT NOT NULL
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private UserAccount user;
+    @Column(name="user_id", nullable=false)
+    private Integer userId; // this should be UserAccount.userId
 
-    // matches token_hash VARCHAR(64) NOT NULL
-    @Column(name = "token_hash", nullable = false, length = 64)
-    private String tokenHash;
+    // DEV MODE: store RAW token in token_hash column
+    @Column(name="token_hash", nullable=false, length=255)
+    private String token;
 
-    @Column(name = "expires_at", nullable = false)
+    @Column(name="expires_at", nullable=false)
     private LocalDateTime expiresAt;
 
-    // used TINYINT(1) NOT NULL DEFAULT 0
-    @Column(nullable = false)
-    private boolean used = false;
+    @Column(name="used", nullable=false)
+    private boolean used;
 
-    // created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false, insertable = false)
+    @Column(name="created_at", nullable=false)
     private LocalDateTime createdAt;
 
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+    public Integer getId() { return id; }
+
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
+
+    @PrePersist
+    void onCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (expiresAt == null) expiresAt = LocalDateTime.now().plusMinutes(30);
     }
 
-    // getters/setters
-    public Long getId() { return id; }
-
-    public UserAccount getUser() { return user; }
-    public void setUser(UserAccount user) { this.user = user; }
-
-    public String getTokenHash() { return tokenHash; }
-    public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
 
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
@@ -54,4 +49,5 @@ public class PasswordResetToken {
     public void setUsed(boolean used) { this.used = used; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -12,7 +12,7 @@ public class CustomerAddress {
     private Long addressId;
 
     @Column(name = "CustomerId", nullable = false)
-    private Long customerId;
+    private Integer customerId;
 
     @Column(name = "AddressType", nullable = false)
     private String addressType; // "Billing" or "Service"
@@ -41,8 +41,8 @@ public class CustomerAddress {
     // getters/setters
     public Long getAddressId() { return addressId; }
 
-    public Long getCustomerId() { return customerId; }
-    public void setCustomerId(Long customerId) { this.customerId = customerId; }
+    public Integer getCustomerId() { return customerId; }
+    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
 
     public String getAddressType() { return addressType; }
     public void setAddressType(String addressType) { this.addressType = addressType; }

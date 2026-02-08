@@ -1,20 +1,18 @@
 package org.example.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import org.example.dto.ForgetPasswordRequestDTO;
 import org.example.dto.RegisterRequestDTO;
+import org.example.dto.LoginRequestDTO;
+import org.example.dto.LoginResponseDTO;
+import org.example.service.AuthService;
 import org.example.service.CustomerRegistrationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-//login
-import org.example.dto.LoginRequestDTO;
-import org.example.dto.LoginResponseDTO;
-import org.example.service.CustomerRegistrationService;
-import org.example.service.AuthService;
-
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173")
 public class AuthController {
 
     private final CustomerRegistrationService registrationService;
@@ -45,4 +43,23 @@ public class AuthController {
         }
     }
 
+    // forgot password endpoint
+    @PostMapping("/forgetpassword")
+    public ResponseEntity<?> forgetPassword(@Valid @RequestBody ForgetPasswordRequestDTO req) {
+        try {
+            authService.forgetPassword(req.getIdentifier());
+        } catch (Exception e) {
+            e.printStackTrace(); // <-- this will reveal the REAL 500 reason in console
+        }
+        // Always return same message (security)
+        return ResponseEntity.ok("If an account exists, a reset link has been sent.");
+    }
+
+    @PostMapping("/resetpassword")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req.token(), req.newPassword());
+        return ResponseEntity.ok().build();
+    }
+
+    public record ResetPasswordRequest(String token, String newPassword) {}
 }

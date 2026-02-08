@@ -1,16 +1,16 @@
 package org.example.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+   //Sarah modified for reset password link
+    @Column(name = "CustomerId")
+    private Integer CustomerId;
+
 
     private String name;
     private String email;
@@ -24,8 +24,9 @@ public class User {
     }
 
     // Getter & Setter
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    //Sarah modified for reset password link
+    public Integer getCustomerId() { return CustomerId; }
+    public void setCustomerId(Integer id) { this.CustomerId = id; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

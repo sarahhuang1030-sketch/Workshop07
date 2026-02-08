@@ -4,8 +4,8 @@ import org.example.model.Customer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
-public interface CustomerRepository extends JpaRepository<Customer, Long> {
+public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     boolean existsByEmail(String email);
-//    only allow login by email as well then can uncomment out below
-    Optional<Customer> findByEmail(String email);
+
+    Optional<Customer> findFirstByEmailIgnoreCase(String email);
 }
