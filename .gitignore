@@ -37,3 +37,9 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+# Backend secrets
+backend/.env
+
+# Frontend env
+frontend/.env

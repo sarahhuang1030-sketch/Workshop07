@@ -8,24 +8,24 @@ spring:
 #     Google Cloud Console
 #            client-id: ${GOOGLE_CLIENT_ID}
 #            client-secret: ${GOOGLE_CLIENT_SECRET}
-            client-id: 350108625200-p5ohm33gknrd5s8e5041h9cgh934n82b.apps.googleusercontent.com
-            client-secret: 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
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: openid, profile, email
 #    Check link for github http://localhost:8081/oauth2/authorization/github
 #    development setting -> when deploy, have to go change the frontend link
 #            client-id: ${GITHUB_CLIENT_ID}
 #            client-secret: ${GITHUB_CLIENT_SECRET}
           github:
-            client-id: Ov23liJKc42SCC9aXojC
-            client-secret: b7b3bfdb0061049028d45a5eb139ea7aa1adaf43
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
             scope: read:user, user:email
 #facebook http://localhost:8081/oauth2/authorization/facebook
 #      Meta for developers
 #            client-id: ${FACEBOOK_CLIENT_ID}
 #            client-secret: ${FACEBOOK_CLIENT_SECRET}
           facebook:
-            client-id: 2289725301438811
-            client-secret: c7ee9c034a9ebd3e3f1fd3096d0449fb
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
             scope: public_profile, email
 
 

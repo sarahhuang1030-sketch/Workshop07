@@ -1,3 +1,5 @@
+//email/password register/login
+
 package org.example.controller;
 
 import jakarta.validation.Valid;
