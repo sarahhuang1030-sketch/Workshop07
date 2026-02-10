@@ -168,38 +168,39 @@ export default function HomePage() {
             {/* CARD GROUP */}
             <Container className="my-5">
                 <Row className="g-4">
-                    <Col md={4}>
-                        <Card className="shadow-lg border-0 h-100">
-                            <img src="././Personal-Use.jpg" className="card-img-top" alt="..."/>
-                            <Card.Body>
-                                <h5 className="card-title fw-bold">Premium Plan</h5>
-                                <p className="card-text text-muted">Get the best experience with unlimited data and priority support.</p>
-                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md={4}>
-                        <Card className="shadow-lg border-0 h-100">
-                            <img src="././Home-Set.jpg" className="card-img-top" alt="..."/>
-                            <Card.Body>
-                                <h5 className="card-title fw-bold">Family Plan</h5>
-                                <p className="card-text text-muted">Share your plan with the whole family without compromise.</p>
-                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md={4}>
-                        <Card className="shadow-lg border-0 h-100">
-                            <img src="././Bussiness-Use.jpg" className="card-img-top" alt="..."/>
-                            <Card.Body>
-                                <h5 className="card-title fw-bold">Business Plan</h5>
-                                <p className="card-text text-muted">Advanced features for teams and businesses of all sizes.</p>
-                                <Button variant="primary" className="w-100 fw-bold">View Details</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
+                    {[
+                        {
+                            img: "././Personal-Use.jpg",
+                            title: "Premium Plan",
+                            text: "Get the best experience with unlimited data and priority support."
+                        },
+                        {
+                            img: "././Home-Set.jpg",
+                            title: "Family Plan",
+                            text: "Share your plan with the whole family without compromise."
+                        },
+                        {
+                            img: "././Bussiness-Use.jpg",
+                            title: "Business Plan",
+                            text: "Advanced features for teams and businesses of all sizes."
+                        }
+                    ].map((card, idx) => (
+                        <Col md={4} key={idx}>
+                            <Card className="shadow-lg border-0 h-100 tc-card-hover">
+                                <div className="ratio ratio-16x9 overflow-hidden rounded-top">
+                                    <img src={card.img} className="card-img-top img-fluid" alt={card.title} style={{objectFit: "cover"}}/>
+                                </div>
+                                <Card.Body className="d-flex flex-column">
+                                    <h5 className="card-title fw-bold">{card.title}</h5>
+                                    <p className="card-text text-muted flex-grow-1">{card.text}</p>
+                                    <Button variant="primary" className="w-100 fw-bold mt-auto">View Details</Button>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    ))}
                 </Row>
             </Container>
+
 
             {/* DOCK */}
             <HomepageDock onSelect={setSelectedTab}/>
@@ -249,8 +250,8 @@ export default function HomePage() {
             </section>
 
             {/* ADD-ONS */}
-            <section className={`py-5 ${darkMode ? "tc-bg-dark" : "tc-bg-light"}`}>
-                <Container>
+            <section className={` ${darkMode ? "tc-bg-dark" : "tc-bg-light"}`}>
+                <Container className="px-0">
                     <div className="d-flex justify-content-between align-items-center mb-3">
                         <h2 className="fw-bold">Add-ons</h2>
                         <div>

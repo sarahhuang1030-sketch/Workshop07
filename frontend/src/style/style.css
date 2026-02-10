@@ -8,19 +8,20 @@ body {
 /* Backgrounds */
 .tc-bg-light,
 .tc-bg-dark {
-    min-height: 100vh;
+    /*min-height: 100vh;*/
+    min-height: auto;
     background-repeat: no-repeat !important;
     background-attachment: fixed;
 }
 
 .tc-bg-light {
     background: linear-gradient(135deg, #f5f3ff, #fce7f3, #dbeafe) !important;
-    min-height: 100vh;
+    /*min-height: 100vh;*/
 }
 
 .tc-bg-dark {
     background: linear-gradient(135deg, #0b1220, #2a0a4a, #0b1220) !important;
-    min-height:100vh;
+    /*min-height:100vh;*/
 }
 
 

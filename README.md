@@ -5,6 +5,7 @@ run Main.java
 
 In the terminal
 go to Workshop07 -> frontend
+npm install react-icons
 type npm run dev
 Then the system should bring up a window with homepage
 

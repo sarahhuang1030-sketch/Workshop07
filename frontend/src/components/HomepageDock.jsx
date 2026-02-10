@@ -1,4 +1,5 @@
 import { Container, Row, Col } from "react-bootstrap";
+// import SpotlightImg from './Spotlight.png';
 
 const DOCK_ITEMS = [
 
@@ -27,7 +28,7 @@ const DOCK_ITEMS = [
     {
         key: "support",
         title: "Support",
-        img: "https://images.ctfassets.net/8utyj17y1gom/1cQjdrhWMC6q19C6nD3UO6/dddf5ee1c3da3d56c6cce4d85367f1f4/Spotlight_6_2x.png",
+        img: "/public/headset.svg",
     },
 ];
 
@@ -48,10 +49,20 @@ export default function HomepageDock({ onSelect }) {
                                 className="tc-dock-item"
                                 onClick={() => item.action && onSelect?.(item.action)}
                             >
+                                {/*<img*/}
+                                {/*    src={item.img}*/}
+                                {/*    alt={item.title}*/}
+                                {/*    className="img-fluid rounded"*/}
+                                {/*/>*/}
                                 <img
                                     src={item.img}
                                     alt={item.title}
                                     className="img-fluid rounded"
+                                    style={{
+                                        width: "100px",
+                                        height: "100px",
+                                        objectFit: "contain"
+                                    }}
                                 />
                                 <div className="mt-2 fw-semibold">
                                     {item.title}
