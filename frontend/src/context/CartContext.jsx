@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+    useMemo
+} from "react";
 
 const CartContext = createContext();
 
@@ -6,45 +12,85 @@ export function CartProvider({ children }) {
     const [plan, setPlan] = useState(null);
     const [addOns, setAddOns] = useState([]);
 
-    // Restore cart from localStorage on mount
+    // Restore cart from localStorage
     useEffect(() => {
         const savedCart = localStorage.getItem("tc_cart");
         if (savedCart) {
-            const { plan, addOns } = JSON.parse(savedCart);
-            setPlan(plan);
-            setAddOns(addOns);
+            try {
+                const parsed = JSON.parse(savedCart);
+                setPlan(parsed.plan || null);
+                setAddOns(parsed.addOns || []);
+            } catch {
+                localStorage.removeItem("tc_cart");
+            }
         }
     }, []);
 
-    // Save cart to localStorage whenever plan/addOns change
+    // Persist cart
     useEffect(() => {
-        localStorage.setItem("tc_cart", JSON.stringify({ plan, addOns }));
+        localStorage.setItem(
+            "tc_cart",
+            JSON.stringify({ plan, addOns })
+        );
     }, [plan, addOns]);
 
-    // Add or replace plan
-    const addPlan = (p) => setPlan(p);
+    // Add / Replace plan
+    const addPlan = (p) => {
+        setPlan(p);
+        setAddOns([]); 
+    };
 
-    // Add add-on if not already added
+    // Remove plan
+    const removePlan = () => {
+        setPlan(null);
+        setAddOns([]);
+    };
+
+    // Add add-on
     const addAddOn = (a) => {
         if (!addOns.find((x) => x.addOnId === a.addOnId)) {
-            setAddOns([...addOns, a]);
+            setAddOns((prev) => [...prev, a]);
         }
     };
 
-    const removeAddOn = (id) => setAddOns(addOns.filter((a) => a.addOnId !== id));
+    // Remove add-on
+    const removeAddOn = (id) => {
+        setAddOns((prev) =>
+            prev.filter((a) => a.addOnId !== id)
+        );
+    };
 
+    // Clear entire cart
     const clearCart = () => {
         setPlan(null);
         setAddOns([]);
     };
 
-    // Calculate total price
+    // Calculate subtotal only
     const total = useMemo(() => {
-        return plan ? plan.price + addOns.reduce((sum, a) => sum + Number(a.monthlyPrice), 0) : 0;
+        if (!plan) return 0;
+
+        const addOnsTotal = addOns.reduce(
+            (sum, a) => sum + Number(a.monthlyPrice),
+            0
+        );
+
+        return Number(plan.price) + addOnsTotal;
     }, [plan, addOns]);
 
     return (
-        <CartContext.Provider value={{ plan, addOns, total, addPlan, addAddOn, removeAddOn, clearCart }}>
+        <CartContext.Provider
+            value={{
+                plan,
+                addOns,
+                total,
+                addPlan,
+                removePlan,
+                addAddOn,
+                removeAddOn,
+                clearCart
+            }}
+        >
             {children}
         </CartContext.Provider>
     );
