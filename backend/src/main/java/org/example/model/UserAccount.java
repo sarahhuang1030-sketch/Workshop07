@@ -34,6 +34,9 @@ public class UserAccount {
     @Column(name = "LastLoginAt")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "AvatarUrl")
+    private String avatarUrl;
+
     @PrePersist
     public void prePersist() {
         if (role == null) role = "Customer";
@@ -62,5 +65,8 @@ public class UserAccount {
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 
 }

@@ -5,7 +5,8 @@ import App from "./App";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../src/style/style.css"; // make sure this is the file with tc-bg-light/tc-bg-dark etc.
-import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+
 import "./index.css";
 import { ThemeProvider } from "./context/ThemeContext";
 

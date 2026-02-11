@@ -1,35 +1,45 @@
 import { useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Container, Card, Form, Button, Alert } from "react-bootstrap";
+import { Container, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function ResetPasswordPage() {
     const { darkMode } = useTheme();
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const token = useMemo(() => params.get("token") || "", [params]);
-
+    const [showPw, setShowPw] = useState(false);
+    const [showConfirmPw, setShowConfirmPw] = useState(false);
     const [pw1, setPw1] = useState("");
     const [pw2, setPw2] = useState("");
     const [msg, setMsg] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [fieldError, setFieldError] = useState({ pw1: "", pw2: "" });
 
     const submit = async (e) => {
         e.preventDefault();
         setError("");
         setMsg("");
+        setFieldError({ pw1: "", pw2: "" });
+
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
         if (!token) {
             setError("Missing token. Use the link from your email.");
             return;
         }
-        if (pw1.length < 8) {
-            setError("Password must be at least 8 characters.");
+        if (!passwordRegex.test(pw1)) {
+            setFieldError((p) => ({ ...p, pw1: "Password must be at least 8 characters and include one uppercase letter, one lowercase letter, and one number." }));
+            setError(
+                "Please fix the highlighted fields."
+            );
             return;
         }
         if (pw1 !== pw2) {
-            setError("Passwords do not match.");
+            setFieldError((p) => ({ ...p, pw2: "Passwords do not match." }));
+            setError("Please fix the highlighted fields.");
             return;
         }
 
@@ -76,22 +86,48 @@ export default function ResetPasswordPage() {
                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>
                                     New Password
                                 </Form.Label>
-                                <Form.Control
-                                    type="password"
-                                    value={pw1}
-                                    onChange={(e) => setPw1(e.target.value)}
-                                />
+                                <InputGroup>
+                                    <Form.Control
+                                        type={showPw ? "text" : "password"}
+                                        value={pw1}
+                                        onChange={(e) => setPw1(e.target.value)}
+                                    />
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldError.pw1}
+                                    </Form.Control.Feedback>
+                                    <Button
+                                        type="button"
+                                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                                        onClick={() => setShowPw((v) => !v)}
+                                        title={showPw ? "Hide password" : "Show password"}
+                                    >
+                                        {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </Button>
+                                </InputGroup>
                             </Form.Group>
 
                             <Form.Group className="mb-4">
                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>
                                     Confirm Password
                                 </Form.Label>
-                                <Form.Control
-                                    type="password"
-                                    value={pw2}
-                                    onChange={(e) => setPw2(e.target.value)}
-                                />
+                                <InputGroup>
+                                    <Form.Control
+                                        type={showConfirmPw ? "text" : "password"}
+                                        value={pw2}
+                                        onChange={(e) => setPw2(e.target.value)}
+                                    />
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldError.pw2}
+                                    </Form.Control.Feedback>
+                                    <Button
+                                        type="button"
+                                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                                        onClick={() => setShowConfirmPw((v) => !v)}
+                                        title={showConfirmPw ? "Hide password" : "Show password"}
+                                    >
+                                        {showConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </Button>
+                                </InputGroup>
                             </Form.Group>
 
                             <Button

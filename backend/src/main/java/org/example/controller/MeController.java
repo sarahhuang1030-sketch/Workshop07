@@ -53,10 +53,12 @@ public class MeController {
             out.put("employeeId", ua.getEmployeeId());
             out.put("customerId", ua.getCustomerId());
             out.put("role", ua.getRole());
+            out.put("avatarUrl", ua.getAvatarUrl());
         } else {
             out.put("employeeId", null);
             out.put("customerId", null);
             out.put("role", null);
+            out.put("avatarUrl", null);
         }
 
         if (oauth != null && oauthUser != null) {
@@ -85,4 +87,7 @@ public class MeController {
 
         return agentCustomerService.registerAsCustomer(key, req);
     }
+
+
+
 }

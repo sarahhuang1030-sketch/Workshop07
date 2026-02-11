@@ -136,6 +136,12 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 if (me) {
                     const attrs = me.attributes || {}; // <-- IMPORTANT (OAuth attributes live here)
 
+                    const picture =
+                        attrs.picture ||
+                        attrs.avatar_url ||
+                        attrs.picture?.data?.url ||
+                        null;
+
                     const mapped = {
                         // ids needed for UI logic
                         employeeId: me.employeeId ?? null,
@@ -148,6 +154,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         email: attrs.email || "",
                         username: me.name || attrs.email || attrs.name || "User",
 
+                        picture, // render the picture from OAuth2
                         oauth: !!me.provider,
                         provider: me.provider || null,
                         raw: me,
@@ -194,23 +201,30 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     useEffect(() => {
         let cancelled = false;
 
+        function isNumericId(v) {
+            // accept numbers or numeric strings (no huge OAuth subject strings)
+            if (v == null) return false;
+            const s = String(v).trim();
+            return /^[0-9]+$/.test(s) && s.length <= 18; // <= 18 digits fits typical DB Long ids
+        }
+
         async function loadProfileDetails() {
             if (!sessionUser) return;
 
             try {
                 setError("");
-                // show spinner only if we are still loading initially
-                // (don’t force re-spinner if page already rendered)
-                // setLoading(true);
 
                 const cid = sessionUser.customerId;
-                if (!cid) return;
+                if (!isNumericId(cid)) {
+                    // OAuth "sub" is not an internal numeric customer id → skip this endpoint
+                    return;
+                }
 
-                // Example endpoint (only works if your backend supports it)
                 const res = await fetch(`/api/customers/${cid}/profile`, {
                     credentials: "include",
                 });
 
+                if (res.status === 404) return;
                 if (!res.ok) return;
 
                 const data = await res.json();
@@ -230,8 +244,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 }));
             } catch (e) {
                 if (!cancelled) setError(e?.message || "Failed to load profile details");
-            } finally {
-                // setLoading(false);
             }
         }
 
@@ -240,6 +252,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             cancelled = true;
         };
     }, [sessionUser]);
+
 
     //logic for show/hide the Register as Customer button
     const canRegisterAsCustomer = useMemo(() => {
@@ -290,6 +303,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     // ✅ after ALL hooks: safe to redirect
     if (!loading && !sessionUser) return <Navigate to="/login" replace />;
+
+    const displayAvatar = avatarUrl || sessionUser?.picture;
+
 
     return (
         <Container className="py-4 py-md-5 px-4">
@@ -345,13 +361,13 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                             <Card.Body className="p-4">
                                 <div className="d-flex align-items-center gap-3">
                                     <div
-                                        className="d-flex align-items-center justify-content-center"
+                                        className="d-flex align-items-center justify-content-center overflow-hidden"
                                         style={{
                                             width: 72,
                                             height: 72,
                                             borderRadius: 18,
-                                            background: avatarUrl
-                                                ? `url(${avatarUrl}) center/cover no-repeat`
+                                            background: displayAvatar
+                                                ? "transparent"
                                                 : "linear-gradient(135deg, #7c3aed, #ec4899)",
                                             color: "white",
                                             fontWeight: 900,
@@ -360,8 +376,22 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                         aria-label="Profile picture"
                                         title="Profile picture"
                                     >
-                                        {!avatarUrl && initials(`${profile.firstName} ${profile.lastName}`)}
+                                        {displayAvatar ? (
+                                            <img
+                                                src={displayAvatar}
+                                                alt="Profile"
+                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    // If the URL fails to load, fall back to initials
+                                                    e.currentTarget.style.display = "none";
+                                                }}
+                                            />
+                                        ) : (
+                                            initials(`${profile.firstName} ${profile.lastName}`)
+                                        )}
                                     </div>
+
 
                                     <div className="flex-grow-1">
                                         <div

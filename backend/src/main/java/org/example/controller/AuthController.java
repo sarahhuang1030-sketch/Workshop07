@@ -4,14 +4,12 @@ package org.example.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import org.example.dto.ForgetPasswordRequestDTO;
-import org.example.dto.RegisterRequestDTO;
-import org.example.dto.LoginRequestDTO;
-import org.example.dto.LoginResponseDTO;
+import org.example.dto.*;
 import org.example.service.AuthService;
 import org.example.service.CustomerRegistrationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.example.dto.CustomerProfileDTO;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -64,4 +62,6 @@ public class AuthController {
     }
 
     public record ResetPasswordRequest(String token, String newPassword) {}
+
+
 }
