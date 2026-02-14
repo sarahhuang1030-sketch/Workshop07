@@ -11,16 +11,17 @@ import {
     Form,
     Spinner,
     ProgressBar,
+    Modal
 } from "react-bootstrap";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Crown, CreditCard, Package, Star, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 
 // --------- Business Rules (from your spec) ---------
-const POINTS_PER_DOLLAR = 1; // 1 point per $1 spent
-const BRONZE_REQUIREMENT = 5000; // membership requirement: 5,000 pts
-const BRONZE_DISCOUNT_RATE = 0.15; // 15% discount
-const BRONZE_DISCOUNT_CAP = 10000; // on first $10,000 spent after becoming member
+const POINTS_PER_DOLLAR = 1;
+const BRONZE_REQUIREMENT = 5000;
+const BRONZE_DISCOUNT_RATE = 0.15;
+const BRONZE_DISCOUNT_CAP = 10000;
 
 function formatMoney(n) {
     if (n == null || Number.isNaN(Number(n))) return "—";
@@ -33,44 +34,39 @@ function initials(name = "") {
     return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-/**
- * ProfilePage supports BOTH login flows:
- * 1) Normal login: App passes `user` prop (from /api/auth/login response)
- * 2) Google OAuth: App may not have user yet, so ProfilePage can fetch /api/me
- *
- * IMPORTANT: No early returns before hooks (Rules of Hooks).
- */
+function prevFirstName(full = "") {
+    return String(full).trim().split(/\s+/)[0] || "";
+}
+function prevLastName(full = "") {
+    const parts = String(full).trim().split(/\s+/);
+    return parts.slice(1).join(" ");
+}
+
+
 export default function ProfilePage({ user: userProp, onLogout }) {
+
     const { darkMode } = useTheme();
     const navigate = useNavigate();
 
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
     const cardBase = darkMode ? "tc-card-dark" : "bg-white border-0 shadow-sm";
 
-    // ---- Local UI state (profile picture preview)
     const [avatarUrl, setAvatarUrl] = useState(null);
-
-    // ---- Session user state (either normal login user, or OAuth user from /api/me)
     const [sessionUser, setSessionUser] = useState(userProp ?? null);
 
-    // ---- Loading + error
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // ---- Profile data defaults (safe until backend endpoints exist)
     const [profile, setProfile] = useState({
-        // identity
         customerId: null,
         firstName: "—",
         lastName: "",
         email: "",
 
-        // program + spend
         totalSpent: 0,
         points: 0,
         customerType: "Guest Customer",
 
-        // subscription/plan
         plan: {
             name: "—",
             monthlyPrice: null,
@@ -80,13 +76,13 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             addOns: [],
         },
 
-        // billing
         billing: {
             nextBillDate: null,
             nextBillAmount: null,
             paymentMethod: { brand: "—", last4: "—" },
             address: {
                 street1: "—",
+                street2: "—",
                 city: "—",
                 province: "—",
                 postalCode: "—",
@@ -96,91 +92,193 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         },
     });
 
-    /**
-     * Keep sessionUser in sync if App updates the prop (normal login flow).
-     * This avoids stale state.
-     */
+    //edit function billing
+    const [showBillingModal, setShowBillingModal] = useState(false);
+    const [billingDraft, setBillingDraft] = useState(null);
+    const [billingSaving, setBillingSaving] = useState(false);
+    const [billingError, setBillingError] = useState("");
+
+    const [addressPromptDismissed, setAddressPromptDismissed] = useState(false);
+
+
+    const needsAddress = useMemo(() => {
+        const isEmployee = (sessionUser?.employeeId ?? 0) > 0;
+        const hasCustomer = (sessionUser?.customerId ?? 0) > 0;
+
+        const a = profile.billing?.address;
+        const missing =
+            !a ||
+            !a.street1 || a.street1 === "—" ||
+            !a.city || a.city === "—" ||
+            !a.province || a.province === "—" ||
+            !a.postalCode || a.postalCode === "—";
+
+        // employee and not customer yet, and missing address
+        return isEmployee && !hasCustomer && missing;
+    }, [sessionUser, profile.billing?.address]);
+
+    useEffect(() => {
+        if (!loading && sessionUser && needsAddress && !showBillingModal) {
+            openBillingEditor();
+        }
+    }, [loading, sessionUser, needsAddress, showBillingModal]);
+
+    function openBillingEditor() {
+        const a = profile.billing.address || {};
+        setBillingDraft({
+            street1: a.street1 === "—" ? "" : (a.street1 ?? ""),
+            street2: a.street2 === "—" ? "" : (a.street2 ?? ""),
+            city: a.city === "—" ? "" : (a.city ?? ""),
+            province: a.province === "—" ? "" : (a.province ?? ""),
+            postalCode: a.postalCode === "—" ? "" : (a.postalCode ?? ""),
+            country: a.country === "—" ? "" : (a.country ?? ""),
+        });
+        setBillingError("");
+        setShowBillingModal(true);
+    }
+
+    function closeBillingEditor() {
+        setShowBillingModal(false);
+        setBillingDraft(null);
+        setBillingError("");
+        setAddressPromptDismissed(true);
+    }
+
+    async function saveBillingAddress() {
+        setBillingSaving(true);
+        setBillingError("");
+
+        try {
+            const res = await fetch("/api/billing/address", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(billingDraft),
+            });
+
+            if (res.status === 401) {
+                // session expired
+                closeBillingEditor();
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            if (!res.ok) {
+                const msg = await res.text();
+                setBillingError(msg || "Failed to save address");
+                return;
+            }
+
+            const updated = await res.json();
+
+// updated = { street1, street2, city, province, postalCode, country, customerId }
+
+            if (updated.customerId) {
+                // update session user so "hasCustomer" becomes true immediately
+                setSessionUser((prev) => (prev ? { ...prev, customerId: updated.customerId } : prev));
+
+                // update profile customerId display immediately
+                setProfile((prev) => ({
+                    ...prev,
+                    customerId: updated.customerId,
+                    billing: {
+                        ...prev.billing,
+                        address: { ...prev.billing.address, ...updated },
+                    },
+                }));
+            } else {
+                // fallback (address only)
+                setProfile((prev) => ({
+                    ...prev,
+                    billing: {
+                        ...prev.billing,
+                        address: { ...prev.billing.address, ...updated },
+                    },
+                }));
+            }
+
+            closeBillingEditor();
+
+        } catch (e) {
+            setBillingError(e?.message || "Failed to save address");
+        } finally {
+            setBillingSaving(false);
+        }
+    }
+
+
+
+    // keep sessionUser synced with normal-login prop
     useEffect(() => {
         if (userProp) setSessionUser(userProp);
     }, [userProp]);
 
-    /**
-     * If no userProp (common after OAuth redirect), try /api/me.
-     * Your backend returns OAuth2User attributes (or null).
-     */
+    // OAuth flow: if no userProp, fetch /api/me
     useEffect(() => {
         let cancelled = false;
 
-        async function loadMeIfNeeded() {
-            if (sessionUser) {
-                setLoading(false);
-                return;
-            }
-
+        async function loadMe() {
             try {
                 setError("");
                 setLoading(true);
 
-                const res = await fetch("/api/me", {
-                    credentials: "include", // important for session cookie
-                });
+                const res = await fetch("/api/me", { credentials: "include" });
+
+                if (res.status === 401) {
+                    setSessionUser(null);
+                    setLoading(false);
+                    return;
+                }
 
                 if (!res.ok) {
-                    // If not logged in, we will redirect below
-                    if (!cancelled) setLoading(false);
+                    setLoading(false);
                     return;
                 }
 
                 const me = await res.json();
 
-                if (me) {
-                    const attrs = me.attributes || {}; // <-- IMPORTANT (OAuth attributes live here)
+                // ✅ set identity from /api/me (works for normal + oauth)
+                setSessionUser((prev) => prev ?? {
+                    employeeId: me.employeeId ?? null,
+                    customerId: me.customerId ?? null,
+                    role: me.role ?? null,
+                    username: me.name ?? "User",
+                    raw: me,
+                });
 
-                    const picture =
-                        attrs.picture ||
-                        attrs.avatar_url ||
-                        attrs.picture?.data?.url ||
-                        null;
-
-                    const mapped = {
-                        // ids needed for UI logic
-                        employeeId: me.employeeId ?? null,
-                        customerId: me.customerId ?? null,
-                        role: me.role ?? null,
-
-                        // name/email from oauth attributes OR fallback to principal name
-                        firstName: attrs.given_name || attrs.name?.split(" ")?.[0] || "—",
-                        lastName: attrs.family_name || attrs.name?.split(" ")?.slice(1)?.join(" ") || "",
-                        email: attrs.email || "",
-                        username: me.name || attrs.email || attrs.name || "User",
-
-                        picture, // render the picture from OAuth2
-                        oauth: !!me.provider,
-                        provider: me.provider || null,
-                        raw: me,
-                    };
-
-                    setSessionUser(mapped);
+                // ✅ hydrate address for EVERYONE
+                if (me?.address) {
+                    setProfile((prev) => ({
+                        ...prev,
+                        billing: {
+                            ...prev.billing,
+                            address: {
+                                ...prev.billing.address,
+                                street1: me.address.street1 ?? prev.billing.address.street1,
+                                street2: me.address.street2 ?? prev.billing.address.street2,
+                                city: me.address.city ?? prev.billing.address.city,
+                                province: me.address.province ?? prev.billing.address.province,
+                                postalCode: me.address.postalCode ?? prev.billing.address.postalCode,
+                                country: me.address.country ?? prev.billing.address.country,
+                            },
+                        },
+                    }));
                 }
 
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             } catch (e) {
                 if (!cancelled) setError(e?.message || "Failed to load /api/me");
                 if (!cancelled) setLoading(false);
             }
         }
 
-        loadMeIfNeeded();
-        return () => {
-            cancelled = true;
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionUser]);
+        loadMe();
+        return () => { cancelled = true; };
+    }, []);
 
-    /**
-     * Whenever we have a sessionUser, update the base profile identity fields.
-     * This ensures OAuth users still see the full UI layout.
-     */
+
+
+    // whenever we have a sessionUser, update base identity fields
     useEffect(() => {
         if (!sessionUser) return;
 
@@ -193,68 +291,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }));
     }, [sessionUser]);
 
-    /**
-     * Optional: fetch extra profile details (only if you have a backend endpoint).
-     * For OAuth users, you might not have customerId in DB yet, so this may not work.
-     * That's OK — UI will show defaults.
-     */
-    useEffect(() => {
-        let cancelled = false;
-
-        function isNumericId(v) {
-            // accept numbers or numeric strings (no huge OAuth subject strings)
-            if (v == null) return false;
-            const s = String(v).trim();
-            return /^[0-9]+$/.test(s) && s.length <= 18; // <= 18 digits fits typical DB Long ids
-        }
-
-        async function loadProfileDetails() {
-            if (!sessionUser) return;
-
-            try {
-                setError("");
-
-                const cid = sessionUser.customerId;
-                if (!isNumericId(cid)) {
-                    // OAuth "sub" is not an internal numeric customer id → skip this endpoint
-                    return;
-                }
-
-                const res = await fetch(`/api/customers/${cid}/profile`, {
-                    credentials: "include",
-                });
-
-                if (res.status === 404) return;
-                if (!res.ok) return;
-
-                const data = await res.json();
-                if (cancelled) return;
-
-                const totalSpent = Number(data.totalSpent ?? 0);
-                const points = Number(data.points ?? totalSpent * POINTS_PER_DOLLAR);
-                const computedType =
-                    points >= BRONZE_REQUIREMENT ? "Frequent Traveler (Bronze)" : "Guest Customer";
-
-                setProfile((prev) => ({
-                    ...prev,
-                    ...data,
-                    totalSpent,
-                    points,
-                    customerType: data.customerType ?? computedType,
-                }));
-            } catch (e) {
-                if (!cancelled) setError(e?.message || "Failed to load profile details");
-            }
-        }
-
-        loadProfileDetails();
-        return () => {
-            cancelled = true;
-        };
-    }, [sessionUser]);
-
-
-    //logic for show/hide the Register as Customer button
     const canRegisterAsCustomer = useMemo(() => {
         if (loading) return false;
         if (!sessionUser) return false;
@@ -265,8 +301,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return isEmployee && !hasCustomer;
     }, [loading, sessionUser]);
 
-
-    // ---- compute tier/progress
     const tierInfo = useMemo(() => {
         const pts = Number(profile.points ?? 0);
         const isBronze = pts >= BRONZE_REQUIREMENT;
@@ -275,24 +309,17 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return { isBronze, progress, remaining };
     }, [profile.points]);
 
-    // ---- avatar upload preview (front-end only)
     const onPickAvatar = (file) => {
         if (!file) return;
         const url = URL.createObjectURL(file);
         setAvatarUrl(url);
     };
 
-
-
-
-    // ---- Logout button handler (works for both flows)
     const handleLogout = async () => {
         try {
-            // If App provides a logout handler, use it
             if (onLogout) {
                 await onLogout();
             } else {
-                // fallback: hit backend logout
                 await fetch("/logout", { method: "POST", credentials: "include" });
             }
         } finally {
@@ -301,15 +328,26 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     };
 
-    // ✅ after ALL hooks: safe to redirect
+    // if not logged in and not loading, go to login page (fallback)
     if (!loading && !sessionUser) return <Navigate to="/login" replace />;
 
     const displayAvatar = avatarUrl || sessionUser?.picture;
 
 
     return (
+
         <Container className="py-4 py-md-5 px-4">
-            {/* Header */}
+            {/*compelete your profile alert*/}
+            {needsAddress && (
+                <Alert variant="info" className="mb-3">
+                    <div className="fw-bold">Complete your profile</div>
+                    <div className="small">Please add your billing address to continue.</div>
+                    <Button className="mt-2" onClick={openBillingEditor}>
+                        Add Address
+                    </Button>
+                </Alert>
+            )}
+
             <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
                 <div>
                     <h1
@@ -337,7 +375,13 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         Manage Plans
                     </Button>
 
-
+                    <Button
+                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                        style={{ borderRadius: 14 }}
+                        onClick={handleLogout}
+                    >
+                        Logout
+                    </Button>
                 </div>
             </div>
 
@@ -355,7 +399,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 </div>
             ) : (
                 <Row className="g-4">
-                    {/* LEFT: Identity + Program */}
+                    {/* LEFT */}
                     <Col lg={4}>
                         <Card className={`${cardBase}`} style={{ borderRadius: 22 }}>
                             <Card.Body className="p-4">
@@ -383,7 +427,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                 referrerPolicy="no-referrer"
                                                 onError={(e) => {
-                                                    // If the URL fails to load, fall back to initials
                                                     e.currentTarget.style.display = "none";
                                                 }}
                                             />
@@ -391,7 +434,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                             initials(`${profile.firstName} ${profile.lastName}`)
                                         )}
                                     </div>
-
 
                                     <div className="flex-grow-1">
                                         <div
@@ -416,7 +458,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                     </div>
                                 </div>
 
-                                {/* avatar upload */}
                                 <Form.Group className="mt-3">
                                     <Form.Label className={mutedClass}>Profile picture</Form.Label>
                                     <Form.Control
@@ -440,7 +481,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                             </Card.Body>
                         </Card>
 
-                        {/* Points + Program Rules */}
+                        {/* Points */}
                         <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
                             <Card.Body className="p-4">
                                 <div className="d-flex align-items-center justify-content-between">
@@ -508,9 +549,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         </Card>
                     </Col>
 
-                    {/* RIGHT: Plan + Subscription + Billing */}
+                    {/* RIGHT */}
                     <Col lg={8}>
-                        {/* Plan / Subscription */}
+                        {/* Subscription & Plan */}
                         <Card className={`${cardBase}`} style={{ borderRadius: 22 }}>
                             <Card.Body className="p-4">
                                 <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
@@ -521,7 +562,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                         >
                                             Subscription & Plan
                                         </div>
-                                        <div className={mutedClass}>Your current registered plan and subscription details.</div>
+                                        <div className={mutedClass}>
+                                            Your current registered plan and subscription details.
+                                        </div>
                                     </div>
 
                                     <Badge
@@ -546,7 +589,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                 {profile.plan.name || "—"}
                                             </div>
                                             <div className={mutedClass}>
-                                                {profile.plan.monthlyPrice != null ? `${formatMoney(profile.plan.monthlyPrice)}/month` : "—"}
+                                                {profile.plan.monthlyPrice != null
+                                                    ? `${formatMoney(profile.plan.monthlyPrice)}/month`
+                                                    : "—"}
                                             </div>
                                             {profile.plan.startedAt && (
                                                 <div className={`small mt-2 ${mutedClass}`}>Started: {String(profile.plan.startedAt)}</div>
@@ -564,7 +609,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                             {(profile.plan.features?.length ?? 0) > 0 ? (
                                                 <ul className={`mt-2 mb-0 ${mutedClass}`}>
                                                     {profile.plan.features.slice(0, 6).map((f, idx) => (
-                                                        <li key={idx}>{typeof f === "string" ? f : `${f.name}: ${f.value}${f.unit ?? ""}`}</li>
+                                                        <li key={idx}>
+                                                            {typeof f === "string" ? f : `${f.name}: ${f.value}${f.unit ?? ""}`}
+                                                        </li>
                                                     ))}
                                                 </ul>
                                             ) : (
@@ -585,7 +632,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                         <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>
                                                             {a.name ?? a.addOnName ?? a}
                                                         </div>
-                                                        {a.monthlyPrice != null && <div className={mutedClass}>+{formatMoney(a.monthlyPrice)}/month</div>}
+                                                        {a.monthlyPrice != null && (
+                                                            <div className={mutedClass}>+{formatMoney(a.monthlyPrice)}/month</div>
+                                                        )}
                                                         {a.description && <div className={`small mt-1 ${mutedClass}`}>{a.description}</div>}
                                                     </div>
                                                 </Col>
@@ -625,7 +674,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                 {profile.billing.nextBillAmount != null ? formatMoney(profile.billing.nextBillAmount) : "—"}
                                             </div>
                                             <div className={mutedClass}>
-                                                {profile.billing.nextBillDate ? `Due: ${String(profile.billing.nextBillDate)}` : "No upcoming invoice loaded."}
+                                                {profile.billing.nextBillDate
+                                                    ? `Due: ${String(profile.billing.nextBillDate)}`
+                                                    : "No upcoming invoice loaded."}
                                             </div>
 
                                             <div className="mt-3">
@@ -640,11 +691,20 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                     <Col md={6}>
                                         <div className={`p-3 ${darkMode ? "tc-card-dark" : "bg-light"}`} style={{ borderRadius: 18 }}>
                                             <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>Billing address</div>
+
                                             <div className={`mt-2 ${mutedClass}`}>
                                                 <div>{profile.billing.address?.street1 ?? "—"}</div>
+
+                                                {profile.billing.address?.street2 &&
+                                                    profile.billing.address.street2 !== "—" &&
+                                                    profile.billing.address.street2.trim() !== "" && (
+                                                        <div>{profile.billing.address.street2}</div>
+                                                    )}
+
                                                 <div>
                                                     {(profile.billing.address?.city ?? "—")},{" "}
-                                                    {(profile.billing.address?.province ?? "—")} {(profile.billing.address?.postalCode ?? "")}
+                                                    {(profile.billing.address?.province ?? "—")}{" "}
+                                                    {(profile.billing.address?.postalCode ?? "")}
                                                 </div>
                                                 <div>{profile.billing.address?.country ?? "—"}</div>
                                             </div>
@@ -653,7 +713,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                 variant={darkMode ? "outline-light" : "outline-secondary"}
                                                 className="mt-3 fw-bold"
                                                 style={{ borderRadius: 14 }}
-                                                onClick={() => alert("Edit billing later")}
+                                                onClick={openBillingEditor}
                                             >
                                                 Edit Billing
                                             </Button>
@@ -661,7 +721,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                     </Col>
                                 </Row>
 
-                                {/* Invoices (optional) */}
+                                {/* Invoices */}
                                 <div className="mt-4">
                                     <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>Billing History</div>
                                     {(profile.billing.invoices?.length ?? 0) > 0 ? (
@@ -692,6 +752,97 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     </Col>
                 </Row>
             )}
+        {/* ============== for edit billing ====================   */}
+            <Modal show={showBillingModal} onHide={needsAddress ? undefined : closeBillingEditor}
+                   backdrop={needsAddress ? "static" : true}
+                   keyboard={!needsAddress}
+                   centered
+            >
+                <Modal.Header closeButton={!needsAddress}>
+                    <Modal.Title>Edit Billing Address</Modal.Title>
+                </Modal.Header>
+
+                <Modal.Body>
+                    {billingError && <Alert variant="danger">{billingError}</Alert>}
+
+                    {!billingDraft ? null : (
+                        <>
+                            <Form.Group className="mb-3">
+                                <Form.Label>Street 1</Form.Label>
+                                <Form.Control
+                                    value={billingDraft.street1}
+                                    onChange={(e) => setBillingDraft((d) => ({ ...d, street1: e.target.value }))}
+                                />
+                            </Form.Group>
+
+                            <Form.Group className="mb-3">
+                                <Form.Label>Street 2 (optional)</Form.Label>
+                                <Form.Control
+                                    value={billingDraft.street2}
+                                    onChange={(e) => setBillingDraft((d) => ({ ...d, street2: e.target.value }))}
+                                />
+                            </Form.Group>
+
+                            <Row className="g-2">
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>City</Form.Label>
+                                        <Form.Control
+                                            value={billingDraft.city}
+                                            onChange={(e) => setBillingDraft((d) => ({ ...d, city: e.target.value }))}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Province</Form.Label>
+                                        <Form.Control
+                                            value={billingDraft.province}
+                                            onChange={(e) => setBillingDraft((d) => ({ ...d, province: e.target.value }))}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                            </Row>
+
+                            <Row className="g-2">
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Postal Code</Form.Label>
+                                        <Form.Control
+                                            value={billingDraft.postalCode}
+                                            onChange={(e) => setBillingDraft((d) => ({ ...d, postalCode: e.target.value }))}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Country</Form.Label>
+                                        <Form.Control
+                                            value={billingDraft.country}
+                                            onChange={(e) => setBillingDraft((d) => ({ ...d, country: e.target.value }))}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                            </Row>
+                        </>
+                    )}
+                </Modal.Body>
+
+                <Modal.Footer>
+                    <Button
+                        variant="secondary"
+                        onClick={closeBillingEditor}
+                        disabled={billingSaving || needsAddress}
+                    >
+                        Cancel
+                    </Button>
+                    <Button onClick={saveBillingAddress} disabled={billingSaving || !billingDraft?.street1?.trim()}>
+                        {billingSaving ? "Saving..." : "Save"}
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+
         </Container>
     );
 }

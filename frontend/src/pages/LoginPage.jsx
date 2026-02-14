@@ -15,6 +15,9 @@ export default function LoginPage({ setUser }) {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
@@ -25,27 +28,31 @@ export default function LoginPage({ setUser }) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify(form),
+                body: JSON.stringify({ username, password }),
             });
 
             if (!res.ok) {
                 const msg = await res.text();
                 setError(msg || "Invalid username or password");
-                setLoading(false);
                 return;
             }
 
             const user = await res.json();
-            localStorage.setItem("tc_user", JSON.stringify(user));
-            setUser?.(user); // safe call
 
-            navigate("/");
+            localStorage.setItem("tc_user", JSON.stringify(user));
+            // localStorage.setItem("token", user.token);
+            // localStorage.setItem("customerId", user.customerId);
+
+            setUser?.(user);
+            navigate("/profile");
         } catch (err) {
-            setError("Cannot reach backend. Is Spring Boot running?");
+            console.error(err);
+            setError(err?.message || "Unexpected error");
         } finally {
             setLoading(false);
         }
     };
+
 
     function loginWithProvider(provider) {
         return (e) => {
@@ -80,8 +87,8 @@ export default function LoginPage({ setUser }) {
                             <Form.Group className="mb-3">
                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Username</Form.Label>
                                 <Form.Control
-                                    value={form.username}
-                                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                                    value={username}
+                                    onChange={(e) => setUsername( e.target.value )}
                                     placeholder="Enter username"
                                     autoComplete="username"
                                 />
@@ -94,9 +101,9 @@ export default function LoginPage({ setUser }) {
                                 <div className="input-group">
                                     <Form.Control
                                         type={showPassword ? "text" : "password"}
-                                        value={form.password}
+                                        value={password}
                                         onChange={(e) =>
-                                            setForm({ ...form, password: e.target.value })
+                                            setPassword( e.target.value )
                                         }
                                         placeholder="Enter password"
                                         autoComplete="current-password"

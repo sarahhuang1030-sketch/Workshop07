@@ -9,6 +9,7 @@ export default defineConfig({
         target: "http://localhost:8081",
         changeOrigin: true,
         secure: false,
+        cookieDomainRewrite: "localhost",
       },
       "/oauth2": {
         target: "http://localhost:8081",
