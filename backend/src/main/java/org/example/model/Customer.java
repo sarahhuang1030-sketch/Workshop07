@@ -36,6 +36,13 @@ public class Customer {
     @Column(name = "CreatedAt")
     private LocalDateTime CreatedAt;
 
+    @Column(name = "ExternalProvider", length = 32)
+    private String externalProvider;
+
+    @Column(name = "ExternalCustomerId", length = 64)
+    private String externalCustomerId;
+
+
     // exists in your table; can remain null if DB allows
     @Column(name = "PasswordHash")
     private String PasswordHash;
@@ -77,5 +84,9 @@ public class Customer {
     public String getPasswordHash() { return PasswordHash; }
     public void setPasswordHash(String passwordHash) { this.PasswordHash = passwordHash; }
 
+    public String getExternalProvider() { return externalProvider; }
+    public void setExternalProvider(String externalProvider) { this.externalProvider = externalProvider; }
 
+    public String getExternalCustomerId() { return externalCustomerId; }
+    public void setExternalCustomerId(String externalCustomerId) { this.externalCustomerId = externalCustomerId; }
 }

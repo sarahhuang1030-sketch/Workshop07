@@ -22,8 +22,11 @@ export default function AppNavbar({ user, setUser }) {
 
     const displayName =
         user?.firstName ||
+        user?.raw?.firstName ||
         user?.oauth?.given_name ||
         user?.raw?.given_name ||
+        user?.username ||
+        user?.raw?.name ||
         user?.email ||
         "there";
 

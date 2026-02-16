@@ -1,5 +1,6 @@
 package org.example.repository;
 
+import org.example.model.Customer;
 import org.example.model.CustomerAddress;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,5 +10,5 @@ public interface CustomerAddressRepository extends JpaRepository<CustomerAddress
     Optional<CustomerAddress> findByCustomerIdAndAddressType(Integer customerId, String addressType);
     Optional<CustomerAddress> findFirstByCustomerIdOrderByIsPrimaryDesc(Integer customerId);
     Optional<CustomerAddress> findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(Integer customerId, String addressType);
-
+    void deleteAllByCustomerId(Integer customerId);
 }

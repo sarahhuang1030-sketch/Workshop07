@@ -76,6 +76,7 @@ function OAuthSuccessHandler({ setUser }) {
         location.state?.from?.pathname ||
         "/";
 
+
     useEffect(() => {
         let cancelled = false;
 
@@ -89,6 +90,7 @@ function OAuthSuccessHandler({ setUser }) {
 
                 const me = await res.json();
                 if (cancelled) return;
+
 
                 setUser(mapOAuthMeToUser(me));
                 sessionStorage.removeItem("post_login_redirect");

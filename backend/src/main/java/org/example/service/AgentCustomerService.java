@@ -27,15 +27,16 @@ public class AgentCustomerService {
     }
 
     @Transactional
-    public Map<String, Object> registerAsCustomer(String usernameOrEmail, RegisterAsCustomerRequestDTO req) {
-
+    public Map<String, Object> registerAsCustomer(
+            String usernameOrEmail,
+            String provider,
+            String externalId,
+            String oauthFirstName,
+            String oauthLastName,
+            RegisterAsCustomerRequestDTO req
+    ) {
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(usernameOrEmail)
                 .orElseThrow(() -> new IllegalArgumentException("UserAccount not found"));
-
-        // must be an employee/agent
-        if (ua.getEmployeeId() == null) {
-            throw new IllegalArgumentException("Only employees/agents can use register-as-customer.");
-        }
 
         // already linked
         if (ua.getCustomerId() != null) {
@@ -45,54 +46,89 @@ public class AgentCustomerService {
             );
         }
 
-        // 1) create customer
-        Customer c = new Customer();
-        c.setCustomerType(req.customerType != null ? req.customerType : "Individual");
-        c.setFirstName(req.firstName);
-        c.setLastName(req.lastName);
-        c.setBusinessName(req.businessName);
+        // ---------- Dedup customer ----------
+        Customer customer = null;
 
-        // IMPORTANT: use email from the logged in user rather than trusting the client
-        c.setEmail(usernameOrEmail);
-
-        c.setHomePhone(req.homePhone != null ? req.homePhone : "000-000-0000");
-        Customer saved = customerRepo.save(c);
-
-        // 2) billing address
-        CustomerAddress billing = new CustomerAddress();
-        billing.setCustomerId(saved.getCustomerId());
-        billing.setAddressType("Billing");
-        billing.setStreet1(req.street1);
-        billing.setStreet2(req.street2);
-        billing.setCity(req.city);
-        billing.setProvince(req.province);
-        billing.setPostalCode(req.postalCode);
-        billing.setCountry(req.country != null ? req.country : "Canada");
-        billing.setIsPrimary(1);
-        addressRepo.save(billing);
-
-        // optional: also create a Service address (same fields for now)
-        if (Boolean.TRUE.equals(req.addServiceAddress)) {
-            CustomerAddress service = new CustomerAddress();
-            service.setCustomerId(saved.getCustomerId());
-            service.setAddressType("Service");
-            service.setStreet1(req.street1);
-            service.setStreet2(req.street2);
-            service.setCity(req.city);
-            service.setProvince(req.province);
-            service.setPostalCode(req.postalCode);
-            service.setCountry(req.country != null ? req.country : "Canada");
-            service.setIsPrimary(1);
-            addressRepo.save(service);
+        if (provider != null && externalId != null) {
+            customer = customerRepo
+                    .findByExternalProviderAndExternalCustomerId(provider, externalId)
+                    .orElse(null);
         }
 
-        // 3) link useraccount to customer
-        ua.setCustomerId(saved.getCustomerId());
+        if (customer == null) {
+            customer = customerRepo.findFirstByEmailIgnoreCase(usernameOrEmail).orElse(null);
+        }
+
+        // ---------- Create if missing ----------
+        if (customer == null) {
+            Customer c = new Customer();
+            c.setCustomerType(req.customerType != null ? req.customerType : "Individual");
+
+            // Prefer request name; otherwise OAuth name; otherwise blank
+            String first = (req.firstName != null && !req.firstName.isBlank()) ? req.firstName : oauthFirstName;
+            String last  = (req.lastName  != null && !req.lastName.isBlank())  ? req.lastName  : oauthLastName;
+
+            c.setFirstName(first);
+            c.setLastName(last);
+            c.setBusinessName(req.businessName);
+
+            // Email always from authenticated identity
+            c.setEmail(usernameOrEmail);
+
+            // Your Customers.HomePhone is nullable=false → must have something.
+            // If you want to REQUIRE it instead of defaulting, return 400 here.
+            String phone = (req.homePhone != null && !req.homePhone.isBlank()) ? req.homePhone : "0000000000";
+            c.setHomePhone(phone);
+
+            // Optional: tag oauth linkage in Customers table
+            if (provider != null && externalId != null) {
+                c.setExternalProvider(provider);
+                c.setExternalCustomerId(externalId);
+                c.setPasswordHash("OAUTH");
+            } else {
+                c.setPasswordHash(ua.getPasswordHash());
+            }
+
+            customer = customerRepo.save(c);
+
+            // ---------- Billing address (optional here) ----------
+            if (req.street1 != null && !req.street1.isBlank()) {
+                CustomerAddress billing = new CustomerAddress();
+                billing.setCustomerId(customer.getCustomerId());
+                billing.setAddressType("Billing");
+                billing.setStreet1(req.street1);
+                billing.setStreet2(req.street2);
+                billing.setCity(req.city);
+                billing.setProvince(req.province);
+                billing.setPostalCode(req.postalCode);
+                billing.setCountry(req.country != null ? req.country : "Canada");
+                billing.setIsPrimary(1);
+                addressRepo.save(billing);
+
+                if (Boolean.TRUE.equals(req.addServiceAddress)) {
+                    CustomerAddress service = new CustomerAddress();
+                    service.setCustomerId(customer.getCustomerId());
+                    service.setAddressType("Service");
+                    service.setStreet1(req.street1);
+                    service.setStreet2(req.street2);
+                    service.setCity(req.city);
+                    service.setProvince(req.province);
+                    service.setPostalCode(req.postalCode);
+                    service.setCountry(req.country != null ? req.country : "Canada");
+                    service.setIsPrimary(1);
+                    addressRepo.save(service);
+                }
+            }
+        }
+
+        // ---------- Link useraccount to customer ----------
+        ua.setCustomerId(customer.getCustomerId());
         userAccountRepo.save(ua);
 
         return Map.of(
-                "message", "Customer profile created and linked",
-                "customerId", saved.getCustomerId()
+                "message", "Customer profile created/linked",
+                "customerId", customer.getCustomerId()
         );
     }
+
 }

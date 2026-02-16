@@ -57,11 +57,14 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const shouldRedirect = !loading && !sessionUser;
+
     const [profile, setProfile] = useState({
         customerId: null,
         firstName: "—",
         lastName: "",
         email: "",
+        phone: "",
 
         totalSpent: 0,
         points: 0,
@@ -102,7 +105,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
 
     const needsAddress = useMemo(() => {
-        const isEmployee = (sessionUser?.employeeId ?? 0) > 0;
         const hasCustomer = (sessionUser?.customerId ?? 0) > 0;
 
         const a = profile.billing?.address;
@@ -113,9 +115,13 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             !a.province || a.province === "—" ||
             !a.postalCode || a.postalCode === "—";
 
-        // employee and not customer yet, and missing address
-        return isEmployee && !hasCustomer && missing;
-    }, [sessionUser, profile.billing?.address]);
+        // ✅ customer exists, but address missing
+        return hasCustomer && missing;
+    }, [sessionUser?.customerId, profile.billing?.address]);
+
+
+    const needsPhone = !profile.phone?.trim();
+
 
     useEffect(() => {
         if (!loading && sessionUser && needsAddress && !showBillingModal) {
@@ -123,19 +129,82 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     }, [loading, sessionUser, needsAddress, showBillingModal]);
 
-    function openBillingEditor() {
-        const a = profile.billing.address || {};
-        setBillingDraft({
-            street1: a.street1 === "—" ? "" : (a.street1 ?? ""),
-            street2: a.street2 === "—" ? "" : (a.street2 ?? ""),
-            city: a.city === "—" ? "" : (a.city ?? ""),
-            province: a.province === "—" ? "" : (a.province ?? ""),
-            postalCode: a.postalCode === "—" ? "" : (a.postalCode ?? ""),
-            country: a.country === "—" ? "" : (a.country ?? ""),
-        });
+    async function openBillingEditor() {
         setBillingError("");
         setShowBillingModal(true);
+        setBillingDraft(null); // show empty while loading (optional)
+
+        try {
+            const res = await fetch("/api/billing/address", { credentials: "include" });
+
+            if (res.status === 401) {
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            if (!res.ok) {
+                const msg = await res.text();
+                setBillingError(msg || "Failed to load billing info");
+                // fallback to whatever is in profile
+                const a = profile.billing.address || {};
+                setBillingDraft({
+                    street1: a.street1 === "—" ? "" : (a.street1 ?? ""),
+                    street2: a.street2 === "—" ? "" : (a.street2 ?? ""),
+                    city: a.city === "—" ? "" : (a.city ?? ""),
+                    province: a.province === "—" ? "" : (a.province ?? ""),
+                    postalCode: a.postalCode === "—" ? "" : (a.postalCode ?? ""),
+                    country: a.country === "—" ? "" : (a.country ?? ""),
+                    phone: profile.phone === "—" ? "" : (profile.phone ?? ""),
+                    firstName: profile.firstName === "—" ? "" : (profile.firstName ?? ""),
+                    lastName: profile.lastName ?? "",
+                    email: profile.email ?? "",
+                });
+                return;
+            }
+
+            const data = await res.json();
+            console.log("GET /api/billing/address response:", data);
+
+            // Fill the modal from DB
+            setBillingDraft({
+                street1: data.street1 ?? "",
+                street2: data.street2 ?? "",
+                city: data.city ?? "",
+                province: data.province ?? "",
+                postalCode: data.postalCode ?? "",
+                country: data.country ?? "",
+                phone: data.homePhone ?? "",
+                firstName: data.firstName ?? "",
+                lastName: data.lastName ?? "",
+                email: data.email ?? "",
+            });
+
+            // Optional but recommended: also sync profile UI with DB
+            setProfile((prev) => ({
+                ...prev,
+                customerId: data.customerId ?? prev.customerId,
+                firstName: data.firstName ?? prev.firstName,
+                lastName: data.lastName ?? prev.lastName,
+                email: data.email ?? prev.email,
+                phone: data.homePhone ?? prev.phone,
+                billing: {
+                    ...prev.billing,
+                    address: {
+                        ...prev.billing.address,
+                        street1: data.street1 ?? prev.billing.address.street1,
+                        street2: data.street2 ?? prev.billing.address.street2,
+                        city: data.city ?? prev.billing.address.city,
+                        province: data.province ?? prev.billing.address.province,
+                        postalCode: data.postalCode ?? prev.billing.address.postalCode,
+                        country: data.country ?? prev.billing.address.country,
+                    },
+                },
+            }));
+        } catch (e) {
+            setBillingError(e?.message || "Failed to load billing info");
+        }
     }
+
 
     function closeBillingEditor() {
         setShowBillingModal(false);
@@ -149,12 +218,24 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         setBillingError("");
 
         try {
+            // Map phone -> homePhone before sending to backend
+            const payload = {
+                ...billingDraft,
+                homePhone: billingDraft.phone,
+                firstName: billingDraft.firstName === "—" ? "" : billingDraft.firstName,
+                lastName: billingDraft.lastName === "—" ? "" : (billingDraft.lastName ?? ""),
+                email: billingDraft.email === "—" ? "" : (billingDraft.email ?? ""),
+            };
+
+            delete payload.phone;
+
             const res = await fetch("/api/billing/address", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify(billingDraft),
+                body: JSON.stringify(payload),
             });
+
 
             if (res.status === 401) {
                 // session expired
@@ -170,33 +251,37 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             }
 
             const updated = await res.json();
+            console.log("PUT /api/billing/address response:", updated);
+
 
 // updated = { street1, street2, city, province, postalCode, country, customerId }
 
-            if (updated.customerId) {
-                // update session user so "hasCustomer" becomes true immediately
-                setSessionUser((prev) => (prev ? { ...prev, customerId: updated.customerId } : prev));
+            const nextPhone =
+                updated.homePhone ??
+                updated.phone ??
+                billingDraft.phone ??
+                "";
 
-                // update profile customerId display immediately
-                setProfile((prev) => ({
-                    ...prev,
-                    customerId: updated.customerId,
-                    billing: {
-                        ...prev.billing,
-                        address: { ...prev.billing.address, ...updated },
-                    },
-                }));
-            } else {
-                // fallback (address only)
-                setProfile((prev) => ({
-                    ...prev,
-                    billing: {
-                        ...prev.billing,
-                        address: { ...prev.billing.address, ...updated },
-                    },
-                }));
+            if (updated.customerId) {
+                setSessionUser((prev) =>
+                    prev ? { ...prev, customerId: updated.customerId, homePhone: nextPhone, firstName: updated.firstName ?? prev.firstName,
+                        lastName: updated.lastName ?? prev.lastName,
+                        email: updated.email ?? prev.email, } : prev
+                );
             }
 
+            setProfile((prev) => ({
+                ...prev,
+                customerId: updated.customerId ?? prev.customerId,
+                phone: nextPhone,
+                firstName: updated.firstName ?? prev.firstName,
+                lastName: updated.lastName ?? prev.lastName,
+                email: updated.email ?? prev.email,
+                billing: {
+                    ...prev.billing,
+                    address: { ...prev.billing.address, ...updated },
+                },
+            }));
             closeBillingEditor();
 
         } catch (e) {
@@ -210,8 +295,17 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     // keep sessionUser synced with normal-login prop
     useEffect(() => {
-        if (userProp) setSessionUser(userProp);
+        if (!userProp) return;
+        setSessionUser((prev) => ({
+            ...(prev ?? {}),
+            ...userProp,
+            employeeId: userProp.employeeId ?? prev?.employeeId ?? null,
+            customerId: userProp.customerId ?? prev?.customerId ?? null,
+            userType: userProp.userType ?? prev?.userType ?? null,
+        }));
     }, [userProp]);
+
+
 
     // OAuth flow: if no userProp, fetch /api/me
     useEffect(() => {
@@ -236,17 +330,32 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 }
 
                 const me = await res.json();
+                console.log("ME RESPONSE:", me);
+
 
                 // ✅ set identity from /api/me (works for normal + oauth)
-                setSessionUser((prev) => prev ?? {
-                    employeeId: me.employeeId ?? null,
-                    customerId: me.customerId ?? null,
-                    role: me.role ?? null,
-                    username: me.name ?? "User",
+                setSessionUser((prev) => ({
+                    ...(prev ?? {}),
+                    employeeId: me.employeeId ?? prev?.employeeId ?? null,
+                    customerId: me.customerId ?? prev?.customerId ?? null,
+                    role: me.role ?? prev?.role ?? null,
+                    userType: me.userType ?? prev?.userType ?? (me.employeeId ? "Employee" : "Customer"),
+                    username: me.name ?? prev?.username ?? "User",
                     raw: me,
-                });
+                }));
+
 
                 // ✅ hydrate address for EVERYONE
+                // ✅ ALWAYS hydrate identity fields (including phone), even if no address yet
+                setProfile((prev) => ({
+                    ...prev,
+                    firstName: me.firstName ?? prev.firstName,
+                    lastName: me.lastName ?? prev.lastName,
+                    email: me.email ?? prev.email,
+                    phone: me.homePhone ?? prev.phone,
+                }));
+
+// ✅ hydrate address only if present
                 if (me?.address) {
                     setProfile((prev) => ({
                         ...prev,
@@ -264,6 +373,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         },
                     }));
                 }
+
 
                 if (!cancelled) setLoading(false);
             } catch (e) {
@@ -285,6 +395,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         setProfile((prev) => ({
             ...prev,
             customerId: sessionUser.customerId ?? null,
+            phone: sessionUser.homePhone ?? prev.phone,
             firstName: sessionUser.firstName ?? prev.firstName,
             lastName: sessionUser.lastName ?? prev.lastName,
             email: sessionUser.email ?? prev.email,
@@ -301,6 +412,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return isEmployee && !hasCustomer;
     }, [loading, sessionUser]);
 
+
+
     const tierInfo = useMemo(() => {
         const pts = Number(profile.points ?? 0);
         const isBronze = pts >= BRONZE_REQUIREMENT;
@@ -309,11 +422,26 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return { isBronze, progress, remaining };
     }, [profile.points]);
 
+    const isEmployee =
+        sessionUser?.userType === "Employee" || (sessionUser?.employeeId ?? 0) > 0;
+
+    const customerTypeLabel = tierInfo.isBronze
+        ? "Frequent Traveler (Bronze)"
+        : (isEmployee ? "Employee Customer" : "Guest Customer");
+
+    const rewardsLabel = tierInfo.isBronze
+        ? "Frequent Traveler (Bronze)"
+        : "Guest Customer";
+
+
+    const [avatarFile, setAvatarFile] = useState(null);
+
     const onPickAvatar = (file) => {
         if (!file) return;
-        const url = URL.createObjectURL(file);
-        setAvatarUrl(url);
+        setAvatarFile(file);
+        setAvatarUrl(URL.createObjectURL(file)); // preview
     };
+
 
     const handleLogout = async () => {
         try {
@@ -328,11 +456,132 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     };
 
-    // if not logged in and not loading, go to login page (fallback)
-    if (!loading && !sessionUser) return <Navigate to="/login" replace />;
 
-    const displayAvatar = avatarUrl || sessionUser?.picture;
 
+
+// profile picture logic
+    const isOAuthUser = !!sessionUser?.picture;
+    const canEditAvatar = !isOAuthUser; // owner implied since it's /profile
+
+// avatarUrl = local preview only (from file input)
+// profile.avatarUrl = saved custom avatar url (from your backend)
+// sessionUser.picture = oauth provider picture
+
+    const savedAvatarUrl = profile.avatarUrl || null;
+
+    const displayAvatar = isOAuthUser
+        ? (sessionUser?.picture || null)              // rule #3
+        : (avatarUrl || savedAvatarUrl || null);      // preview > saved > initials
+
+    async function saveAvatarToBackend() {
+        if (!avatarFile) return;
+
+
+        // You need the actual File, so store it when picking:
+        // const [avatarFile, setAvatarFile] = useState(null);
+
+        const formData = new FormData();
+        formData.append("avatar", avatarFile);
+
+        const res = await fetch("/api/me/avatar", {
+            method: "PUT",
+            credentials: "include",
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const msg = await res.text();
+            setError(msg || "Failed to save avatar");
+            return;
+        }
+
+        const data = await res.json(); // { avatarUrl: "..." }
+        setProfile(p => ({ ...p, avatarUrl: data.avatarUrl }));
+        setAvatarUrl(null); // clear preview after saving
+        setAvatarFile(null);
+    }
+
+    async function deleteAvatarFromBackend() {
+        const res = await fetch("/api/me/avatar", {
+            method: "DELETE",
+            credentials: "include",
+        });
+
+        if (!res.ok) {
+            const msg = await res.text();
+            setError(msg || "Failed to delete avatar");
+            return;
+        }
+
+        setProfile(p => ({ ...p, avatarUrl: null }));
+        setAvatarUrl(null);
+        setAvatarFile(null);
+    }
+
+    useEffect(() => {
+        return () => {
+            if (avatarUrl) URL.revokeObjectURL(avatarUrl);
+        };
+    }, [avatarUrl]);
+
+
+    // shoiwng customer/employee id
+    const employeeId = Number(sessionUser?.employeeId ?? sessionUser?.raw?.employeeId ?? 0);
+    const customerId =
+        sessionUser?.raw?.externalId ??
+        sessionUser?.customerId ??
+        profile.customerId ??
+        "—";
+
+    console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
+
+
+    // deleting the profile logic
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState("");
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState("");
+
+    async function deleteMyProfile() {
+        setDeleting(true);
+        setDeleteError("");
+
+        try {
+            // ✅ change this URL to whatever you implemented on backend
+            const res = await fetch("/api/me", {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (res.status === 401) {
+                // already logged out / session expired
+                setSessionUser(null);
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            if (!res.ok) {
+                const msg = await res.text();
+                setDeleteError(msg || "Failed to delete profile.");
+                return;
+            }
+
+            // ✅ success: clear local session + redirect
+            setShowDeleteModal(false);
+            setSessionUser(null);
+
+            // optional: clear any cached profile UI
+            // setProfile(initialProfileState);
+
+            navigate("/login", { replace: true });
+        } catch (e) {
+            setDeleteError(e?.message || "Failed to delete profile.");
+        } finally {
+            setDeleting(false);
+        }
+    }
+
+    if (shouldRedirect) return <Navigate to="/login" replace />;
 
     return (
 
@@ -357,12 +606,25 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         My Profile
                     </h1>
 
-                    <div className={mutedClass}>
-                        Customer ID:{" "}
-                        <span className={darkMode ? "text-light" : "text-dark"}>
-              {profile.customerId ?? "—"}
-            </span>
+                    <div className={`d-flex align-items-center gap-4 ${mutedClass}`}>
+                        <div>
+                            Customer ID:{" "}
+                            <span className={darkMode ? "text-light" : "text-dark"}>
+      {sessionUser?.raw?.externalId ?? profile.customerId ?? "—"}
+    </span>
+                        </div>
+
+                        {employeeId > 0 && (
+                            <div>
+                                Employee ID:{" "}
+                                <span className={darkMode ? "text-light" : "text-dark"}>
+                                {employeeId}
+                              </span>
+                            </div>
+                        )}
                     </div>
+
+
                 </div>
 
                 <div className="d-flex gap-2">
@@ -376,11 +638,15 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     </Button>
 
                     <Button
-                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                        variant={darkMode ? "outline-danger" : "danger"}
                         style={{ borderRadius: 14 }}
-                        onClick={handleLogout}
+                        onClick={() => {
+                            setDeleteConfirm("");
+                            setDeleteError("");
+                            setShowDeleteModal(true);
+                        }}
                     >
-                        Logout
+                        Delete Profile
                     </Button>
                 </div>
             </div>
@@ -404,6 +670,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                         <Card className={`${cardBase}`} style={{ borderRadius: 22 }}>
                             <Card.Body className="p-4">
                                 <div className="d-flex align-items-center gap-3">
+                                    {/* Avatar circle */}
                                     <div
                                         className="d-flex align-items-center justify-content-center overflow-hidden"
                                         style={{
@@ -426,15 +693,21 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                                 alt="Profile"
                                                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                 referrerPolicy="no-referrer"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = "none";
+                                                onError={() => {
+                                                    setAvatarUrl(null);
+                                                    setAvatarFile(null);
+                                                    if (!isOAuthUser) {
+                                                        setProfile((p) => ({ ...p, avatarUrl: null }));
+                                                    }
                                                 }}
+
                                             />
                                         ) : (
                                             initials(`${profile.firstName} ${profile.lastName}`)
                                         )}
                                     </div>
 
+                                    {/* Name + contact */}
                                     <div className="flex-grow-1">
                                         <div
                                             className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
@@ -447,37 +720,69 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                             {profile.email || sessionUser?.username || "—"}
                                         </div>
 
+                                        <div className={mutedClass}>
+                                            {profile.phone?.trim() ? `Phone: ${profile.phone}` : "Phone: —"}
+                                        </div>
+
                                         <div className="mt-2">
                                             <Badge
-                                                bg={tierInfo.isBronze ? "warning" : "secondary"}
+                                                bg={tierInfo.isBronze ? "warning" : (isEmployee ? "info" : "secondary")}
                                                 style={{ borderRadius: 999, padding: "0.4rem 0.7rem" }}
                                             >
-                                                {tierInfo.isBronze ? "Frequent Traveler (Bronze)" : "Guest Customer"}
+                                                {customerTypeLabel}
                                             </Badge>
                                         </div>
                                     </div>
                                 </div>
 
+                                {/* Avatar controls */}
                                 <Form.Group className="mt-3">
                                     <Form.Label className={mutedClass}>Profile picture</Form.Label>
-                                    <Form.Control
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => onPickAvatar(e.target.files?.[0])}
-                                    />
-                                    <div className={`small mt-1 mb-3 ${mutedClass}`}>
-                                        (Preview only for now — can be saved to backend later.)
-                                    </div>
 
-                                    {canRegisterAsCustomer && (
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => navigate("/register?mode=customer")}
-                                        >
-                                            Register as Customer
-                                        </button>
+                                    {isOAuthUser ? (
+                                        <div className={`small ${mutedClass}`}>
+                                            Using your OAuth profile picture.
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Form.Control
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => onPickAvatar(e.target.files?.[0])}
+                                            />
+
+                                            <div className="d-flex gap-2 mt-2">
+                                                <Button
+                                                    variant="primary"
+                                                    size="sm"
+                                                    onClick={saveAvatarToBackend}
+                                                    disabled={!avatarFile}
+                                                >
+                                                    Save
+                                                </Button>
+                                                <Button
+                                                    variant="outline-secondary"
+                                                    size="sm"
+                                                    onClick={() => { setAvatarUrl(null); setAvatarFile(null); }}
+                                                    disabled={!avatarUrl}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    onClick={deleteAvatarFromBackend}
+                                                    disabled={!savedAvatarUrl}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </div>
+                                        </>
                                     )}
                                 </Form.Group>
+
+
+
                             </Card.Body>
                         </Card>
 
@@ -768,6 +1073,42 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     {!billingDraft ? null : (
                         <>
                             <Form.Group className="mb-3">
+                                <Form.Label>First Name</Form.Label>
+                                <Form.Control
+                                    value={billingDraft.firstName}
+                                    onChange={(e) => setBillingDraft(d => ({ ...d, firstName: e.target.value }))}
+                                />
+                            </Form.Group>
+
+                            <Form.Group className="mb-3">
+                                <Form.Label>Last Name</Form.Label>
+                                <Form.Control
+                                    value={billingDraft.lastName}
+                                    onChange={(e) => setBillingDraft(d => ({ ...d, lastName: e.target.value }))}
+                                />
+                            </Form.Group>
+
+                            <Form.Group className="mb-3">
+                                <Form.Label>Email</Form.Label>
+                                <Form.Control
+                                    type="email"
+                                    value={billingDraft.email}
+                                    onChange={(e) => setBillingDraft(d => ({ ...d, email: e.target.value }))}
+                                />
+                            </Form.Group>
+                            {needsPhone && (
+                                <Form.Group className="mb-3">
+                                    <Form.Label>Phone Number</Form.Label>
+                                    <Form.Control
+                                        value={billingDraft.phone}
+                                        onChange={(e) => setBillingDraft((d) => ({ ...d, phone: e.target.value }))}
+                                        placeholder="403-555-1234"
+                                    />
+
+                                </Form.Group>
+                            )}
+
+                            <Form.Group className="mb-3">
                                 <Form.Label>Street 1</Form.Label>
                                 <Form.Control
                                     value={billingDraft.street1}
@@ -836,8 +1177,67 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     >
                         Cancel
                     </Button>
-                    <Button onClick={saveBillingAddress} disabled={billingSaving || !billingDraft?.street1?.trim()}>
+                    <Button onClick={saveBillingAddress}
+                            disabled={
+                        billingSaving ||
+                        !billingDraft?.street1?.trim()||
+                        (needsPhone && !billingDraft?.phone?.trim())
+                    }>
                         {billingSaving ? "Saving..." : "Save"}
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+        {/* Deleting profile modal  */}
+            <Modal
+                show={showDeleteModal}
+                onHide={deleting ? undefined : () => setShowDeleteModal(false)}
+                backdrop={deleting ? "static" : true}
+                keyboard={!deleting}
+                centered
+            >
+                <Modal.Header closeButton={!deleting}>
+                    <Modal.Title>Delete Profile</Modal.Title>
+                </Modal.Header>
+
+                <Modal.Body>
+                    {deleteError && <Alert variant="danger">{deleteError}</Alert>}
+
+                    <Alert variant="warning" className="mb-3">
+                        <div className="fw-bold">This can’t be undone.</div>
+                        <div className="small">
+                            Your account and associated customer data will be permanently removed.
+                        </div>
+                    </Alert>
+
+                    <Form.Group>
+                        <Form.Label className="fw-bold">
+                            Type <span className="text-danger">DELETE</span> to confirm
+                        </Form.Label>
+                        <Form.Control
+                            value={deleteConfirm}
+                            onChange={(e) => setDeleteConfirm(e.target.value)}
+                            placeholder="DELETE"
+                            disabled={deleting}
+                        />
+                    </Form.Group>
+                </Modal.Body>
+
+                <Modal.Footer>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setShowDeleteModal(false)}
+                        disabled={deleting}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        variant="danger"
+                        onClick={deleteMyProfile}
+                        disabled={deleting || deleteConfirm.trim().toUpperCase() !== "DELETE"}
+                    >
+                        {deleting ? "Deleting..." : "Delete permanently"}
                     </Button>
                 </Modal.Footer>
             </Modal>
