@@ -55,16 +55,18 @@ public class SecurityConfig {
 
         DelegatingAuthenticationEntryPoint delegatingEntryPoint =
                 new DelegatingAuthenticationEntryPoint(entryPoints);
-        delegatingEntryPoint.setDefaultEntryPoint((req, res, ex) -> res.sendError(401, "Unauthorized"));
+        delegatingEntryPoint.setDefaultEntryPoint(new LoginUrlAuthenticationEntryPoint(frontendBaseUrl + "/login"));
 
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(c -> {})
                 .httpBasic(b -> b.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-              //  .formLogin(f -> f.disable())
-                .authenticationProvider(provider)     // ✅ force your DAO provider to be used
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(delegatingEntryPoint))
+                .authenticationProvider(provider)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(delegatingEntryPoint)
+                        .accessDeniedHandler((req, res, e) -> res.sendError(403, "Forbidden"))
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/error",
@@ -78,9 +80,18 @@ public class SecurityConfig {
                                 "/api/plans/**",
                                 "/api/addons/**",
                                 "/api/auth/forgetpassword",
-                                "/api/auth/resetpassword"
+                                "/api/auth/resetpassword",
+                                "/uploads/**"
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        // RBAC APIs
+                        .requestMatchers("/api/manager/**").hasRole("MANAGER")
+                        .requestMatchers("/api/sales/**").hasAnyRole("SALES_AGENT", "MANAGER")
+                        .requestMatchers("/api/service/**").hasAnyRole("SERVICE_TECHNICIAN", "MANAGER")
+
+                        // anything else under /api requires login
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll()
+
                 )
                 .oauth2Login(oauth -> oauth.defaultSuccessUrl(frontendBaseUrl + "/oauth-success", true))
                 .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl + "/").permitAll());
@@ -91,12 +102,18 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(UserAccountRepository repo) {
         return username -> repo.findByUsernameIgnoreCase(username)
-                .map(u -> User.withUsername(u.getUsername())
-                        .password(u.getPasswordHash())   // must be BCrypt hash
-                        .roles(u.getRole())              // or authorities(...)
-                        .build())
+                .map(u -> {
+                    String dbRole = (u.getRole() == null || u.getRole().isBlank()) ? "Customer" : u.getRole();
+                    String roleKey = dbRole.trim().toUpperCase().replace(' ', '_'); // "Sales Agent" -> "SALES_AGENT"
+
+                    return User.withUsername(u.getUsername())
+                            .password(u.getPasswordHash())
+                            .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleKey))
+                            .build();
+                })
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
+
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider(UserDetailsService uds,

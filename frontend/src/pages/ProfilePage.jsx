@@ -122,13 +122,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     const needsPhone = !profile.phone?.trim();
 
-
-    useEffect(() => {
-        if (!loading && sessionUser && needsAddress && !showBillingModal) {
-            openBillingEditor();
-        }
-    }, [loading, sessionUser, needsAddress, showBillingModal]);
-
     async function openBillingEditor() {
         setBillingError("");
         setShowBillingModal(true);
@@ -205,13 +198,18 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     }
 
-
     function closeBillingEditor() {
         setShowBillingModal(false);
         setBillingDraft(null);
         setBillingError("");
-        setAddressPromptDismissed(true);
+        // DO NOT setAddressPromptDismissed here
     }
+
+    const dismissKey = useMemo(() => {
+        // use something stable and unique
+        const id = sessionUser?.raw?.externalId ?? sessionUser?.customerId ?? sessionUser?.username ?? "anon";
+        return `tc_profile_prompt_dismissed_${id}`;
+    }, [sessionUser]);
 
     async function saveBillingAddress() {
         setBillingSaving(true);
@@ -251,7 +249,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             }
 
             const updated = await res.json();
-            console.log("PUT /api/billing/address response:", updated);
+      //      console.log("PUT /api/billing/address response:", updated);
 
 
 // updated = { street1, street2, city, province, postalCode, country, customerId }
@@ -282,6 +280,10 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     address: { ...prev.billing.address, ...updated },
                 },
             }));
+
+            setAddressPromptDismissed(false);
+            localStorage.removeItem(dismissKey);
+
             closeBillingEditor();
 
         } catch (e) {
@@ -309,6 +311,12 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     // OAuth flow: if no userProp, fetch /api/me
     useEffect(() => {
+
+        // if (userProp) {   // ✅ if App already has user, don't fetch /api/me here
+        //     setLoading(false);
+        //     return;
+        // }
+
         let cancelled = false;
 
         async function loadMe() {
@@ -318,29 +326,34 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
                 const res = await fetch("/api/me", { credentials: "include" });
 
-                if (res.status === 401) {
+                if (res.status === 401 || res.status === 404) {
+                    // 401 = not authenticated, 404 = authenticated but no UA row ("Not registered")
                     setSessionUser(null);
                     setLoading(false);
                     return;
                 }
 
                 if (!res.ok) {
+                    const msg = await res.text().catch(() => "");
+                    setError(msg || "Failed to load /api/me");
                     setLoading(false);
                     return;
                 }
 
+
                 const me = await res.json();
-                console.log("ME RESPONSE:", me);
+            //    console.log("ME RESPONSE:", me);
 
 
                 // ✅ set identity from /api/me (works for normal + oauth)
                 setSessionUser((prev) => ({
                     ...(prev ?? {}),
+                    ...(userProp ?? {}),
                     employeeId: me.employeeId ?? prev?.employeeId ?? null,
                     customerId: me.customerId ?? prev?.customerId ?? null,
                     role: me.role ?? prev?.role ?? null,
                     userType: me.userType ?? prev?.userType ?? (me.employeeId ? "Employee" : "Customer"),
-                    username: me.name ?? prev?.username ?? "User",
+                    username: me.name ?? prev?.username ?? userProp?.username ?? "User",
                     raw: me,
                 }));
 
@@ -349,11 +362,15 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 // ✅ ALWAYS hydrate identity fields (including phone), even if no address yet
                 setProfile((prev) => ({
                     ...prev,
+                    avatarUrl: me.avatarUrl ?? prev.avatarUrl,
                     firstName: me.firstName ?? prev.firstName,
                     lastName: me.lastName ?? prev.lastName,
                     email: me.email ?? prev.email,
                     phone: me.homePhone ?? prev.phone,
                 }));
+
+                console.log("me.avatarUrl =", me.avatarUrl);
+
 
 // ✅ hydrate address only if present
                 if (me?.address) {
@@ -375,18 +392,26 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 }
 
 
-                if (!cancelled) setLoading(false);
+                // after you setSessionUser(...) with me
+                if (!cancelled) {
+                    setLoading(false);
+                }
+                return;
+
             } catch (e) {
                 if (!cancelled) setError(e?.message || "Failed to load /api/me");
-                if (!cancelled) setLoading(false);
+                if (!cancelled) {
+                    setSessionUser(null);   // ✅ add this back
+                    setLoading(false);
+                }
+                return;
+
             }
         }
 
         loadMe();
         return () => { cancelled = true; };
-    }, []);
-
-
+    }, [userProp]);
 
     // whenever we have a sessionUser, update base identity fields
     useEffect(() => {
@@ -399,6 +424,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             firstName: sessionUser.firstName ?? prev.firstName,
             lastName: sessionUser.lastName ?? prev.lastName,
             email: sessionUser.email ?? prev.email,
+            avatarUrl: sessionUser?.raw?.avatarUrl ?? prev.avatarUrl,
+
         }));
     }, [sessionUser]);
 
@@ -412,6 +439,45 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return isEmployee && !hasCustomer;
     }, [loading, sessionUser]);
 
+    const shouldPromptBilling = useMemo(() => {
+        const hasCustomer = (sessionUser?.customerId ?? 0) > 0;
+        const isEmployee = (sessionUser?.employeeId ?? 0) > 0;
+
+        const a = profile.billing?.address;
+        const missing =
+            !a ||
+            !a.street1 || a.street1 === "—" ||
+            !a.city || a.city === "—" ||
+            !a.province || a.province === "—" ||
+            !a.postalCode || a.postalCode === "—";
+
+        return (hasCustomer && missing) || (isEmployee && !hasCustomer);
+    }, [sessionUser, profile.billing?.address]);
+
+
+
+    function completeLater() {
+        setAddressPromptDismissed(true);
+        localStorage.setItem(dismissKey, "1");
+
+        setShowBillingModal(false);
+        setBillingDraft(null);
+        setBillingError("");
+    }
+
+
+    useEffect(() => {
+        if (!dismissKey) return;
+        const v = localStorage.getItem(dismissKey);
+        setAddressPromptDismissed(v === "1");
+    }, [dismissKey]);
+
+
+    // useEffect(() => {
+    //     if (!loading && sessionUser && shouldPromptBilling && !showBillingModal && !addressPromptDismissed) {
+    //         openBillingEditor();
+    //     }
+    // }, [loading, sessionUser, shouldPromptBilling, showBillingModal, addressPromptDismissed]);
 
 
     const tierInfo = useMemo(() => {
@@ -443,24 +509,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     };
 
 
-    const handleLogout = async () => {
-        try {
-            if (onLogout) {
-                await onLogout();
-            } else {
-                await fetch("/logout", { method: "POST", credentials: "include" });
-            }
-        } finally {
-            setSessionUser(null);
-            navigate("/login", { replace: true });
-        }
-    };
-
-
-
-
 // profile picture logic
-    const isOAuthUser = !!sessionUser?.picture;
+    const isOAuthUser = !!sessionUser?.picture ||
+        !!sessionUser?.raw?.provider; // since /api/me adds provider for OAuth;
     const canEditAvatar = !isOAuthUser; // owner implied since it's /profile
 
 // avatarUrl = local preview only (from file input)
@@ -469,9 +520,21 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     const savedAvatarUrl = profile.avatarUrl || null;
 
+    const oauthPicture =
+        sessionUser?.picture ||
+        sessionUser?.raw?.picture ||
+        sessionUser?.raw?.attributes?.picture ||
+        null;
+
     const displayAvatar = isOAuthUser
-        ? (sessionUser?.picture || null)              // rule #3
-        : (avatarUrl || savedAvatarUrl || null);      // preview > saved > initials
+        ? oauthPicture
+        : (avatarUrl || savedAvatarUrl || null);
+    // preview > saved > initials
+
+    console.log("savedAvatarUrl =", savedAvatarUrl);
+    console.log("oauthPicture   =", oauthPicture);
+    console.log("displayAvatar  =", displayAvatar);
+
 
     async function saveAvatarToBackend() {
         if (!avatarFile) return;
@@ -497,8 +560,12 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
         const data = await res.json(); // { avatarUrl: "..." }
         setProfile(p => ({ ...p, avatarUrl: data.avatarUrl }));
+        setSessionUser(u =>
+            u ? { ...u, raw: { ...(u.raw ?? {}), avatarUrl: data.avatarUrl } } : u
+        );
         setAvatarUrl(null); // clear preview after saving
         setAvatarFile(null);
+
     }
 
     async function deleteAvatarFromBackend() {
@@ -514,6 +581,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
 
         setProfile(p => ({ ...p, avatarUrl: null }));
+        setSessionUser(u =>
+            u ? { ...u, raw: { ...(u.raw ?? {}), avatarUrl: null } } : u
+        );
         setAvatarUrl(null);
         setAvatarFile(null);
     }
@@ -533,7 +603,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         profile.customerId ??
         "—";
 
-    console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
+  //  console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
 
 
     // deleting the profile logic
@@ -547,33 +617,29 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         setDeleteError("");
 
         try {
-            // ✅ change this URL to whatever you implemented on backend
             const res = await fetch("/api/me", {
                 method: "DELETE",
                 credentials: "include",
             });
 
-            if (res.status === 401) {
-                // already logged out / session expired
-                setSessionUser(null);
-                navigate("/login", { replace: true });
-                return;
-            }
-
-            if (!res.ok) {
+            if (!res.ok && res.status !== 401) {
                 const msg = await res.text();
                 setDeleteError(msg || "Failed to delete profile.");
                 return;
             }
 
-            // ✅ success: clear local session + redirect
+            // ✅ clear any cached client auth
+            localStorage.removeItem(dismissKey);
+            localStorage.removeItem("tc_user");
+
+            // ✅ also tell the parent/global auth to clear (so navbar updates)
+            if (onLogout) {
+                await onLogout(); // should setUser(null) in App
+            }
+
             setShowDeleteModal(false);
             setSessionUser(null);
-
-            // optional: clear any cached profile UI
-            // setProfile(initialProfileState);
-
-            navigate("/login", { replace: true });
+            navigate("/", { replace: true });
         } catch (e) {
             setDeleteError(e?.message || "Failed to delete profile.");
         } finally {
@@ -581,21 +647,25 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     }
 
-    if (shouldRedirect) return <Navigate to="/login" replace />;
+
+    if (shouldRedirect) return <Navigate to="/" replace />;
 
     return (
 
         <Container className="py-4 py-md-5 px-4">
             {/*compelete your profile alert*/}
-            {needsAddress && (
+            {shouldPromptBilling && !addressPromptDismissed && !showBillingModal && (
                 <Alert variant="info" className="mb-3">
                     <div className="fw-bold">Complete your profile</div>
-                    <div className="small">Please add your billing address to continue.</div>
+                    <div className="small">
+                        Please add your billing address to continue.
+                    </div>
                     <Button className="mt-2" onClick={openBillingEditor}>
                         Add Address
                     </Button>
                 </Alert>
             )}
+
 
             <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
                 <div>
@@ -1058,12 +1128,15 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 </Row>
             )}
         {/* ============== for edit billing ====================   */}
-            <Modal show={showBillingModal} onHide={needsAddress ? undefined : closeBillingEditor}
-                   backdrop={needsAddress ? "static" : true}
-                   keyboard={!needsAddress}
-                   centered
+            <Modal
+                show={showBillingModal}
+                onHide={needsAddress ? undefined : closeBillingEditor}
+                backdrop={needsAddress ? "static" : true}
+                keyboard={!needsAddress}
+                centered
             >
-                <Modal.Header closeButton={!needsAddress}>
+
+            <Modal.Header closeButton={!needsAddress}>
                     <Modal.Title>Edit Billing Address</Modal.Title>
                 </Modal.Header>
 

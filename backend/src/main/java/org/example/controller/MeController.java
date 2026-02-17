@@ -4,6 +4,8 @@ import java.security.Principal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.example.dto.RegisterAsCustomerRequestDTO;
 import org.example.dto.SaveMyAddressRequestDTO;
 import org.example.model.CustomerAddress;
@@ -18,6 +20,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import org.example.model.Customer;
@@ -81,47 +85,17 @@ public class MeController {
             }
 
             // ✅ Find or create UserAccount row
+            // ✅ ONLY look up (do NOT auto-create here)
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-
             if (ua == null) {
-                ua = new UserAccount();
-                ua.setUsername(key);
-
-                // For OAuth users, store "OAUTH" since you don't have a real password
-                if (isOauth) {
-                    ua.setPasswordHash("OAUTH");
-                    ua.setRole("Customer");
-                } else {
-                    ua.setPasswordHash("UNKNOWN");
-                    ua.setRole("Customer");
-                }
-
-                ua.setLastLoginAt(LocalDateTime.now());
-
-                // ✅ FIX for chk_user_owner:
-                // If this is OAuth login, create a Customer row now so CustomerId is NOT NULL.
-                if (isOauth && oauthUser != null) {
-                    Map<String, Object> a = oauthUser.getAttributes();
-
-                    Customer c = new Customer();
-                    c.setCustomerType("Individual");
-                    c.setEmail(key);
-                    c.setFirstName(str(a.get("given_name")));   // Oauth User
-                    c.setLastName(str(a.get("family_name")));   // Oauth User
-                    c.setHomePhone("000-000-0000");             // placeholder to satisfy NOT NULL
-                    c.setPasswordHash("OAUTH");
-                    c.setStatus("Active"); // (only if your schema requires it)
-
-                    Customer saved = customerRepo.save(c);
-                    ua.setCustomerId(saved.getCustomerId());    // ✅ now constraint passes
-                }
-
-                ua = userAccountRepo.save(ua);
-
-            } else {
-                ua.setLastLoginAt(LocalDateTime.now());
-                ua = userAccountRepo.save(ua);
+                // If they're authenticated but we have no account row, treat as not registered
+                return ResponseEntity.status(404).body("Not registered");
             }
+
+// Update last login (optional)
+            ua.setLastLoginAt(LocalDateTime.now());
+            userAccountRepo.save(ua);
+
 
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("name", principal.getName());
@@ -340,15 +314,17 @@ public class MeController {
         return null;
     }
 
+    @Transactional
     @DeleteMapping("/api/me")
     public ResponseEntity<?> deleteMyProfile(
             Principal principal,
             Authentication auth,
-            @AuthenticationPrincipal OAuth2User oauthUser
+            @AuthenticationPrincipal OAuth2User oauthUser,
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
         if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
 
-        // Same key logic you already use
         String key = (auth instanceof OAuth2AuthenticationToken)
                 ? resolveKey(principal, oauthUser)
                 : principal.getName();
@@ -359,29 +335,41 @@ public class MeController {
         Integer customerId = ua.getCustomerId();
         Integer employeeId = ua.getEmployeeId();
 
-        // If they don't even have a customer profile, nothing to delete
         if (customerId == null) {
+            // log out + invalidate session cookie
+            new SecurityContextLogoutHandler().logout(request, response, auth);
             return ResponseEntity.ok("No customer profile to delete");
         }
 
-        // 1) delete addresses first (avoid FK issues)
-        customerAddressRepo.deleteAllByCustomerId(customerId);
+        if (employeeId != null) {
+            // Employee: keep login, unlink customer FIRST to satisfy FK useraccounts -> customers
+            ua.setCustomerId(null);
+            userAccountRepo.saveAndFlush(ua);   // ✅ flush so FK is cleared in DB now
 
-        // 2) delete customer record
-        customerRepo.deleteById(customerId);
+            // Now safe to delete the customer side
+            customerAddressRepo.deleteAllByCustomerId(customerId);
+            customerRepo.deleteById(customerId);
 
-        // 3) unlink customer from user account
-        ua.setCustomerId(null);
-        userAccountRepo.save(ua);
-
-        // OPTIONAL:
-        // If this is NOT an employee, you may want to delete the entire login too
-        // (customer-only accounts). If employee, keep UA so they can still login.
-        if (employeeId == null) {
-            userAccountRepo.delete(ua);
+            // log out + invalidate session cookie
+            new SecurityContextLogoutHandler().logout(request, response, auth);
+            return ResponseEntity.ok("Customer profile deleted (employee login kept)");
         }
 
-        return ResponseEntity.ok("Profile deleted");
+        // Customer-only: delete dependents, then delete UA (which holds FK), then delete customer
+        customerAddressRepo.deleteAllByCustomerId(customerId);
+        userAccountRepo.delete(ua);
+        userAccountRepo.flush();
+        customerRepo.deleteById(customerId);
+
+// ✅ log out + invalidate session cookie
+        new SecurityContextLogoutHandler().logout(request, response, auth);
+
+        return ResponseEntity.ok("Account deleted");
+
+
+
     }
+
+
 
 }

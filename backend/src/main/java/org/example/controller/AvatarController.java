@@ -13,12 +13,11 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.security.Principal;
 import java.util.Map;
-
 @RestController
 @RequestMapping("/api/me")
 public class AvatarController {
 
-    @Value("${app.upload-dir:uploads}")
+    @Value("${app.upload-dir:src/uploads}")
     private String uploadDir;
 
     private final UserAccountRepository userAccountRepo;
@@ -33,30 +32,25 @@ public class AvatarController {
             Principal principal
     ) throws IOException {
 
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-
-        if (avatar == null || avatar.isEmpty()) {
+        if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        if (avatar == null || avatar.isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file uploaded");
-        }
 
         String contentType = avatar.getContentType() == null ? "" : avatar.getContentType();
-        if (!contentType.startsWith("image/")) {
+        if (!contentType.startsWith("image/"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File must be an image");
-        }
 
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(principal.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        // Create folder: uploads/avatars
+        // ✅ writes to backend/src/uploads/avatars (if uploadDir=src/uploads)
         Path avatarsDir = Paths.get(uploadDir, "avatars").toAbsolutePath().normalize();
         Files.createDirectories(avatarsDir);
 
-        // File name: user_{id}.png (overwrite)
         String ext = contentType.contains("png") ? "png"
                 : (contentType.contains("jpeg") || contentType.contains("jpg")) ? "jpg"
                 : "img";
+
         String fileName = "user_" + ua.getUserId() + "." + ext;
 
         Path target = avatarsDir.resolve(fileName).normalize();
@@ -64,7 +58,7 @@ public class AvatarController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid file path");
         }
 
-        // Delete old avatar file if it was local and has a different filename
+        // ✅ delete old file if it exists and is different
         String oldUrl = ua.getAvatarUrl();
         if (oldUrl != null && oldUrl.startsWith("/uploads/avatars/")) {
             String oldFile = oldUrl.substring("/uploads/avatars/".length());
@@ -76,7 +70,9 @@ public class AvatarController {
 
         Files.copy(avatar.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
+        // ✅ URL clients request (matches your StaticResourceConfig mapping)
         String publicUrl = "/uploads/avatars/" + fileName;
+
         ua.setAvatarUrl(publicUrl);
         userAccountRepo.save(ua);
 
@@ -85,9 +81,7 @@ public class AvatarController {
 
     @DeleteMapping("/avatar")
     public Map<String, Boolean> deleteAvatar(Principal principal) throws IOException {
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
+        if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
 
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(principal.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
