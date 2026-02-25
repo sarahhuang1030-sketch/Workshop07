@@ -106,7 +106,7 @@ public class Invoice {
     private PaymentAccounts paidByAccount;
 
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL)
-    private List<InvoiceItem> items;
+    private List<InvoiceItems> items;
 
     // ===== getters & setters =====
     public Integer getInvoiceId() { return invoiceId; }
@@ -142,6 +142,6 @@ public class Invoice {
     public PaymentAccounts getPaidByAccount() { return paidByAccount; }
     public void setPaidByAccount(PaymentAccounts paidByAccount) { this.paidByAccount = paidByAccount; }
 
-    public List<InvoiceItem> getItems() { return items; }
-    public void setItems(List<InvoiceItem> items) { this.items = items; }
+    public List<InvoiceItems> getItems() { return items; }
+    public void setItems(List<InvoiceItems> items) { this.items = items; }
 }

@@ -2,7 +2,7 @@ package org.example.controller;
 
 import org.example.dto.CheckoutRequestDTO;
 import org.example.entity.Invoice;
-import org.example.entity.InvoiceItem;
+import org.example.entity.InvoiceItems;
 import org.example.service.CheckoutService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +22,7 @@ public class CheckoutController {
     @PostMapping
     public ResponseEntity<Invoice> checkout(@RequestBody CheckoutRequestDTO dto) {
         try {
-            List<InvoiceItem> items = dto.getItems();
+            List<InvoiceItems> items = dto.getItems();
             Invoice invoice = checkoutService.checkout(
                     dto.getPaymentAccountId(),
                     dto.getSubtotal(),

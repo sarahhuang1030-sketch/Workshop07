@@ -1,7 +1,8 @@
 package org.example.service;
 
 import org.example.entity.Invoice;
-import org.example.entity.InvoiceItem;
+import org.example.entity.InvoiceItems;
+import org.example.entity.InvoiceItems;
 import org.example.entity.PaymentAccounts;
 import org.example.model.UserAccount;
 import org.example.repository.InvoiceItemRepository;
@@ -42,7 +43,7 @@ public class CheckoutService {
                             Double total,
                             String promoCode,
                             String billingCycle,
-                            List<InvoiceItem> items) throws Exception {
+                            List<InvoiceItems> items) throws Exception {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String username = auth.getName();
@@ -79,7 +80,7 @@ public class CheckoutService {
         Invoice savedInvoice = invoiceRepo.save(invoice);
 
         // Save invoice items
-        for (InvoiceItem item : items) {
+        for (InvoiceItems item : items) {
             item.setInvoice(savedInvoice);
             if (item.getLineTotal() == null) {
                 item.setLineTotal(BigDecimal.valueOf(item.getQuantity() * item.getUnitPrice().doubleValue()));
