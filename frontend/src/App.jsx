@@ -20,8 +20,6 @@ import CustomerPlan from "./pages/customer/CustomerPlan";
 import CustomerBilling from "./pages/customer/CustomerBilling";
 import CustomerSupport from "./pages/customer/CustomerSupport";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
-
-
 // Sales
 import SalesDashboard from "./pages/sales/SalesDashboard";
 import SalesCustomers from "./pages/sales/SalesCustomers";

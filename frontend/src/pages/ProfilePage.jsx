@@ -16,11 +16,6 @@ import {
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Crown, CreditCard, Package, Star, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import {apiFetch} from "../utils/api.js";
-
-//
-// delete "eslint-disable-next-line no-unused-vars"
-//
 
 // --------- Business Rules (from your spec) ---------
 const POINTS_PER_DOLLAR = 1;
@@ -39,11 +34,9 @@ function initials(name = "") {
     return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-// eslint-disable-next-line no-unused-vars
 function prevFirstName(full = "") {
     return String(full).trim().split(/\s+/)[0] || "";
 }
-// eslint-disable-next-line no-unused-vars
 function prevLastName(full = "") {
     const parts = String(full).trim().split(/\s+/);
     return parts.slice(1).join(" ");
@@ -256,7 +249,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             }
 
             const updated = await res.json();
-      //      console.log("PUT /api/billing/address response:", updated);
+            //      console.log("PUT /api/billing/address response:", updated);
 
 
 // updated = { street1, street2, city, province, postalCode, country, customerId }
@@ -331,8 +324,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 setError("");
                 setLoading(true);
 
-                // const res = await fetch("/api/me", { credentials: "include" });
-                const res = await apiFetch("/api/me");
+                const res = await fetch("/api/me", { credentials: "include" });
 
                 if (res.status === 401 || res.status === 404) {
                     // 401 = not authenticated, 404 = authenticated but no UA row ("Not registered")
@@ -350,7 +342,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
 
                 const me = await res.json();
-            //    console.log("ME RESPONSE:", me);
+                //    console.log("ME RESPONSE:", me);
 
 
                 // ✅ set identity from /api/me (works for normal + oauth)
@@ -437,7 +429,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }));
     }, [sessionUser]);
 
-    // eslint-disable-next-line no-unused-vars
     const canRegisterAsCustomer = useMemo(() => {
         if (loading) return false;
         if (!sessionUser) return false;
@@ -464,7 +455,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     }, [sessionUser, profile.billing?.address]);
 
 
-// eslint-disable-next-line no-unused-vars
+
     function completeLater() {
         setAddressPromptDismissed(true);
         localStorage.setItem(dismissKey, "1");
@@ -504,7 +495,6 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         ? "Frequent Traveler (Bronze)"
         : (isEmployee ? "Employee Customer" : "Guest Customer");
 
-    // eslint-disable-next-line no-unused-vars
     const rewardsLabel = tierInfo.isBronze
         ? "Frequent Traveler (Bronze)"
         : "Guest Customer";
@@ -519,33 +509,37 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     };
 
 
+
 // profile picture logic
-    const isOAuthUser = !!sessionUser?.picture ||
-        !!sessionUser?.raw?.provider; // since /api/me adds provider for OAuth;
-
-    // eslint-disable-next-line no-unused-vars
-    const canEditAvatar = !isOAuthUser; // owner implied since it's /profile
-
-// avatarUrl = local preview only (from file input)
-// profile.avatarUrl = saved custom avatar url (from your backend)
-// sessionUser.picture = oauth provider picture
+    function pictureToUrl(pic) {
+        if (!pic) return null;
+        if (typeof pic === "string") return pic;
+        if (typeof pic === "object") {
+            // Facebook shape: { data: { url: "..." } }
+            if (pic.data?.url) return pic.data.url;
+            // Sometimes: { url: "..." }
+            if (pic.url) return pic.url;
+        }
+        return null;
+    }
 
     const savedAvatarUrl = profile.avatarUrl || null;
 
-    const oauthPicture =
-        sessionUser?.picture ||
-        sessionUser?.raw?.picture ||
-        sessionUser?.raw?.attributes?.picture ||
+    const oauthPictureUrl =
+        pictureToUrl(sessionUser?.picture) ||
+        pictureToUrl(sessionUser?.raw?.picture) ||
+        pictureToUrl(sessionUser?.raw?.avatarUrl) ||
         null;
 
-    const displayAvatar = isOAuthUser
-        ? oauthPicture
-        : (avatarUrl || savedAvatarUrl || null);
-    // preview > saved > initials
+    const isOAuthUser = !!oauthPictureUrl;
 
-    console.log("savedAvatarUrl =", savedAvatarUrl);
-    console.log("oauthPicture   =", oauthPicture);
-    console.log("displayAvatar  =", displayAvatar);
+    const displayAvatar =
+        oauthPictureUrl || avatarUrl || savedAvatarUrl || null;
+
+    console.log("savedAvatarUrl  =", savedAvatarUrl);
+    console.log("oauthPictureUrl =", oauthPictureUrl);
+    console.log("displayAvatar   =", displayAvatar);
+
 
 
     async function saveAvatarToBackend() {
@@ -609,15 +603,13 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     // shoiwng customer/employee id
     const employeeId = Number(sessionUser?.employeeId ?? sessionUser?.raw?.employeeId ?? 0);
-
-    // eslint-disable-next-line no-unused-vars
     const customerId =
         sessionUser?.raw?.externalId ??
         sessionUser?.customerId ??
         profile.customerId ??
         "—";
 
-  //  console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
+    //  console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
 
 
     // deleting the profile logic
@@ -1141,7 +1133,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     </Col>
                 </Row>
             )}
-        {/* ============== for edit billing ====================   */}
+            {/* ============== for edit billing ====================   */}
             <Modal
                 show={showBillingModal}
                 onHide={needsAddress ? undefined : closeBillingEditor}
@@ -1150,7 +1142,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 centered
             >
 
-            <Modal.Header closeButton={!needsAddress}>
+                <Modal.Header closeButton={!needsAddress}>
                     <Modal.Title>Edit Billing Address</Modal.Title>
                 </Modal.Header>
 
@@ -1266,16 +1258,16 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     </Button>
                     <Button onClick={saveBillingAddress}
                             disabled={
-                        billingSaving ||
-                        !billingDraft?.street1?.trim()||
-                        (needsPhone && !billingDraft?.phone?.trim())
-                    }>
+                                billingSaving ||
+                                !billingDraft?.street1?.trim()||
+                                (needsPhone && !billingDraft?.phone?.trim())
+                            }>
                         {billingSaving ? "Saving..." : "Save"}
                     </Button>
                 </Modal.Footer>
             </Modal>
 
-        {/* Deleting profile modal  */}
+            {/* Deleting profile modal  */}
             <Modal
                 show={showDeleteModal}
                 onHide={deleting ? undefined : () => setShowDeleteModal(false)}
