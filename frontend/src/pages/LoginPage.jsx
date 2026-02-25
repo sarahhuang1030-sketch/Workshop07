@@ -55,8 +55,18 @@ export default function LoginPage({ setUser }) {
 
 
     function loginWithProvider(provider) {
-        return (e) => {
-            e?.preventDefault?.();            // stop form submit
+        return async (e) => {
+            e.preventDefault();
+
+            // ensure we drop any existing oauth session (google, facebook, etc.)
+            try {
+                await fetch("/logout", { method: "POST", credentials: "include" });
+            } catch {}
+
+            // optional: clear your local cached user
+            localStorage.removeItem("tc_user");
+            sessionStorage.removeItem("tc_needs_registration");
+
             window.location.assign(`/oauth2/authorization/${provider}`);
         };
     }
@@ -135,7 +145,7 @@ export default function LoginPage({ setUser }) {
                                 <button  className="btn m-1" onClick={loginWithProvider("google")}>
                                     <FaGoogle size={22} />
                                 </button>
-                                <button className="btn m-1" onClick={loginWithProvider("github")}>
+                                <button type="button" className="btn m-1" onClick={loginWithProvider("github")}>
                                     <FaGithub size={22} />
                                 </button>
                                 <button className="btn m-1" onClick={loginWithProvider("facebook")}>

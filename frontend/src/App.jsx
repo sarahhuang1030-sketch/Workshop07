@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 
 import Layout from "./components/layout/Layout";
@@ -21,7 +21,6 @@ import CustomerBilling from "./pages/customer/CustomerBilling";
 import CustomerSupport from "./pages/customer/CustomerSupport";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 
-
 // Sales
 import SalesDashboard from "./pages/sales/SalesDashboard";
 import SalesCustomers from "./pages/sales/SalesCustomers";
@@ -32,6 +31,7 @@ import SalesActivations from "./pages/sales/SalesActivations";
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
 import ServiceTickets from "./pages/service/ServiceTickets";
 import ServiceDashboard from "./pages/service/ServiceDashboard";
+
 // Manager
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ManagerUsers from "./pages/manager/ManagerUsers";
@@ -40,178 +40,228 @@ import ManagerPromotions from "./pages/manager/ManagerPromotions";
 
 import RequireRole from "./components/auth/RequireRole";
 
-
 function mapOAuthMeToUser(meResponse) {
     const provider = meResponse?.provider || "google";
-    const a = meResponse?.attributes ?? meResponse ?? {};
+    const attrs = meResponse?.attributes ?? {};
 
-    if (provider === "google") {
-        const fullName = a.name || "";
-        return {
-            authType: "oauth",
-            provider,
-            customerId: a.sub || null,
-            firstName: a.given_name || fullName.split(" ")[0] || "—",
-            lastName: a.family_name || fullName.split(" ").slice(1).join(" ") || "",
-            email: a.email || "",
-            username: a.email || fullName || "Google User",
-            picture: a.picture || null,
-            raw: meResponse,
-        };
-    }
+    const dbCustomerId = meResponse?.customerId ?? null;
+    const dbEmployeeId = meResponse?.employeeId ?? null;
+    const dbFirstName = meResponse?.firstName ?? null;
+    const dbLastName = meResponse?.lastName ?? null;
+    const dbEmail = meResponse?.email ?? null;
+    const dbUsername = meResponse?.lookupKey ?? meResponse?.username ?? null;
+    const dbRole = (meResponse?.role ?? "").toLowerCase() || null;
 
-    if (provider === "github") {
-        const fullName = a.name || a.login || "";
-        return {
-            authType: "oauth",
-            provider,
-            customerId: String(a.id ?? ""),
-            firstName: (a.name || a.login || "—").split(" ")[0],
-            lastName: (a.name || "").split(" ").slice(1).join(" "),
-            email: a.email || "",
-            username: a.login || a.name || "GitHub User",
-            picture: a.avatar_url || null,
-            raw: meResponse,
-        };
-    }
+    const fullName = attrs.name || "";
+    const fallbackFirst =
+        attrs.given_name ||
+        attrs.first_name ||
+        (fullName ? fullName.split(" ")[0] : null) ||
+        "—";
 
-    if (provider === "facebook") {
-        const fullName = a.name || "";
-        return {
-            authType: "oauth",
-            provider,
-            customerId: String(a.id ?? ""),
-            firstName: a.first_name || fullName.split(" ")[0] || "—",
-            lastName: a.last_name || fullName.split(" ").slice(1).join(" ") || "",
-            email: a.email || "",
-            username: a.email || fullName || "Facebook User",
-            picture: a.picture?.data?.url || null,
-            raw: meResponse,
-        };
-    }
+    const fallbackLast =
+        attrs.family_name ||
+        attrs.last_name ||
+        (fullName ? fullName.split(" ").slice(1).join(" ") : "") ||
+        "";
 
-    return { authType: "oauth", provider, raw: meResponse };
+    const fallbackEmail = attrs.email || "";
+    const fallbackUsername = attrs.email || attrs.login || fullName || `${provider} user`;
+
+    const fallbackPicture =
+        attrs.picture || attrs.avatar_url || attrs.picture?.data?.url || null;
+
+    return {
+        authType: "oauth",
+        provider,
+        customerId: dbCustomerId,
+        employeeId: dbEmployeeId,
+        role: dbRole,
+        firstName: dbFirstName || fallbackFirst,
+        lastName: dbLastName || fallbackLast,
+        email: dbEmail || fallbackEmail,
+        username: dbUsername || fallbackUsername,
+        picture: meResponse?.avatarUrl || fallbackPicture,
+        raw: meResponse,
+    };
 }
 
-function OAuthSuccessHandler({ setUser }) {
-    const navigate = useNavigate();
-    const location = useLocation();
-
-    const redirectTo =
-        sessionStorage.getItem("post_login_redirect") ||
-        location.state?.from?.pathname ||
-        "/";
-
-
+// ✅ FIX: accept setNeedsRegistration in props
+function OAuthSuccessHandler({ finishOAuthLogin }) {
     useEffect(() => {
-        let cancelled = false;
+        finishOAuthLogin?.();
+    }, [finishOAuthLogin]);
 
-        async function finishOAuthLogin() {
-            try {
-                const res = await fetch("/api/me", { credentials: "include" });
-                const contentType = res.headers.get("content-type") || "";
-                if (!res.ok || !contentType.includes("application/json")) {
-                    throw new Error("Not logged in (no /api/me JSON).");
-                }
-
-                const me = await res.json();
-                if (cancelled) return;
-
-
-                setUser(mapOAuthMeToUser(me));
-                sessionStorage.removeItem("post_login_redirect");
-                navigate(redirectTo, { replace: true });
-            } catch (e) {
-                console.error("OAuth success handler failed:", e);
-                if (!cancelled) navigate("/login", { replace: true });
-            }
-        }
-
-        finishOAuthLogin();
-        return () => {
-            cancelled = true;
-        };
-    }, [navigate, setUser, redirectTo]);
-
-    return (
-        <div style={{ padding: 24 }}>
-            <h2>Signing you in…</h2>
-            <p>Please wait.</p>
-        </div>
-    );
+    return null; // or spinner
 }
 
 export default function App() {
+    const navigate = useNavigate();
     const [user, setUser] = useState(null);
 
-    // on FIRST LOAD, restore user from localStorage and/or cookie session
+    const [needsRegistration, setNeedsRegistration] = useState(() => {
+        try {
+            const raw = sessionStorage.getItem("tc_needs_registration");
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    });
+
+    const location = useLocation();
+
     useEffect(() => {
         let cancelled = false;
 
-        const saved = localStorage.getItem("tc_user");
-        if (saved) {
-            try {
-                setUser(JSON.parse(saved));
-            } catch {
-                localStorage.removeItem("tc_user");
-            }
-        }
-
-        async function tryRestoreOAuthSession() {
-            try {
-                // if localStorage already had a user, don't overwrite it here
-                if (saved) return;
-
-                const res = await fetch("/api/me", { credentials: "include" });
-                const contentType = res.headers.get("content-type") || "";
-                if (!res.ok || !contentType.includes("application/json")) return;
-
+        fetch("/api/me", { credentials: "include" })
+            .then(async (res) => {
+                if (!res.ok) throw new Error("not logged in");
                 const me = await res.json();
-                if (cancelled) return;
+                if (!cancelled) setUser(mapOAuthMeToUser(me));
+            })
+            .catch(() => {
+                if (!cancelled) setUser(null);
+                localStorage.removeItem("tc_user");
+            });
 
-                setUser(mapOAuthMeToUser(me));
-            } catch {
-                // ignore
-            }
-        }
-
-        tryRestoreOAuthSession();
-
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, []);
 
-    useEffect(() => {
-        if (user) localStorage.setItem("tc_user", JSON.stringify(user));
-        else localStorage.removeItem("tc_user");
-    }, [user]);
+    const finishOAuthLogin = useCallback(async () => {
+        try {
+            const res = await fetch("/api/me", { credentials: "include" });
+            const contentType = res.headers.get("content-type") || "";
+
+            // 409 = logged in with OAuth but no customer profile yet
+            if (res.status === 409) {
+                const text = await res.text();
+                let data = null;
+                try { data = JSON.parse(text); } catch {}
+
+                // build a consistent needsRegistration object
+                const nr = {
+                    status: data?.status || "NEEDS_REGISTRATION",
+                    lookupKey: data?.lookupKey,
+                    provider: data?.provider,
+                    email: data?.email || data?.attributes?.email || "",
+                    attributes: data?.attributes || {},
+                };
+
+                sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
+                setNeedsRegistration(nr);
+                navigate("/profile", { replace: true });
+                return;
+            }
+
+            // not logged in / session missing
+            if (!res.ok) {
+                setUser(null);
+                return;
+            }
+
+            // logged in + profile exists
+            if (!contentType.includes("application/json")) return;
+            const me = await res.json();
+            setNeedsRegistration(null);
+            sessionStorage.removeItem("tc_needs_registration");
+            setUser(mapOAuthMeToUser(me));
+            navigate("/profile", { replace: true });
+        } catch {
+            setUser(null);
+        }
+    }, [navigate]);
+
+    // useEffect(() => {
+    //     let cancelled = false;
+    //
+    //
+    //
+    //     async function tryRestoreOAuthSession() {
+    //         try {
+    //
+    //             // ✅ skip while OAuth success handler is already doing /api/me
+    //             if (location.pathname === "/oauth-success") return;
+    //
+    //             // ✅ skip if we already know we need registration
+    //             if (needsRegistration) return;
+    //
+    //             const res = await fetch("/api/me", { credentials: "include" });
+    //             if (res.status === 401) {
+    //                 if (!cancelled) setUser(null);
+    //                 return;
+    //             }
+    //             const contentType = res.headers.get("content-type") || "";
+    //
+    //             if (res.status === 409) {
+    //                 const data = contentType.includes("application/json")
+    //                     ? await res.json().catch(() => null)
+    //                     : null;
+    //
+    //                 if (data?.status === "NEEDS_REGISTRATION") {
+    //                     const nr = {
+    //                         status: data.status,
+    //                         lookupKey: data.lookupKey,
+    //                         provider: data.provider,
+    //                         email: data.email || data.attributes?.email || "",
+    //                         attributes: data.attributes || {},
+    //                     };
+    //                     sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
+    //                     setNeedsRegistration(nr);
+    //                     navigate("/profile", { replace: true });
+    //                 }
+    //                 return;
+    //             }
+    //
+    //             if (!res.ok) {
+    //                 if (!cancelled) setUser(null);
+    //                 return;
+    //             }
+    //             if (!contentType.includes("application/json")) {
+    //                 if (!cancelled) setUser(null);
+    //                 return;
+    //             }
+    //             const me = await res.json();
+    //             if (!cancelled) setUser(mapOAuthMeToUser(me));
+    //         } catch {
+    //             // ignore
+    //         }
+    //     }
+    //
+    //     tryRestoreOAuthSession();
+    //     return () => { cancelled = true; };
+    // }, [navigate, location.pathname, needsRegistration]);
+
+
 
     async function logout() {
         try {
             await fetch("/logout", { method: "POST", credentials: "include" });
-            localStorage.removeItem("tc_user");
-            setUser(null);
         } catch {
             // ignore
         } finally {
             setUser(null);
-            localStorage.removeItem("tc_user");
+            setNeedsRegistration(null);
+            sessionStorage.removeItem("tc_needs_registration");
+            localStorage.removeItem("tc_user"); // harmless if you remove usage
+            navigate("/", { replace: true });   // optional
         }
     }
-
 
     return (
         <CartProvider>
             <Routes>
                 <Route element={<Layout user={user} setUser={setUser} />}>
                     <Route path="/" element={<HomePage />} />
+
                     <Route
                         path="/profile"
                         element={
-                            <RequireRole user={user} allow={["customer","salesagent","servicetechnician","manager"]}>
-                                <ProfilePage user={user} setUser={setUser} onLogout={logout} />
-                            </RequireRole>
+                            <ProfilePage
+                                user={user}
+                                onLogout={logout}
+                                needsRegistration={needsRegistration}
+                                setNeedsRegistration={setNeedsRegistration}
+                            />
                         }
                     />
 
@@ -219,10 +269,20 @@ export default function App() {
                     <Route path="/cart" element={<ShoppingCartPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
                     <Route path="/login" element={<LoginPage setUser={setUser} />} />
-                    <Route path="/register" element={<RegisterPage setUser={setUser} />} />
+
+                    <Route
+                        path="/register"
+                        element={<RegisterPage needsRegistration={null} />}
+                    />
+
                     <Route path="/forgetpassword" element={<ForgetPasswordPage />} />
                     <Route path="/resetpassword" element={<ResetPasswordPage />} />
-                    <Route path="/oauth-success" element={<OAuthSuccessHandler setUser={setUser} />} />
+
+                    {/* ✅ FIX: pass setNeedsRegistration */}
+                    <Route
+                        path="/oauth-success"
+                        element={<OAuthSuccessHandler finishOAuthLogin={finishOAuthLogin} />}
+                    />
 
                     {/* Customer */}
                     <Route
@@ -258,7 +318,7 @@ export default function App() {
                         }
                     />
 
-                    {/* Sales (SalesAgent OR Manager) */}
+                    {/* Sales */}
                     <Route
                         path="/sales"
                         element={
@@ -292,7 +352,7 @@ export default function App() {
                         }
                     />
 
-                    {/* Service (ServiceTechnician OR Manager) */}
+                    {/* Service */}
                     <Route
                         path="/service"
                         element={
@@ -318,7 +378,7 @@ export default function App() {
                         }
                     />
 
-                    {/* Manager only */}
+                    {/* Manager */}
                     <Route
                         path="/manager"
                         element={
@@ -352,9 +412,14 @@ export default function App() {
                         }
                     />
 
-                    {/* Not Found */}
-                    <Route path="*" element={<div className="container py-4"><h2>Not Found</h2></div>} />
-
+                    <Route
+                        path="*"
+                        element={
+                            <div className="container py-4">
+                                <h2>Not Found</h2>
+                            </div>
+                        }
+                    />
                 </Route>
             </Routes>
         </CartProvider>

@@ -7,6 +7,7 @@ public class RegisterAsCustomerRequestDTO {
         public String lastName;
         public String businessName;
         public String homePhone;
+        public String email;
 
         // address (billing)
         public String street1;

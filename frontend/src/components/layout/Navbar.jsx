@@ -6,7 +6,7 @@ import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
 import { ROLE_UI, roleKeyFromUser } from "../../config/roleUi";
 
-export default function AppNavbar({ user, setUser }) {
+export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
     const navigate = useNavigate();
     const { plan, addOns } = useCart();

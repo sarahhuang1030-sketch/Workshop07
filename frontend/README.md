@@ -35,3 +35,8 @@ Spring Security
 Session-based auth (JSESSIONID)
 BCrypt password hashing
 OAuth2 (Google/GitHub/etc.)
+
+Spring Boot REST API
+Authentication API - for OAuth2
+Azure Service APIs - for deployment
+Spring Boot using Ioc Appraoch

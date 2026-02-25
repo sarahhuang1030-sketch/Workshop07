@@ -2,6 +2,8 @@ package org.example.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
 
 public class RegisterRequestDTO {
 
@@ -11,12 +13,26 @@ public class RegisterRequestDTO {
 
     public String businessName;
 
-    @NotBlank @Email public String email;
-    @NotBlank public String homephone;
+    @AssertTrue(message = "Business name is required for business customers")
+    public boolean isBusinessNameValid() {
+        if ("business".equalsIgnoreCase(customerType)) {
+            return businessName != null && !businessName.trim().isEmpty();
+        }
+        return true;
+    }
+
+    @NotBlank @Email(message = "Invalid email")
+    public String email;
+
+    @NotBlank(message = "Home phone is required")
+    public String homephone;
 
     // login fields (useraccounts)
-    @NotBlank public String username;
-    @NotBlank public String password;
+    @NotBlank(message = "Username is required")
+    public String username;
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters")
+    public String password;
 
     // Billing address (required)
     @NotBlank public String billingStreet1;

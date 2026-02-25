@@ -1,17 +1,21 @@
 package org.example.controller;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.example.dto.RegisterAsCustomerRequestDTO;
 import org.example.dto.SaveMyAddressRequestDTO;
+import org.example.model.Customer;
 import org.example.model.CustomerAddress;
-import org.example.model.Employee;
 import org.example.model.UserAccount;
 import org.example.repository.CustomerAddressRepository;
+import org.example.repository.CustomerRepository;
+import org.example.repository.EmployeeRepository;
 import org.example.repository.UserAccountRepository;
 import org.example.service.AgentCustomerService;
 
@@ -23,11 +27,6 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import org.example.model.Customer;
-import org.example.repository.CustomerRepository;
-import java.time.LocalDateTime;
-import org.example.repository.EmployeeRepository;
 
 @RestController
 public class MeController {
@@ -42,8 +41,7 @@ public class MeController {
                         AgentCustomerService agentCustomerService,
                         CustomerAddressRepository customerAddressRepo,
                         CustomerRepository customerRepo,
-                        EmployeeRepository employeeRepo
-    ) {
+                        EmployeeRepository employeeRepo) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -53,50 +51,106 @@ public class MeController {
 
     // -------------------- GET /api/me --------------------
     @GetMapping("/api/me")
-    public ResponseEntity<?> me(
-            Principal principal,
-            Authentication auth,
-            @AuthenticationPrincipal Object principalObj
-    ) {
+    public ResponseEntity<?> me(Principal principal,
+                                Authentication auth,
+                                @AuthenticationPrincipal OAuth2User oauthUser) {
         try {
             if (principal == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
 
             boolean isOauth = auth instanceof OAuth2AuthenticationToken;
+            OAuth2AuthenticationToken oauthTok = isOauth ? (OAuth2AuthenticationToken) auth : null;
 
-            Map<String, Object> attrs = Map.of();
-            OAuth2User oauthUser = null;
-            OAuth2AuthenticationToken oauth = null;
+            Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
 
-            if (isOauth) {
-                oauth = (OAuth2AuthenticationToken) auth;
-                oauthUser = (OAuth2User) auth.getPrincipal();
-                if (oauthUser != null) attrs = oauthUser.getAttributes();
-            }
-
-
-            // ✅ This becomes your "Username" in UserAccounts (use email if possible)
-            String key = isOauth ? resolveKey(principal, oauthUser) : principal.getName();
-
-
+            // OAuth => provider:externalId ; local => principal.getName()
+            String key = resolveLoginKey(principal, auth, oauthUser);
             if (key == null || key.isBlank()) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
 
-            // ✅ Find or create UserAccount row
-            // ✅ ONLY look up (do NOT auto-create here)
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+
+            // Auto-register OAuth users if UA missing
             if (ua == null) {
-                // If they're authenticated but we have no account row, treat as not registered
-                return ResponseEntity.status(404).body("Not registered");
+                if (!isOauth || oauthTok == null) {
+                    return ResponseEntity.status(404).body("Not registered");
+                }
+
+                String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
+
+                String externalId = firstNonBlank(
+                        str(attrs.get("sub")),    // Google/Entra
+                        str(attrs.get("id")),     // Facebook sometimes
+                        str(attrs.get("login"))   // GitHub
+                );
+                if (externalId == null || externalId.isBlank()) {
+                    return ResponseEntity.status(400).body("OAuth externalId missing");
+                }
+
+                String rawEmail = firstNonBlank(
+                        str(attrs.get("email")),
+                        str(attrs.get("preferred_username")),
+                        str(attrs.get("upn"))
+                );
+                final String normalizedEmail = rawEmail != null ? rawEmail.trim().toLowerCase() : null;
+
+                // 1) Find or create Customer by (provider, externalId)
+                Customer customer = customerRepo
+                        .findByExternalProviderAndExternalCustomerId(provider, externalId)
+                        .orElse(null);
+
+                if (customer == null) {
+                    String fullName = firstNonBlank(str(attrs.get("name")), str(attrs.get("login")));
+
+                    String firstName = firstNonBlank(
+                            str(attrs.get("given_name")),
+                            str(attrs.get("first_name")),
+                            (fullName != null ? fullName.split(" ")[0] : null),
+                            "—"
+                    );
+
+                    String lastName = firstNonBlank(
+                            str(attrs.get("family_name")),
+                            str(attrs.get("last_name")),
+                            (fullName != null ? fullName.replaceFirst("^\\S+\\s*", "") : null),
+                            ""
+                    );
+
+                    Customer c = new Customer();
+                    c.setCustomerType("Individual");
+                    c.setFirstName(firstName);
+                    c.setLastName(lastName);
+                    c.setEmail(normalizedEmail); // can be null (GitHub etc.)
+                    c.setHomePhone(null);
+                    c.setExternalProvider(provider);
+                    c.setExternalCustomerId(externalId);
+                    c.setStatus("Active");
+                    c.setCreatedAt(LocalDateTime.now());
+                    c.setPasswordHash("OAUTH:" + provider);
+
+                    customer = customerRepo.save(c);
+                }
+
+                // 2) Create UA for this key, linked to that customer
+                UserAccount newUa = new UserAccount();
+                newUa.setUsername(key);
+                newUa.setRole("Customer");
+                newUa.setCustomerId(customer.getCustomerId());
+                newUa.setEmployeeId(null);
+                newUa.setIsLocked(0);
+                newUa.setPasswordHash("OAUTH:" + provider);
+                newUa.setLastLoginAt(LocalDateTime.now());
+
+                ua = userAccountRepo.save(newUa);
             }
 
-// Update last login (optional)
+            // Update last login
             ua.setLastLoginAt(LocalDateTime.now());
             userAccountRepo.save(ua);
 
-
+            // Build response
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("name", principal.getName());
             out.put("lookupKey", key);
@@ -106,18 +160,15 @@ public class MeController {
             out.put("role", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
 
-            // ✅ If employee, load identity from Employees table
-            // ✅ If employee, load first/last from Employees
+            // Employee
             if (ua.getEmployeeId() != null) {
-
-                out.put("userType", "Employee"); // always set if employeeId exists
+                out.put("userType", "Employee");
 
                 employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
                     out.put("firstName", emp.getFirstName());
                     out.put("lastName", emp.getLastName());
                 });
 
-                // keep email/phone from Customers (if linked)
                 if (ua.getCustomerId() != null) {
                     customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
                         out.put("email", c.getEmail());
@@ -125,19 +176,20 @@ public class MeController {
                     });
                 }
             }
-
-
-// ✅ Else if customer, load identity from Customers table
+            // Customer
             else if (ua.getCustomerId() != null) {
+                out.put("userType", "Customer");
                 customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
                     out.put("firstName", c.getFirstName());
                     out.put("lastName", c.getLastName());
                     out.put("email", c.getEmail());
                     out.put("homePhone", c.getHomePhone());
                 });
+            } else {
+                out.put("userType", "Unknown");
             }
 
-            // ✅ attach address if customerId exists
+            // Address (if customerId exists)
             if (ua.getCustomerId() != null) {
                 customerAddressRepo
                         .findFirstByCustomerIdOrderByIsPrimaryDesc(ua.getCustomerId())
@@ -149,9 +201,15 @@ public class MeController {
                 out.put("address", null);
             }
 
-            if (isOauth && oauth != null) {
-                out.put("provider", oauth.getAuthorizedClientRegistrationId());
+            if (isOauth && oauthTok != null) {
+                out.put("provider", oauthTok.getAuthorizedClientRegistrationId().toLowerCase());
                 out.put("attributes", attrs);
+
+                out.put("oauthPicture", firstNonBlank(
+                        str(attrs.get("picture")),      // google
+                        str(attrs.get("avatar_url")),   // github
+                        str(attrs.get("picture"))
+                ));
             }
 
             return ResponseEntity.ok(out);
@@ -162,57 +220,79 @@ public class MeController {
         }
     }
 
-
-
     // -------------------- POST /api/me/register-as-customer --------------------
     @PostMapping("/api/me/register-as-customer")
-    public Object registerAsCustomer(
-            Principal principal,
-            Authentication auth,
-            @AuthenticationPrincipal OAuth2User oauthUser,
-            @RequestBody RegisterAsCustomerRequestDTO req
-    ) {
+    public Object registerAsCustomer(Principal principal,
+                                     Authentication auth,
+                                     @AuthenticationPrincipal OAuth2User oauthUser,
+                                     @RequestBody RegisterAsCustomerRequestDTO req) {
+
         if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
 
-        String key = resolveKey(principal, oauthUser);
+        Map<String, Object> attrs = (oauthUser != null) ? oauthUser.getAttributes() : Map.of();
 
         String provider = null;
-        String externalId = null;
-        String firstName = null;
-        String lastName = null;
-
-        if (auth instanceof OAuth2AuthenticationToken oauth && oauthUser != null) {
-            provider = oauth.getAuthorizedClientRegistrationId();
-            Map<String, Object> attrs = oauthUser.getAttributes();
-
-            // Google: given_name/family_name/sub
-            firstName = str(attrs.get("given_name"));
-            lastName  = str(attrs.get("family_name"));
-            externalId = str(attrs.get("sub"));
-
-            // fallback: if provider differs
-            if (externalId == null) externalId = str(attrs.get("id"));
+        if (auth instanceof OAuth2AuthenticationToken oauth) {
+            provider = oauth.getAuthorizedClientRegistrationId().toLowerCase();
         }
+
+        String rawEmail = firstNonBlank(
+                str(attrs.get("email")),
+                str(attrs.get("preferred_username")),
+                str(attrs.get("upn"))
+        );
+        String email = rawEmail != null ? rawEmail.trim().toLowerCase() : null;
+
+        String key = resolveLoginKey(principal, auth, oauthUser);
+
+        if ((email == null || email.isBlank()) && req != null) {
+            String reqEmail = req.email != null ? req.email.trim().toLowerCase() : null;
+            email = firstNonBlank(reqEmail);
+        }
+
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body("OAuth email is missing. Please re-login with OAuth.");
+        }
+
+        if (req != null && (req.email == null || req.email.isBlank())) {
+            req.email = email;
+        }
+
+        String externalId = firstNonBlank(
+                str(attrs.get("sub")),
+                str(attrs.get("id")),
+                str(attrs.get("login"))
+        );
+
+        String firstName = firstNonBlank(
+                str(attrs.get("given_name")),
+                str(attrs.get("first_name"))
+        );
+
+        String lastName = firstNonBlank(
+                str(attrs.get("family_name")),
+                str(attrs.get("last_name"))
+        );
 
         return agentCustomerService.registerAsCustomer(key, provider, externalId, firstName, lastName, req);
     }
 
-
     // -------------------- POST /api/me/address (first time) --------------------
     @PostMapping("/api/me/address")
     public Object createMyAddress(Principal principal,
-                                  OAuth2AuthenticationToken oauth,
+                                  Authentication auth,
                                   @AuthenticationPrincipal OAuth2User oauthUser,
                                   @RequestBody SaveMyAddressRequestDTO req) {
 
         if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
 
-        String key = resolveKey(principal, oauthUser);
+        String key = resolveLoginKey(principal, auth, oauthUser);
+
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
         if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
 
         if (ua.getCustomerId() == null) {
-            return ResponseEntity.status(400).body("No customerId for this user. Register as customer first.");
+            return ResponseEntity.status(400).body("No customerId for this user.");
         }
 
         var existing = customerAddressRepo.findFirstByCustomerIdOrderByIsPrimaryDesc(ua.getCustomerId());
@@ -239,18 +319,19 @@ public class MeController {
     // -------------------- PUT /api/me/address (edit later) --------------------
     @PutMapping("/api/me/address")
     public Object updateMyAddress(Principal principal,
-                                  OAuth2AuthenticationToken oauth,
+                                  Authentication auth,
                                   @AuthenticationPrincipal OAuth2User oauthUser,
                                   @RequestBody SaveMyAddressRequestDTO req) {
 
         if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
 
-        String key = resolveKey(principal, oauthUser);
+        String key = resolveLoginKey(principal, auth, oauthUser);
+
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
         if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
 
         if (ua.getCustomerId() == null) {
-            return ResponseEntity.status(400).body("No customerId for this user. Register as customer first.");
+            return ResponseEntity.status(400).body("No customerId for this user.");
         }
 
         CustomerAddress addr = customerAddressRepo
@@ -277,16 +358,68 @@ public class MeController {
         return ResponseEntity.ok("Address updated");
     }
 
+    // -------------------- DELETE /api/me --------------------
+    @Transactional
+    @DeleteMapping("/api/me")
+    public ResponseEntity<?> deleteMyProfile(Principal principal,
+                                             Authentication auth,
+                                             @AuthenticationPrincipal OAuth2User oauthUser,
+                                             HttpServletRequest request,
+                                             HttpServletResponse response) {
+
+        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+
+        String key = resolveLoginKey(principal, auth, oauthUser);
+
+        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+        if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
+
+        Integer customerId = ua.getCustomerId();
+        Integer employeeId = ua.getEmployeeId();
+
+        if (customerId == null) {
+            new SecurityContextLogoutHandler().logout(request, response, auth);
+            return ResponseEntity.ok("No customer profile to delete");
+        }
+
+        if (employeeId != null) {
+            ua.setCustomerId(null);
+            userAccountRepo.saveAndFlush(ua);
+
+            customerAddressRepo.deleteAllByCustomerId(customerId);
+            customerRepo.deleteById(customerId);
+
+            new SecurityContextLogoutHandler().logout(request, response, auth);
+            return ResponseEntity.ok("Customer profile deleted (employee login kept)");
+        }
+
+        customerAddressRepo.deleteAllByCustomerId(customerId);
+        userAccountRepo.delete(ua);
+        userAccountRepo.flush();
+        customerRepo.deleteById(customerId);
+
+        new SecurityContextLogoutHandler().logout(request, response, auth);
+        return ResponseEntity.ok("Account deleted");
+    }
+
     // -------------------- helpers --------------------
 
-    private String resolveKey(Principal principal, OAuth2User oauthUser) {
-        Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
-        String email = str(attrs.get("email"));
-        if (email != null && !email.isBlank()) return email.trim();
+    // OAuth => provider:externalId ; local login => principal.getName()
+    private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
+        if (auth instanceof OAuth2AuthenticationToken oauthTok) {
+            Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
+            String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
 
-        String preferred = str(attrs.get("preferred_username"));
-        if (preferred != null && !preferred.isBlank()) return preferred.trim();
+            String externalId = firstNonBlank(
+                    str(attrs.get("sub")),
+                    str(attrs.get("id")),
+                    str(attrs.get("login"))
+            );
 
+            if (externalId != null && !externalId.isBlank()) {
+                return (provider + ":" + externalId).toLowerCase();
+            }
+        }
         return principal.getName();
     }
 
@@ -313,63 +446,4 @@ public class MeController {
         }
         return null;
     }
-
-    @Transactional
-    @DeleteMapping("/api/me")
-    public ResponseEntity<?> deleteMyProfile(
-            Principal principal,
-            Authentication auth,
-            @AuthenticationPrincipal OAuth2User oauthUser,
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) {
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-        String key = (auth instanceof OAuth2AuthenticationToken)
-                ? resolveKey(principal, oauthUser)
-                : principal.getName();
-
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
-
-        Integer customerId = ua.getCustomerId();
-        Integer employeeId = ua.getEmployeeId();
-
-        if (customerId == null) {
-            // log out + invalidate session cookie
-            new SecurityContextLogoutHandler().logout(request, response, auth);
-            return ResponseEntity.ok("No customer profile to delete");
-        }
-
-        if (employeeId != null) {
-            // Employee: keep login, unlink customer FIRST to satisfy FK useraccounts -> customers
-            ua.setCustomerId(null);
-            userAccountRepo.saveAndFlush(ua);   // ✅ flush so FK is cleared in DB now
-
-            // Now safe to delete the customer side
-            customerAddressRepo.deleteAllByCustomerId(customerId);
-            customerRepo.deleteById(customerId);
-
-            // log out + invalidate session cookie
-            new SecurityContextLogoutHandler().logout(request, response, auth);
-            return ResponseEntity.ok("Customer profile deleted (employee login kept)");
-        }
-
-        // Customer-only: delete dependents, then delete UA (which holds FK), then delete customer
-        customerAddressRepo.deleteAllByCustomerId(customerId);
-        userAccountRepo.delete(ua);
-        userAccountRepo.flush();
-        customerRepo.deleteById(customerId);
-
-// ✅ log out + invalidate session cookie
-        new SecurityContextLogoutHandler().logout(request, response, auth);
-
-        return ResponseEntity.ok("Account deleted");
-
-
-
-    }
-
-
-
 }

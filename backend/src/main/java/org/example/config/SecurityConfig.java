@@ -24,6 +24,10 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.http.HttpMethod;
+import org.example.service.CustomOAuth2UserService;
+import static org.springframework.security.config.Customizer.withDefaults;
+
 
 
 @EnableWebSecurity
@@ -46,7 +50,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           DaoAuthenticationProvider provider) throws Exception {
+                                           DaoAuthenticationProvider provider,
+                                           CustomOAuth2UserService customOAuth2UserService) throws Exception {
 
         RequestMatcher apiMatcher = new AntPathRequestMatcher("/api/**");
 
@@ -59,7 +64,7 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(c -> {})
+                .cors(withDefaults()) // keep this ON, it will use the CorsConfigurationSource bean
                 .httpBasic(b -> b.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authenticationProvider(provider)
@@ -68,13 +73,15 @@ public class SecurityConfig {
                         .accessDeniedHandler((req, res, e) -> res.sendError(403, "Forbidden"))
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ allow preflight everywhere
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers(
                                 "/error",
                                 "/",
                                 "/public/**",
                                 "/oauth2/**",
                                 "/login/**",
-                                "/logout",
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/plans/**",
@@ -83,19 +90,27 @@ public class SecurityConfig {
                                 "/api/auth/resetpassword",
                                 "/uploads/**"
                         ).permitAll()
-                        // RBAC APIs
+
                         .requestMatchers("/api/manager/**").hasRole("MANAGER")
                         .requestMatchers("/api/sales/**").hasAnyRole("SALES_AGENT", "MANAGER")
                         .requestMatchers("/api/service/**").hasAnyRole("SERVICE_TECHNICIAN", "MANAGER")
 
-                        // anything else under /api requires login
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
-
                 )
-                .oauth2Login(oauth -> oauth.defaultSuccessUrl(frontendBaseUrl + "/oauth-success", true))
-                .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl + "/").permitAll());
+                .oauth2Login(o -> o
+                        .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
+                        // ✅ send user back to SPA route after OAuth completes
+                        .defaultSuccessUrl(frontendBaseUrl + "/oauth-success", true)
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID")
 
+                );
         return http.build();
     }
 

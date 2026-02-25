@@ -8,11 +8,11 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
+public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Integer> {
 
     @Query("""
         SELECT t FROM PasswordResetToken t
-        WHERE t.token = :token
+        WHERE t.tokenHash = :token
           AND t.used = false
           AND t.expiresAt > :now
     """)

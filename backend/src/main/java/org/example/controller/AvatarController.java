@@ -17,7 +17,7 @@ import java.util.Map;
 @RequestMapping("/api/me")
 public class AvatarController {
 
-    @Value("${app.upload-dir:src/uploads}")
+    @Value("${app.upload-dir}")
     private String uploadDir;
 
     private final UserAccountRepository userAccountRepo;

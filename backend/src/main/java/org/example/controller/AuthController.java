@@ -21,6 +21,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
+import java.util.Map;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -77,25 +79,16 @@ public class AuthController {
 
 
 
-    // forgot password endpoint
     @PostMapping("/forgetpassword")
-    public ResponseEntity<?> forgetPassword(@Valid @RequestBody ForgetPasswordRequestDTO req) {
-        try {
-            authService.forgetPassword(req.getIdentifier());
-        } catch (Exception e) {
-            e.printStackTrace(); // <-- this will reveal the REAL 500 reason in console
-        }
-        // Always return same message (security)
-        return ResponseEntity.ok("If an account exists, a reset link has been sent.");
-    }
-
-    @PostMapping("/resetpassword")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
-        authService.resetPassword(req.token(), req.newPassword());
+    public ResponseEntity<?> forgetPassword(@RequestBody ForgetPasswordRequestDTO req) {
+        authService.forgetPassword(req.getIdentifier());
+        // Always return OK (don’t leak whether account exists)
         return ResponseEntity.ok().build();
     }
 
-    public record ResetPasswordRequest(String token, String newPassword) {}
-
-
+    @PostMapping("/resetpassword")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequestDTO req) {
+        authService.resetPassword(req.getToken(), req.getNewPassword());
+        return ResponseEntity.ok().build();
+    }
 }

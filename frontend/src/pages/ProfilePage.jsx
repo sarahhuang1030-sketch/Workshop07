@@ -136,9 +136,10 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             }
 
             if (!res.ok) {
-                const msg = await res.text();
-                setBillingError(msg || "Failed to load billing info");
-                // fallback to whatever is in profile
+                const msg = await res.text().catch(() => "");
+                setBillingError(msg || `Failed to load billing info (${res.status})`);
+
+                // still open modal with draft from profile:
                 const a = profile.billing.address || {};
                 setBillingDraft({
                     street1: a.street1 === "—" ? "" : (a.street1 ?? ""),
@@ -211,87 +212,30 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         return `tc_profile_prompt_dismissed_${id}`;
     }, [sessionUser]);
 
-    async function saveBillingAddress() {
+    const saveBillingAddress = async () => {
         setBillingSaving(true);
-        setBillingError("");
+        setBillingError(null);
 
         try {
-            // Map phone -> homePhone before sending to backend
-            const payload = {
-                ...billingDraft,
-                homePhone: billingDraft.phone,
-                firstName: billingDraft.firstName === "—" ? "" : billingDraft.firstName,
-                lastName: billingDraft.lastName === "—" ? "" : (billingDraft.lastName ?? ""),
-                email: billingDraft.email === "—" ? "" : (billingDraft.email ?? ""),
-            };
-
-            delete payload.phone;
-
             const res = await fetch("/api/billing/address", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify(payload),
+                body: JSON.stringify(billingDraft),
             });
 
-
-            if (res.status === 401) {
-                // session expired
-                closeBillingEditor();
-                navigate("/login", { replace: true });
-                return;
-            }
-
             if (!res.ok) {
-                const msg = await res.text();
-                setBillingError(msg || "Failed to save address");
-                return;
+                const text = await res.text();
+                throw new Error(`${res.status} ${text}`);
             }
 
-            const updated = await res.json();
-      //      console.log("PUT /api/billing/address response:", updated);
-
-
-// updated = { street1, street2, city, province, postalCode, country, customerId }
-
-            const nextPhone =
-                updated.homePhone ??
-                updated.phone ??
-                billingDraft.phone ??
-                "";
-
-            if (updated.customerId) {
-                setSessionUser((prev) =>
-                    prev ? { ...prev, customerId: updated.customerId, homePhone: nextPhone, firstName: updated.firstName ?? prev.firstName,
-                        lastName: updated.lastName ?? prev.lastName,
-                        email: updated.email ?? prev.email, } : prev
-                );
-            }
-
-            setProfile((prev) => ({
-                ...prev,
-                customerId: updated.customerId ?? prev.customerId,
-                phone: nextPhone,
-                firstName: updated.firstName ?? prev.firstName,
-                lastName: updated.lastName ?? prev.lastName,
-                email: updated.email ?? prev.email,
-                billing: {
-                    ...prev.billing,
-                    address: { ...prev.billing.address, ...updated },
-                },
-            }));
-
-            setAddressPromptDismissed(false);
-            localStorage.removeItem(dismissKey);
-
-            closeBillingEditor();
-
+            setShowBillingModal(false); // close after save (even if needsAddress)
         } catch (e) {
-            setBillingError(e?.message || "Failed to save address");
+            setBillingError(e.message);
         } finally {
             setBillingSaving(false);
         }
-    }
+    };
 
 
 
@@ -342,7 +286,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
 
                 const me = await res.json();
-            //    console.log("ME RESPONSE:", me);
+                //    console.log("ME RESPONSE:", me);
 
 
                 // ✅ set identity from /api/me (works for normal + oauth)
@@ -509,31 +453,56 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     };
 
 
-// profile picture logic
-    const isOAuthUser = !!sessionUser?.picture ||
-        !!sessionUser?.raw?.provider; // since /api/me adds provider for OAuth;
-    const canEditAvatar = !isOAuthUser; // owner implied since it's /profile
 
-// avatarUrl = local preview only (from file input)
-// profile.avatarUrl = saved custom avatar url (from your backend)
-// sessionUser.picture = oauth provider picture
+// profile picture logic
+    const [avatarVer, setAvatarVer] = useState(0);
+
+    function bust(url) {
+        if (!url) return null;
+
+        // never bust local preview urls
+        if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+
+        // ✅ only bust YOUR uploads (adjust to your real path)
+        const isLocalUpload =
+            url.startsWith("/uploads/") ||
+            url.includes(`${window.location.origin}/uploads/`);
+
+        if (!isLocalUpload) return url; // ✅ don't touch Facebook/Google/GitHub urls
+
+        const sep = url.includes("?") ? "&" : "?";
+        return `${url}${sep}v=${avatarVer}`;
+    }
+
+    function pictureToUrl(pic) {
+        if (!pic) return null;
+        if (typeof pic === "string") return pic;
+        if (typeof pic === "object") {
+            // Facebook shape: { data: { url: "..." } }
+            if (pic.data?.url) return pic.data.url;
+            // Sometimes: { url: "..." }
+            if (pic.url) return pic.url;
+        }
+        return null;
+    }
 
     const savedAvatarUrl = profile.avatarUrl || null;
 
-    const oauthPicture =
-        sessionUser?.picture ||
-        sessionUser?.raw?.picture ||
-        sessionUser?.raw?.attributes?.picture ||
+    const oauthPictureUrl =
+        pictureToUrl(sessionUser?.picture) ||
+        pictureToUrl(sessionUser?.raw?.picture) ||
+        pictureToUrl(sessionUser?.raw?.avatarUrl) ||
         null;
 
-    const displayAvatar = isOAuthUser
-        ? oauthPicture
-        : (avatarUrl || savedAvatarUrl || null);
-    // preview > saved > initials
+    const isOAuthUser = !!oauthPictureUrl;
 
-    console.log("savedAvatarUrl =", savedAvatarUrl);
-    console.log("oauthPicture   =", oauthPicture);
-    console.log("displayAvatar  =", displayAvatar);
+    const displayAvatar =
+        avatarUrl || savedAvatarUrl || oauthPictureUrl || null;
+
+    console.log("savedAvatarUrl  =", savedAvatarUrl);
+    console.log("oauthPictureUrl =", oauthPictureUrl);
+    console.log("displayAvatar   =", displayAvatar);
+
 
 
     async function saveAvatarToBackend() {
@@ -563,6 +532,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         setSessionUser(u =>
             u ? { ...u, raw: { ...(u.raw ?? {}), avatarUrl: data.avatarUrl } } : u
         );
+        setAvatarVer(v => v + 1);
+
         setAvatarUrl(null); // clear preview after saving
         setAvatarFile(null);
 
@@ -584,6 +555,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         setSessionUser(u =>
             u ? { ...u, raw: { ...(u.raw ?? {}), avatarUrl: null } } : u
         );
+        setAvatarVer(v => v + 1);
+
         setAvatarUrl(null);
         setAvatarFile(null);
     }
@@ -603,7 +576,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         profile.customerId ??
         "—";
 
-  //  console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
+    //  console.log("sessionUser.employeeId:", sessionUser?.employeeId, "raw:", sessionUser?.raw?.employeeId);
 
 
     // deleting the profile logic
@@ -759,13 +732,14 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                     >
                                         {displayAvatar ? (
                                             <img
-                                                src={displayAvatar}
+                                                src={bust(displayAvatar)}
                                                 alt="Profile"
                                                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                 referrerPolicy="no-referrer"
                                                 onError={() => {
                                                     setAvatarUrl(null);
                                                     setAvatarFile(null);
+
                                                     if (!isOAuthUser) {
                                                         setProfile((p) => ({ ...p, avatarUrl: null }));
                                                     }
@@ -809,46 +783,53 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                                 <Form.Group className="mt-3">
                                     <Form.Label className={mutedClass}>Profile picture</Form.Label>
 
-                                    {isOAuthUser ? (
-                                        <div className={`small ${mutedClass}`}>
+                                    {/* Optional note, but DO NOT hide uploader */}
+                                    {oauthPictureUrl && !savedAvatarUrl && (
+                                        <div className={mutedClass} style={{ fontSize: 12 }}>
                                             Using your OAuth profile picture.
                                         </div>
-                                    ) : (
-                                        <>
-                                            <Form.Control
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => onPickAvatar(e.target.files?.[0])}
-                                            />
-
-                                            <div className="d-flex gap-2 mt-2">
-                                                <Button
-                                                    variant="primary"
-                                                    size="sm"
-                                                    onClick={saveAvatarToBackend}
-                                                    disabled={!avatarFile}
-                                                >
-                                                    Save
-                                                </Button>
-                                                <Button
-                                                    variant="outline-secondary"
-                                                    size="sm"
-                                                    onClick={() => { setAvatarUrl(null); setAvatarFile(null); }}
-                                                    disabled={!avatarUrl}
-                                                >
-                                                    Cancel
-                                                </Button>
-                                                <Button
-                                                    variant="outline-danger"
-                                                    size="sm"
-                                                    onClick={deleteAvatarFromBackend}
-                                                    disabled={!savedAvatarUrl}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </div>
-                                        </>
                                     )}
+
+                                    <Form.Control
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => onPickAvatar(e.target.files?.[0])}
+                                    />
+
+                                    <div className="d-flex gap-2 mt-2">
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={saveAvatarToBackend}
+                                            disabled={!avatarFile}
+                                        >
+                                            Save
+                                        </Button>
+
+                                        {/* IMPORTANT: cancel should depend on avatarFile, not avatarUrl */}
+                                        <Button
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            onClick={() => {
+                                                setAvatarFile(null);
+                                                // reset preview to whatever the server/oauth currently has
+                                                setAvatarFile(null);
+                                                setAvatarUrl(null); // stop preview, fall back to savedAvatarUrl/oauthPictureUrl automatically
+                                            }}
+                                            disabled={!avatarFile}
+                                        >
+                                            Cancel
+                                        </Button>
+
+                                        <Button
+                                            variant="outline-danger"
+                                            size="sm"
+                                            onClick={deleteAvatarFromBackend}
+                                            disabled={!savedAvatarUrl}
+                                        >
+                                            Delete
+                                        </Button>
+                                    </div>
                                 </Form.Group>
 
 
@@ -1127,16 +1108,16 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                     </Col>
                 </Row>
             )}
-        {/* ============== for edit billing ====================   */}
+            {/* ============== for edit billing ====================   */}
             <Modal
                 show={showBillingModal}
-                onHide={needsAddress ? undefined : closeBillingEditor}
-                backdrop={needsAddress ? "static" : true}
-                keyboard={!needsAddress}
+                onHide={needsAddress}
+                backdrop={true}
+                keyboard={true}
                 centered
             >
 
-            <Modal.Header closeButton={!needsAddress}>
+                <Modal.Header closeButton={!needsAddress}>
                     <Modal.Title>Edit Billing Address</Modal.Title>
                 </Modal.Header>
 
@@ -1243,25 +1224,23 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 </Modal.Body>
 
                 <Modal.Footer>
-                    <Button
-                        variant="secondary"
-                        onClick={closeBillingEditor}
-                        disabled={billingSaving || needsAddress}
-                    >
-                        Cancel
-                    </Button>
+
+                        <Button variant="secondary" type="button" onClick={closeBillingEditor}>
+                            Cancel
+                        </Button>
+
                     <Button onClick={saveBillingAddress}
                             disabled={
-                        billingSaving ||
-                        !billingDraft?.street1?.trim()||
-                        (needsPhone && !billingDraft?.phone?.trim())
-                    }>
+                                billingSaving ||
+                                !billingDraft?.street1?.trim()||
+                                (needsPhone && !billingDraft?.phone?.trim())
+                            }>
                         {billingSaving ? "Saving..." : "Save"}
                     </Button>
                 </Modal.Footer>
             </Modal>
 
-        {/* Deleting profile modal  */}
+            {/* Deleting profile modal  */}
             <Modal
                 show={showDeleteModal}
                 onHide={deleting ? undefined : () => setShowDeleteModal(false)}

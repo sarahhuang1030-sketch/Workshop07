@@ -12,7 +12,7 @@ import java.nio.file.Paths;
 @Configuration
 public class StaticResourceConfig implements WebMvcConfigurer {
 
-    @Value("${app.upload-dir:uploads}")
+    @Value("${app.upload-dir}")
     private String uploadDir;
 
     @Override

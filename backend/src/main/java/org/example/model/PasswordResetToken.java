@@ -14,9 +14,9 @@ public class PasswordResetToken {
     @Column(name="user_id", nullable=false)
     private Integer userId; // this should be UserAccount.userId
 
-    // DEV MODE: store RAW token in token_hash column
-    @Column(name="token_hash", nullable=false, length=255)
-    private String token;
+
+    @Column(name="token_hash", length=64, nullable=false)
+    private String tokenHash;
 
     @Column(name="expires_at", nullable=false)
     private LocalDateTime expiresAt;
@@ -32,8 +32,8 @@ public class PasswordResetToken {
     public Integer getUserId() { return userId; }
     public void setUserId(Integer userId) { this.userId = userId; }
 
-    public String getToken() { return token; }
-    public void setToken(String token) { this.token = token; }
+    public String getTokenHash() { return tokenHash; }
+    public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
 
     @PrePersist
     void onCreate() {

@@ -12,18 +12,15 @@ export default function ForgetPasswordPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const submit = async (e) => {
+    async function submit(e) {
         e.preventDefault();
-        setError("");
-        setMsg("");
-        setLoading(true);
 
         try {
-            console.log("FORGET PASSWORD PAGE VERSION: 2026-02-07 v4");
+            console.log("FORGET PASSWORD PAGE VERSION: 2026-02-07 v5");
             const res = await fetch("/api/auth/forgetpassword", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: value.trim() }),
+                body: JSON.stringify({ identifier:value }),
             });
 
             const text = await res.text(); // helpful for debugging
@@ -33,9 +30,7 @@ export default function ForgetPasswordPage() {
 
             if (!res.ok) {
                 console.error("Forget password failed:", res.status, text);
-
-                // optionally show a user-friendly error:
-                // setError(text || `Request failed: ${res.status}`);
+                setMsg("If an account exists, a reset link has been sent.");
                 return;
             }
             setStatus("sent");

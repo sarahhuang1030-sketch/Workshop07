@@ -9,7 +9,6 @@ export default defineConfig({
         target: "http://localhost:8081",
         changeOrigin: true,
         secure: false,
-        cookieDomainRewrite: "localhost",
       },
       "/oauth2": {
         target: "http://localhost:8081",
@@ -21,12 +20,15 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      "/login": {
+
+      "/uploads": {
         target: "http://localhost:8081",
         changeOrigin: true,
         secure: false,
       },
-      "/uploads": {
+      "/login": { target: "http://localhost:8081", changeOrigin: true, secure: false },
+      "/error": { target: "http://localhost:8081", changeOrigin: true, secure: false },
+      "/login/oauth2": {
         target: "http://localhost:8081",
         changeOrigin: true,
         secure: false,

@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 
+
 @Service
 public class AuthService {
 
@@ -150,36 +151,46 @@ public class AuthService {
         System.out.println("[forgetPassword] resolved email=" + email);
         if (email == null || email.isBlank()) return;
 
-        // ✅ create token row
+
+        // ✅ create RAW token (emailed) + HASH (stored)
         String token = UUID.randomUUID().toString();
+        String tokenHash = sha256Hex(token);
 
         PasswordResetToken prt = new PasswordResetToken();
-        prt.setUserId(ua.getUserId()); // if getUserId() is Integer; adjust if already Long
-        prt.setToken(token);
+        prt.setUserId(ua.getUserId());
+        prt.setTokenHash(tokenHash);                 // ✅ store HASH in token_hash
         prt.setExpiresAt(LocalDateTime.now().plusMinutes(30));
         prt.setUsed(false);
 
         passwordResetTokenRepository.save(prt);
 
-        // ✅ send email
+// ✅ send email with RAW token
         String link = resetPasswordUrl + "?token=" + token;
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(email);
+        msg.setFrom("sarahhuang1030@gmail.com");
         msg.setSubject("Reset your password");
         msg.setText("Click this link to reset your password:\n\n" + link + "\n\nThis link expires in 30 minutes.");
 
+        System.out.println("[mail] sending to " + email);
+
         try {
             mailSender.send(msg);
-            System.out.println("[forgetPassword] Sent reset link to: " + email);
-        } catch (Exception e) {
-            System.out.println("[forgetPassword] FAILED to send email: " + e.getMessage());
+            System.out.println("[mail] send() returned OK");
+        } catch (org.springframework.mail.MailException e) {
+            System.out.println("[mail] FAILED (MailException): " + e.getMessage());
             e.printStackTrace();
+        } catch (Throwable t) {
+            System.out.println("[mail] FAILED (Throwable): " + t.getClass().getName() + " - " + t.getMessage());
+            t.printStackTrace();
         }
     }
 
-    public void resetPassword(String token, String newPassword) {
-        PasswordResetToken prt = passwordResetTokenRepository.findValid(token)
+    public void resetPassword(String rawToken, String newPassword) {
+        String tokenHash = sha256Hex(rawToken);
+
+        PasswordResetToken prt = passwordResetTokenRepository.findValid(tokenHash)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired token"));
 
         UserAccount ua = userAccountRepository.findById(prt.getUserId())
@@ -192,4 +203,15 @@ public class AuthService {
         passwordResetTokenRepository.save(prt);
     }
 
+    public static String sha256Hex(String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
 }

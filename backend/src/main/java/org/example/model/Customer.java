@@ -44,7 +44,7 @@ public class Customer {
 
 
     // exists in your table; can remain null if DB allows
-    @Column(name = "PasswordHash")
+    @Column(name = "PasswordHash", nullable = true)
     private String PasswordHash;
 
     @PrePersist

@@ -7,9 +7,11 @@ import org.example.model.UserAccount;
 import org.example.repository.CustomerAddressRepository;
 import org.example.repository.CustomerRepository;
 import org.example.repository.UserAccountRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Service
@@ -17,6 +19,18 @@ public class AgentCustomerService {
     private final UserAccountRepository userAccountRepo;
     private final CustomerRepository customerRepo;
     private final CustomerAddressRepository addressRepo;
+
+    private String oauthPasswordMarker(String provider) {
+        String p = (provider == null ? "oauth" : provider.trim().toLowerCase());
+        return "OAUTH:" + p; // e.g. OAUTH:google, OAUTH:github, OAUTH:facebook
+    }
+
+    private String stripProviderPrefix(String key) {
+        if (key == null) return null;
+        String s = key.trim();
+        int i = s.indexOf(':');
+        return (i > 0 ? s.substring(i + 1) : s).trim(); // github:abc -> abc
+    }
 
     public AgentCustomerService(UserAccountRepository userAccountRepo,
                                 CustomerRepository customerRepo,
@@ -26,109 +40,160 @@ public class AgentCustomerService {
         this.addressRepo = addressRepo;
     }
 
+
     @Transactional
-    public Map<String, Object> registerAsCustomer(
-            String usernameOrEmail,
-            String provider,
-            String externalId,
-            String oauthFirstName,
-            String oauthLastName,
-            RegisterAsCustomerRequestDTO req
-    ) {
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(usernameOrEmail)
-                .orElseThrow(() -> new IllegalArgumentException("UserAccount not found"));
+    public Object registerAsCustomer(String key, String provider, String externalId,
+                                     String firstName, String lastName,
+                                     RegisterAsCustomerRequestDTO req) {
 
-        // already linked
-        if (ua.getCustomerId() != null) {
-            return Map.of(
-                    "message", "Already registered as customer",
-                    "customerId", ua.getCustomerId()
-            );
+        String username = stripProviderPrefix(key);
+
+        if (req.customerType == null || req.customerType.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "customerType is required"));
         }
 
-        // ---------- Dedup customer ----------
-        Customer customer = null;
-
-        if (provider != null && externalId != null) {
-            customer = customerRepo
-                    .findByExternalProviderAndExternalCustomerId(provider, externalId)
-                    .orElse(null);
+        if (provider == null || provider.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing OAuth provider"));
         }
 
-        if (customer == null) {
-            customer = customerRepo.findFirstByEmailIgnoreCase(usernameOrEmail).orElse(null);
+        if (externalId == null || externalId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing OAuth externalId"));
         }
 
-        // ---------- Create if missing ----------
-        if (customer == null) {
-            Customer c = new Customer();
-            c.setCustomerType(req.customerType != null ? req.customerType : "Individual");
 
-            // Prefer request name; otherwise OAuth name; otherwise blank
-            String first = (req.firstName != null && !req.firstName.isBlank()) ? req.firstName : oauthFirstName;
-            String last  = (req.lastName  != null && !req.lastName.isBlank())  ? req.lastName  : oauthLastName;
 
-            c.setFirstName(first);
-            c.setLastName(last);
-            c.setBusinessName(req.businessName);
+        if (req.street1 == null || req.street1.isBlank()
+                || req.city == null || req.city.isBlank()
+                || req.province == null || req.province.isBlank()
+                || req.postalCode == null || req.postalCode.isBlank()
+                || req.country == null || req.country.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Billing address is incomplete",
+                    "street1", req.street1,
+                    "city", req.city,
+                    "province", req.province,
+                    "postalCode", req.postalCode,
+                    "country", req.country
+            ));
+        }
 
-            // Email always from authenticated identity
-            c.setEmail(usernameOrEmail);
-
-            // Your Customers.HomePhone is nullable=false → must have something.
-            // If you want to REQUIRE it instead of defaulting, return 400 here.
-            String phone = (req.homePhone != null && !req.homePhone.isBlank()) ? req.homePhone : "0000000000";
-            c.setHomePhone(phone);
-
-            // Optional: tag oauth linkage in Customers table
-            if (provider != null && externalId != null) {
-                c.setExternalProvider(provider);
-                c.setExternalCustomerId(externalId);
+        // Prevent duplicates for the same OAuth identity
+        var existing = customerRepo.findByExternalProviderAndExternalCustomerId(provider, externalId);
+        if (existing.isPresent()) {
+            Customer c = existing.get();
+            if (c.getPasswordHash() == null) {
                 c.setPasswordHash("OAUTH");
-            } else {
-                c.setPasswordHash(ua.getPasswordHash());
+                customerRepo.save(c);
             }
 
-            customer = customerRepo.save(c);
+            String marker = oauthPasswordMarker(provider);
 
-            // ---------- Billing address (optional here) ----------
-            if (req.street1 != null && !req.street1.isBlank()) {
-                CustomerAddress billing = new CustomerAddress();
-                billing.setCustomerId(customer.getCustomerId());
-                billing.setAddressType("Billing");
-                billing.setStreet1(req.street1);
-                billing.setStreet2(req.street2);
-                billing.setCity(req.city);
-                billing.setProvince(req.province);
-                billing.setPostalCode(req.postalCode);
-                billing.setCountry(req.country != null ? req.country : "Canada");
-                billing.setIsPrimary(1);
-                addressRepo.save(billing);
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(username)
+                    .orElseGet(UserAccount::new);
 
-                if (Boolean.TRUE.equals(req.addServiceAddress)) {
-                    CustomerAddress service = new CustomerAddress();
-                    service.setCustomerId(customer.getCustomerId());
-                    service.setAddressType("Service");
-                    service.setStreet1(req.street1);
-                    service.setStreet2(req.street2);
-                    service.setCity(req.city);
-                    service.setProvince(req.province);
-                    service.setPostalCode(req.postalCode);
-                    service.setCountry(req.country != null ? req.country : "Canada");
-                    service.setIsPrimary(1);
-                    addressRepo.save(service);
-                }
+            ua.setUsername(username);
+            ua.setRole("Customer");
+            ua.setCustomerId(c.getCustomerId());
+            ua.setEmployeeId(null);
+            ua.setLastLoginAt(LocalDateTime.now());
+            ua.setIsLocked(0);
+            if (ua.getPasswordHash() == null || ua.getPasswordHash().isBlank()) {
+                ua.setPasswordHash(marker);
             }
+            userAccountRepo.save(ua);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "REGISTERED",
+                    "customerId", c.getCustomerId(),
+                    "lookupKey", key
+            ));
         }
 
-        // ---------- Link useraccount to customer ----------
-        ua.setCustomerId(customer.getCustomerId());
+        // Create new customer
+        String normalizedType = "Business".equalsIgnoreCase(req.customerType) ? "Business" : "Individual";
+
+        Customer c = new Customer();
+        c.setCustomerType(normalizedType);
+
+        if ("Business".equalsIgnoreCase(normalizedType)) {
+            if (req.businessName == null || req.businessName.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "businessName is required for Business"));
+            }
+            c.setBusinessName(req.businessName.trim());
+        } else {
+            c.setBusinessName(null);
+        }
+
+        // Prefer req first/last if provided, fall back to oauth-derived values
+        String fn = (req.firstName != null && !req.firstName.isBlank()) ? req.firstName : firstName;
+        String ln = (req.lastName != null && !req.lastName.isBlank()) ? req.lastName : lastName;
+
+        fn = fn == null ? null : fn.trim();
+        ln = ln == null ? null : ln.trim();
+
+        if (fn == null || fn.isBlank() || ln == null || ln.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "firstName and lastName are required"));
+        }
+
+        c.setFirstName(fn);
+        c.setLastName(ln);
+
+        if (req.email == null || req.email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "email is required"));
+        }
+
+        if (customerRepo.existsByEmail(req.email.trim().toLowerCase())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email already exists"));
+        }
+        c.setEmail(req.email.trim().toLowerCase());
+
+        if (req.homePhone == null || req.homePhone.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "homePhone is required"));
+        }
+        c.setHomePhone(req.homePhone.trim());
+
+
+        c.setExternalProvider(provider);
+        c.setExternalCustomerId(externalId);
+
+        c.setStatus("Active");
+        c.setCreatedAt(LocalDateTime.now());
+
+        String marker = oauthPasswordMarker(provider);
+        c.setPasswordHash(marker);
+        c = customerRepo.save(c);
+
+        // Save billing address
+        CustomerAddress billing = new CustomerAddress();
+        billing.setCustomerId(c.getCustomerId());
+        billing.setAddressType("Billing");
+        billing.setStreet1(req.street1.trim());
+        billing.setStreet2(req.street2 == null ? null : req.street2.trim());
+        billing.setCity(req.city.trim());
+        billing.setProvince(req.province.trim());
+        billing.setPostalCode(req.postalCode.trim());
+        billing.setCountry(req.country.trim());
+        billing.setIsPrimary(1);
+        addressRepo.save(billing);
+
+        // Create/link user account
+        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
+                .orElseGet(UserAccount::new);
+
+        ua.setUsername(key);
+        ua.setRole("Customer");
+        ua.setCustomerId(c.getCustomerId());
+        ua.setEmployeeId(null);
+        ua.setLastLoginAt(LocalDateTime.now());
+        ua.setIsLocked(0);
+        ua.setPasswordHash(marker);
         userAccountRepo.save(ua);
 
-        return Map.of(
-                "message", "Customer profile created/linked",
-                "customerId", customer.getCustomerId()
-        );
+        return ResponseEntity.ok(Map.of(
+                "status", "REGISTERED",
+                "customerId", c.getCustomerId(),
+                "lookupKey", key
+        ));
     }
 
 }

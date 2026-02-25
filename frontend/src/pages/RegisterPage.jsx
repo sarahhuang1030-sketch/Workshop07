@@ -1,37 +1,109 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { Signal, Eye, EyeOff } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 
-export default function RegisterPage() {
+function providerFromNeedsRegistration(needsRegistration) {
+    const lk = needsRegistration?.lookupKey ? String(needsRegistration.lookupKey) : "";
+    const fromLookupKey = lk.includes(":") ? lk.split(":")[0] : "";
+    return (
+        (needsRegistration?.provider || fromLookupKey || needsRegistration?.attributes?.provider || "")
+            .toLowerCase()
+            .trim()
+    );
+}
+
+function pickOAuthEmail(needsRegistration, prefill) {
+    const attrs = needsRegistration?.attributes || {};
+    return String(prefill?.email ?? needsRegistration?.email ?? attrs.email ?? attrs.mail ?? "").trim();
+}
+
+function pickFirstName(needsRegistration, prefill) {
+    const attrs = needsRegistration?.attributes || {};
+    const name = String(attrs.name || "").trim();
+    const guess = name ? name.split(" ")[0] : "";
+    return String(prefill?.firstName ?? attrs.given_name ?? attrs.first_name ?? guess ?? "").trim();
+}
+
+function pickLastName(needsRegistration, prefill) {
+    const attrs = needsRegistration?.attributes || {};
+    const name = String(attrs.name || "").trim();
+    const guess = name ? name.split(" ").slice(1).join(" ") : "";
+    return String(prefill?.lastName ?? attrs.family_name ?? attrs.last_name ?? guess ?? "").trim();
+}
+
+export default function RegisterPage({
+                                         forceMode,
+                                         embedded = false,
+
+                                         // preferred generic callback
+                                         onCompleted,
+                                         // backward compatibility
+                                         onEmployeeCreated,
+
+                                         // OAuth complete info
+                                         needsRegistration = null,
+
+                                         // prefill from caller
+                                         prefill = null,
+
+                                         // for modal close
+                                         onClose,
+                                     }) {
     const { darkMode } = useTheme();
     const navigate = useNavigate();
+
     const [showPw, setShowPw] = useState(false);
     const [showConfirmPw, setShowConfirmPw] = useState(false);
 
-    //for employee/agent login as customer logic
     const { search } = useLocation();
-    const mode = new URLSearchParams(search).get("mode");
+    const modeFromUrl = new URLSearchParams(search).get("mode");
+    const mode = forceMode ?? modeFromUrl;
+
     const isEmployeeMode = mode === "employee";
+    const isOAuthComplete = !!needsRegistration;
+    const isNormalSignup = !isEmployeeMode && !isOAuthComplete;
 
-    //Normal customer signup → POST /api/auth/register
-    // Employee “register as customer” → POST /api/me/register-as-customer
-    const url = isEmployeeMode
-        ? "/api/me/register-as-customer"
-        : "/api/auth/register";
+    const url = useMemo(() => {
+        if (isEmployeeMode || isOAuthComplete) return "/api/me/register-as-customer";
+        return "/api/auth/register";
+    }, [isEmployeeMode, isOAuthComplete]);
 
+    // Prefill sources
+    const oauthProvider = useMemo(
+        () => providerFromNeedsRegistration(needsRegistration),
+        [needsRegistration]
+    );
+
+    const oauthEmail = useMemo(
+        () => pickOAuthEmail(needsRegistration, prefill),
+        [needsRegistration, prefill]
+    );
+
+    const prefillFirstName = useMemo(
+        () => pickFirstName(needsRegistration, prefill),
+        [needsRegistration, prefill]
+    );
+
+    const prefillLastName = useMemo(
+        () => pickLastName(needsRegistration, prefill),
+        [needsRegistration, prefill]
+    );
+
+    // If OAuth didn't provide email (common for GitHub), user must type it.
+    const oauthEmailMissing = isOAuthComplete && !oauthEmail;
 
     const [form, setForm] = useState({
         customerType: "Individual",
         firstName: "",
         lastName: "",
-        homephone: "",
+        homePhone: "",
         businessName: "",
 
+        // email input: used by normal signup, employee (optional), and OAuth when missing
         email: "",
 
-        // Billing address
         billingStreet1: "",
         billingStreet2: "",
         billingCity: "",
@@ -39,20 +111,31 @@ export default function RegisterPage() {
         billingPostalCode: "",
         billingCountry: "Canada",
 
-        // Service address
-        sameAsBilling: true,
-        serviceStreet1: "",
-        serviceStreet2: "",
-        serviceCity: "",
-        serviceProvince: "",
-        servicePostalCode: "",
-        serviceCountry: "Canada",
-
-        //accountinfo
+        // normal signup only
         username: "",
         password: "",
         confirmPassword: "",
     });
+
+    // Fill form when modal opens / prefill changes
+    useEffect(() => {
+        setForm((prev) => {
+            const next = { ...prev };
+
+            if (!next.firstName) next.firstName = prefillFirstName || "";
+            if (!next.lastName) next.lastName = prefillLastName || "";
+
+            // IMPORTANT:
+            // - If OAuth email is missing (GitHub), allow user to type (do NOT overwrite).
+            // - If OAuth email exists, we display oauthEmail as read-only and do NOT store it in form.email.
+            // - For normal signup, leave email alone (user types).
+            if (isOAuthComplete && oauthEmailMissing && !next.email) {
+                next.email = ""; // just initializes once; won't wipe user typing later
+            }
+
+            return next;
+        });
+    }, [prefillFirstName, prefillLastName, isOAuthComplete, oauthEmailMissing]);
 
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -64,26 +147,10 @@ export default function RegisterPage() {
         const { name, value, type, checked } = e.target;
 
         setForm((prev) => {
-            // checkbox support
             const newValue = type === "checkbox" ? checked : value;
 
-            // if switching away from business clear businessName
             if (name === "customerType" && newValue !== "Business") {
                 return { ...prev, customerType: newValue, businessName: "" };
-            }
-
-            // if turning "sameAsBilling" ON, clear service fields
-            if (name === "sameAsBilling" && checked === true) {
-                return {
-                    ...prev,
-                    sameAsBilling: true,
-                    serviceStreet1: "",
-                    serviceStreet2: "",
-                    serviceCity: "",
-                    serviceProvince: "",
-                    servicePostalCode: "",
-                    serviceCountry: "Canada",
-                };
             }
 
             return { ...prev, [name]: newValue };
@@ -92,183 +159,148 @@ export default function RegisterPage() {
 
 
 
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log("SUBMIT CLICKED", form);
         setError("");
         setSuccess("");
 
-        // Basic validation (match backend DTO requirements)
+        // Final email resolution:
+        // - Normal signup: user types
+        // - OAuth complete: use provider email if present, else use typed email
+        // - Employee: optional typed email if you decide to show it
+        const effectiveEmail = (isOAuthComplete ? (oauthEmail || form.email) : form.email).trim();
+
+        // required basics
         if (
-            !form.firstName ||
-            !form.lastName ||
-            (!isEmployeeMode && !form.email) ||
-            !form.homephone ||
-            !form.billingStreet1 ||
-            !form.billingCity ||
-            !form.billingProvince ||
-            !form.billingPostalCode ||
-            !form.billingCountry
+            !form.firstName.trim() ||
+            !form.lastName.trim() ||
+            !form.homePhone.trim() ||
+            !form.billingStreet1.trim() ||
+            !form.billingCity.trim() ||
+            !form.billingProvince.trim() ||
+            !form.billingPostalCode.trim() ||
+            !form.billingCountry.trim()
         ) {
             setError("Please fill in all required fields.");
             return;
         }
 
-        if (isBusiness && !form.businessName) {
+        if (isBusiness && !form.businessName.trim()) {
             setError("Business name is required for business accounts.");
             return;
         }
 
-        if (!form.sameAsBilling) {
-            if (
-                !form.serviceStreet1 ||
-                !form.serviceCity ||
-                !form.serviceProvince ||
-                !form.servicePostalCode ||
-                !form.serviceCountry
-            ) {
-                setError("Please complete the service address or select 'Same as billing'.");
+        if (isNormalSignup) {
+            if (!effectiveEmail) {
+                setError("Email is required.");
+                return;
+            }
+            if (!form.username.trim() || !form.password) {
+                setError("Username and password required.");
+                return;
+            }
+            if (form.password !== form.confirmPassword) {
+                setError("Passwords do not match.");
                 return;
             }
         }
 
-        if (!isEmployeeMode) {
-            if (!form.username || !form.password) { setError("Username and password required"); return; }
-            if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
+        if (isOAuthComplete && !effectiveEmail) {
+            setError(
+                oauthProvider === "github"
+                    ? "GitHub didn’t provide an email. Please enter one to continue."
+                    : "OAuth email is missing. Please re-login with OAuth."
+            );
+            return;
         }
 
-        const payload = isEmployeeMode
-            ? {
-                customerType: form.customerType,
-                firstName: form.firstName,
-                lastName: form.lastName,
-                businessName: form.businessName,
-                homephone: form.homephone,
+        // base payload (matches RegisterAsCustomerRequestDTO)
+        const payload = {
+            customerType: form.customerType,
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            businessName: form.customerType === "Business" ? form.businessName.trim() : "",
+            homePhone: form.homePhone.trim(),
 
-                billingStreet1: form.billingStreet1,
-                billingStreet2: form.billingStreet2,
-                billingCity: form.billingCity,
-                billingProvince: form.billingProvince,
-                billingPostalCode: form.billingPostalCode,
-                billingCountry: form.billingCountry,
+            street1: form.billingStreet1.trim(),
+            street2: form.billingStreet2 ? form.billingStreet2.trim() : "",
+            city: form.billingCity.trim(),
+            province: form.billingProvince.trim(),
+            postalCode: form.billingPostalCode.trim(),
+            country: form.billingCountry.trim(),
+        };
 
-                sameAsBilling: form.sameAsBilling,
+        // include email:
+        // - normal signup: yes
+        // - oauth complete: yes
+        // - employee: optional (only if filled)
+        if (isNormalSignup || isOAuthComplete || (!!effectiveEmail && isEmployeeMode)) {
+            payload.email = effectiveEmail;
+        }
 
-                serviceStreet1: form.serviceStreet1,
-                serviceStreet2: form.serviceStreet2,
-                serviceCity: form.serviceCity,
-                serviceProvince: form.serviceProvince,
-                servicePostalCode: form.servicePostalCode,
-                serviceCountry: form.serviceCountry,
-            }
-            : {
-                customerType: form.customerType,
-                firstName: form.firstName,
-                lastName: form.lastName,
-                businessName: form.businessName,
-                email: form.email,
-                homephone: form.homephone,
-
-                billingStreet1: form.billingStreet1,
-                billingStreet2: form.billingStreet2,
-                billingCity: form.billingCity,
-                billingProvince: form.billingProvince,
-                billingPostalCode: form.billingPostalCode,
-                billingCountry: form.billingCountry,
-
-                sameAsBilling: form.sameAsBilling,
-
-                serviceStreet1: form.serviceStreet1,
-                serviceStreet2: form.serviceStreet2,
-                serviceCity: form.serviceCity,
-                serviceProvince: form.serviceProvince,
-                servicePostalCode: form.servicePostalCode,
-                serviceCountry: form.serviceCountry,
-
-                username: form.username,
-                password: form.password,
-            };
+        if (isNormalSignup) {
+            payload.username = form.username.trim();
+            payload.password = form.password;
+        }
 
         try {
-            //send the data when employee register as customer
-            const regemployee = await fetch(url, {
+            const res = await fetch("/api/me/register-as-customer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: isEmployeeMode ? "include" : "omit",
+                credentials: isNormalSignup ? "omit" : "include",
                 body: JSON.stringify(payload),
             });
 
-            const data = await regemployee.json().catch(async () => ({ message: await regemployee.text() }));
+            const text = await res.text();
+            let data = null;
+            try {
+                data = JSON.parse(text);
+            } catch {}
 
-            if (!regemployee.ok) {
-                setError(data?.message || "Registration failed.");
+            if (!res.ok) {
+                setError(data?.error || data?.message || text || "Registration failed.");
                 return;
             }
 
-            setSuccess(isEmployeeMode ? "Customer profile created!" : "Registered successfully!");
-            navigate(isEmployeeMode ? "/" : "/login");
-            return;
+            setSuccess(isNormalSignup ? "Registered successfully!" : "Customer profile created!");
 
-// this is normal registration data
-//             const res = await fetch("/api/auth/register", {
-//                 method: "POST",
-//                 headers: { "Content-Type": "application/json" },
-//                 body: JSON.stringify({
-//                     customerType: form.customerType,
-//                     firstName: form.firstName,
-//                     lastName: form.lastName,
-//                     businessName: form.businessName,
-//                     email: form.email,
-//                     homephone: form.homephone,
-//
-//                     billingStreet1: form.billingStreet1,
-//                     billingStreet2: form.billingStreet2,
-//                     billingCity: form.billingCity,
-//                     billingProvince: form.billingProvince,
-//                     billingPostalCode: form.billingPostalCode,
-//                     billingCountry: form.billingCountry,
-//
-//                     sameAsBilling: form.sameAsBilling,
-//
-//                     serviceStreet1: form.serviceStreet1,
-//                     serviceStreet2: form.serviceStreet2,
-//                     serviceCity: form.serviceCity,
-//                     serviceProvince: form.serviceProvince,
-//                     servicePostalCode: form.servicePostalCode,
-//                     serviceCountry: form.serviceCountry,
-//
-//                     username: form.username,
-//                     password: form.password,
-//
-//                 }),
-//             });
-//
-//             const text = await res.text();
-//
-//             if (!res.ok) {
-//                 setError(text || "Registration failed.");
-//                 return;
-//             }
-//
-//             setSuccess(text || "Registered successfully!");
-//
-//             // Optional redirect after a moment
-//             //setTimeout(() => navigate("/login"), 800);
-//             if (!res.ok) { setError(await res.text()); return; }
-//
-//             const user = await res.json();
-//             localStorage.setItem("tc_user", JSON.stringify(user));
-//             setUser(user);
-//             navigate("/");
-         }
-        catch (err) {
+            if (onCompleted) {
+                await onCompleted();
+                return;
+            }
+
+            if ((isEmployeeMode || isOAuthComplete) && onEmployeeCreated) {
+                await onEmployeeCreated();
+                return;
+            }
+
+            if (isEmployeeMode || isOAuthComplete) {
+                navigate("/profile", { replace: true });
+                return;
+            }
+
+            navigate("/login");
+        } catch {
             setError("Cannot reach backend. Make sure Spring Boot is running.");
         }
     };
 
+    // Email UI rules:
+    // - Normal signup: editable
+    // - OAuth complete: read-only if provider gave email, editable if missing (GitHub case)
+    const showEmailField = !isEmployeeMode || isOAuthComplete || !!prefill?.email;
+    const emailReadOnly = isOAuthComplete && !oauthEmailMissing;
+
+    const emailValue = isOAuthComplete ? (oauthEmailMissing ? form.email : oauthEmail) : form.email;
+
     return (
-        <div className="d-flex align-items-center" style={{ minHeight: "calc(100vh - 140px)", padding: "2rem 0" }}>
+        <div
+            className="d-flex align-items-center"
+            style={{
+                minHeight: embedded ? "auto" : "calc(100vh - 140px)",
+                padding: embedded ? 0 : "2rem 0",
+            }}
+        >
             <Container>
                 <Row className="justify-content-center">
                     <Col md={7} lg={6}>
@@ -286,9 +318,11 @@ export default function RegisterPage() {
                             </div>
 
                             <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                Create your account
+                                {isOAuthComplete ? "Complete your profile" : "Create your account"}
                             </h1>
-                            <div className={mutedClass}>Join TeleConnect and manage your plans with ease</div>
+                            <div className={mutedClass}>
+                                {isOAuthComplete ? "Finish setup to start using TeleConnect." : "Join TeleConnect and manage your plans with ease"}
+                            </div>
                         </div>
 
                         <Card
@@ -299,6 +333,21 @@ export default function RegisterPage() {
                             }}
                         >
                             <Card.Body className="p-4 p-md-4">
+                                {embedded && (
+                                    <div className="d-flex justify-content-end mb-2">
+                                        <Button
+                                            type="button"
+                                            variant={darkMode ? "outline-light" : "outline-secondary"}
+                                            size="sm"
+                                            onClick={() => onClose?.()}
+                                            aria-label="Close"
+                                            title="Close"
+                                        >
+                                            ✕
+                                        </Button>
+                                    </div>
+                                )}
+
                                 {error && <Alert variant="danger">{error}</Alert>}
                                 {success && <Alert variant="success">{success}</Alert>}
 
@@ -330,9 +379,9 @@ export default function RegisterPage() {
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Phone</Form.Label>
                                         <Form.Control
                                             type="tel"
-                                            name="homephone"
+                                            name="homePhone"
                                             placeholder="403-999-8888"
-                                            value={form.homephone}
+                                            value={form.homePhone}
                                             onChange={handleChange}
                                         />
                                     </Form.Group>
@@ -349,77 +398,88 @@ export default function RegisterPage() {
                                             />
                                         </Form.Group>
                                     )}
-                                    {!isEmployeeMode && (
+
+                                    {showEmailField && (
+                                        <Form.Group className="mb-3">
+                                            <Form.Label className={darkMode ? "text-light" : "text-dark"}>Email</Form.Label>
+                                            <Form.Control
+                                                type="email"
+                                                name="email"
+                                                placeholder={isOAuthComplete ? "Enter your email (GitHub may not share it)" : "you@example.com"}
+                                                value={emailValue}
+                                                onChange={handleChange}
+                                                disabled={emailReadOnly}
+                                            />
+
+                                            {/* Optional helper text — delete if you want it super clean */}
+                                            {isOAuthComplete && !oauthEmailMissing && (
+                                                <div className={`small mt-1 ${mutedClass}`}>
+                                                    Using the email from your {oauthProvider || "OAuth"} account.
+                                                </div>
+                                            )}
+
+                                            {isOAuthComplete && oauthEmailMissing && (
+                                                <div className="small text-warning mt-1">
+                                                    {oauthProvider || "OAuth"} didn’t provide an email. Please enter one to finish setup.
+                                                </div>
+                                            )}
+                                        </Form.Group>
+                                    )}
+
+                                    {isNormalSignup && (
                                         <>
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Email</Form.Label>
-                                        <Form.Control
-                                            type="email"
-                                            name="email"
-                                            placeholder="you@example.com"
-                                            value={form.email}
-                                            onChange={handleChange}
-                                        />
-                                    </Form.Group>
+                                            <Form.Group className="mb-3">
+                                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Username</Form.Label>
+                                                <Form.Control
+                                                    name="username"
+                                                    placeholder="Choose a username"
+                                                    value={form.username}
+                                                    onChange={handleChange}
+                                                />
+                                            </Form.Group>
 
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Username</Form.Label>
-                                        <Form.Control
-                                            name="username"
-                                            placeholder="Choose a username"
-                                            value={form.username}
-                                            onChange={handleChange}
-                                        />
-                                    </Form.Group>
+                                            <Form.Group className="mb-3">
+                                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Password</Form.Label>
+                                                <InputGroup>
+                                                    <Form.Control
+                                                        type={showPw ? "text" : "password"}
+                                                        name="password"
+                                                        value={form.password}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                                                        onClick={() => setShowPw((v) => !v)}
+                                                        title={showPw ? "Hide password" : "Show password"}
+                                                    >
+                                                        {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </Button>
+                                                </InputGroup>
+                                            </Form.Group>
 
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Password</Form.Label>
-
-                                        <InputGroup>
-                                            <Form.Control
-                                                type={showPw ? "text" : "password"}
-                                                name="password"
-                                                value={form.password}
-                                                onChange={handleChange}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant={darkMode ? "outline-light" : "outline-secondary"}
-                                                onClick={() => setShowPw((v) => !v)}
-                                                title={showPw ? "Hide password" : "Show password"}
-                                            >
-                                                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </Button>
-                                        </InputGroup>
-                                    </Form.Group>
-
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Confirm Password</Form.Label>
-
-                                        <InputGroup>
-                                            <Form.Control
-                                                type={showConfirmPw ? "text" : "password"}
-                                                name="confirmPassword"
-                                                value={form.confirmPassword}
-                                                onChange={handleChange}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant={darkMode ? "outline-light" : "outline-secondary"}
-                                                onClick={() => setShowConfirmPw((v) => !v)}
-                                                title={showConfirmPw ? "Hide password" : "Show password"}
-                                            >
-                                                {showConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </Button>
-                                        </InputGroup>
-                                    </Form.Group>
-
-
-                                    {/*<hr className={darkMode ? "border-light" : "border-secondary"} />*/}
-
-                                    {/*<h5 className={darkMode ? "text-light" : "text-dark"}>Billing Address</h5>*/}
+                                            <Form.Group className="mb-3">
+                                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Confirm Password</Form.Label>
+                                                <InputGroup>
+                                                    <Form.Control
+                                                        type={showConfirmPw ? "text" : "password"}
+                                                        name="confirmPassword"
+                                                        value={form.confirmPassword}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant={darkMode ? "outline-light" : "outline-secondary"}
+                                                        onClick={() => setShowConfirmPw((v) => !v)}
+                                                        title={showConfirmPw ? "Hide password" : "Show password"}
+                                                    >
+                                                        {showConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </Button>
+                                                </InputGroup>
+                                            </Form.Group>
                                         </>
                                     )}
+
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Street 1</Form.Label>
                                         <Form.Control name="billingStreet1" value={form.billingStreet1} onChange={handleChange} />
@@ -449,7 +509,11 @@ export default function RegisterPage() {
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Postal Code</Form.Label>
-                                                <Form.Control name="billingPostalCode" value={form.billingPostalCode} onChange={handleChange} />
+                                                <Form.Control
+                                                    name="billingPostalCode"
+                                                    value={form.billingPostalCode}
+                                                    onChange={handleChange}
+                                                />
                                             </Form.Group>
                                         </Col>
                                         <Col md={6}>
@@ -460,64 +524,6 @@ export default function RegisterPage() {
                                         </Col>
                                     </Row>
 
-                                    <Form.Group className="mb-3">
-                                        <Form.Check
-                                            type="checkbox"
-                                            name="sameAsBilling"
-                                            checked={form.sameAsBilling}
-                                            onChange={handleChange}
-                                            label="Service address is the same as billing"
-                                            className={darkMode ? "text-light" : "text-dark"}
-                                        />
-                                    </Form.Group>
-
-                                    {!form.sameAsBilling && (
-                                        <>
-                                            <h5 className={darkMode ? "text-light" : "text-dark"}>Service Address</h5>
-
-                                            <Form.Group className="mb-3">
-                                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Street 1</Form.Label>
-                                                <Form.Control name="serviceStreet1" value={form.serviceStreet1} onChange={handleChange} />
-                                            </Form.Group>
-
-                                            <Form.Group className="mb-3">
-                                                <Form.Label className={darkMode ? "text-light" : "text-dark"}>Street 2 (optional)</Form.Label>
-                                                <Form.Control name="serviceStreet2" value={form.serviceStreet2} onChange={handleChange} />
-                                            </Form.Group>
-
-                                            <Row>
-                                                <Col md={6}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>City</Form.Label>
-                                                        <Form.Control name="serviceCity" value={form.serviceCity} onChange={handleChange} />
-                                                    </Form.Group>
-                                                </Col>
-                                                <Col md={6}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Province</Form.Label>
-                                                        <Form.Control name="serviceProvince" value={form.serviceProvince} onChange={handleChange} />
-                                                    </Form.Group>
-                                                </Col>
-                                            </Row>
-
-                                            <Row>
-                                                <Col md={6}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Postal Code</Form.Label>
-                                                        <Form.Control name="servicePostalCode" value={form.servicePostalCode} onChange={handleChange} />
-                                                    </Form.Group>
-                                                </Col>
-                                                <Col md={6}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label className={darkMode ? "text-light" : "text-dark"}>Country</Form.Label>
-                                                        <Form.Control name="serviceCountry" value={form.serviceCountry} onChange={handleChange} />
-                                                    </Form.Group>
-                                                </Col>
-                                            </Row>
-                                        </>
-                                    )}
-
-
                                     <Button
                                         type="submit"
                                         className="w-100 fw-bold border-0"
@@ -527,34 +533,26 @@ export default function RegisterPage() {
                                             padding: "0.85rem 1rem",
                                         }}
                                     >
-                                        {isEmployeeMode ? "Create Customer Profile" : "Create Account"}
+                                        {isEmployeeMode ? "Create Customer Profile" : isOAuthComplete ? "Complete Profile" : "Create Account"}
                                     </Button>
-
-                                    {/*<Button*/}
-                                    {/*    type="submit"*/}
-                                    {/*    className="w-100 fw-bold border-0"*/}
-                                    {/*    style={{*/}
-                                    {/*        background: "linear-gradient(90deg, #7c3aed, #ec4899)",*/}
-                                    {/*        borderRadius: 999,*/}
-                                    {/*        padding: "0.85rem 1rem",*/}
-                                    {/*    }}*/}
-                                    {/*>*/}
-                                    {/*    Create Account*/}
-                                    {/*</Button>*/}
                                 </Form>
 
-                                <div className={`text-center mt-3 ${mutedClass}`}>
-                                    Already have an account?{" "}
-                                    <NavLink to="/login" style={{ color: "#7c3aed", fontWeight: 700, textDecoration: "none" }}>
-                                        Sign in
-                                    </NavLink>
-                                </div>
+                                {!embedded && !isOAuthComplete && (
+                                    <div className={`text-center mt-3 ${mutedClass}`}>
+                                        Already have an account?{" "}
+                                        <NavLink to="/login" style={{ color: "#7c3aed", fontWeight: 700, textDecoration: "none" }}>
+                                            Sign in
+                                        </NavLink>
+                                    </div>
+                                )}
                             </Card.Body>
                         </Card>
 
-                        <div className={`text-center mt-3 small ${mutedClass}`}>
-                            By signing up, you agree to TeleConnect Terms & Privacy.
-                        </div>
+                        {!embedded && (
+                            <div className={`text-center mt-3 small ${mutedClass}`}>
+                                By signing up, you agree to TeleConnect Terms &amp; Privacy.
+                            </div>
+                        )}
                     </Col>
                 </Row>
             </Container>
