@@ -1,7 +1,7 @@
 package org.example.controller;
 
 import org.example.dto.CheckoutRequestDTO;
-import org.example.entity.Invoice;
+import org.example.entity.Invoices;
 import org.example.entity.InvoiceItems;
 import org.example.service.CheckoutService;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +20,10 @@ public class CheckoutController {
     }
 
     @PostMapping
-    public ResponseEntity<Invoice> checkout(@RequestBody CheckoutRequestDTO dto) {
+    public ResponseEntity<Invoices> checkout(@RequestBody CheckoutRequestDTO dto) {
         try {
             List<InvoiceItems> items = dto.getItems();
-            Invoice invoice = checkoutService.checkout(
+            Invoices invoices = checkoutService.checkout(
                     dto.getPaymentAccountId(),
                     dto.getSubtotal(),
                     dto.getTax(),
@@ -32,7 +32,7 @@ public class CheckoutController {
                     dto.getBillingCycle(),
                     items
             );
-            return ResponseEntity.ok(invoice);
+            return ResponseEntity.ok(invoices);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(null);
         }

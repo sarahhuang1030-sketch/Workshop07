@@ -1,34 +1,39 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 
 @Entity
+//@Table(name = "InvoiceItems")
 public class InvoiceItems {
 
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Integer invoiceItemId;
 
+        // Many invoice items belong to one invoice
         @ManyToOne
-        @JoinColumn(name = "InvoiceId")
-        private Invoice invoice;
+        @JoinColumn(name = "InvoiceId") // database column
+        private Invoices invoices; // property name used in mappedBy
 
         @Column(length = 255)
         private String description;
 
         private Integer quantity;
+
         private BigDecimal unitPrice;
+
         private BigDecimal discountAmount;
+
         private BigDecimal lineTotal;
 
-        // ===== getters & setters =====
+        // ===== Getters and Setters =====
+
         public Integer getInvoiceItemId() { return invoiceItemId; }
         public void setInvoiceItemId(Integer invoiceItemId) { this.invoiceItemId = invoiceItemId; }
 
-        public Invoice getInvoice() { return invoice; }
-        public void setInvoice(Invoice invoice) { this.invoice = invoice; }
+        public Invoices getInvoice() { return invoices; }
+        public void setInvoice(Invoices invoices) { this.invoices = invoices; }
 
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
@@ -44,4 +49,4 @@ public class InvoiceItems {
 
         public BigDecimal getLineTotal() { return lineTotal; }
         public void setLineTotal(BigDecimal lineTotal) { this.lineTotal = lineTotal; }
-    }
+}

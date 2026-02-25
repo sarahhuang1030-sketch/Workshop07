@@ -13,7 +13,7 @@ public class CheckoutRequestDTO {
     private String promoCode;
     private String billingCycle;
 
-    // 新增 items
+    // add items
     private List<InvoiceItems> items;
 
     public Double getSubtotal() { return subtotal; }

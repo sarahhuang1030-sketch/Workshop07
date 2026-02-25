@@ -1,7 +1,6 @@
 package org.example.service;
 
-import org.example.entity.Invoice;
-import org.example.entity.InvoiceItems;
+import org.example.entity.Invoices;
 import org.example.entity.InvoiceItems;
 import org.example.entity.PaymentAccounts;
 import org.example.model.UserAccount;
@@ -37,13 +36,13 @@ public class CheckoutService {
     }
 
     @Transactional
-    public Invoice checkout(Integer paymentAccountId,
-                            Double subtotal,
-                            Double tax,
-                            Double total,
-                            String promoCode,
-                            String billingCycle,
-                            List<InvoiceItems> items) throws Exception {
+    public Invoices checkout(Integer paymentAccountId,
+                             Double subtotal,
+                             Double tax,
+                             Double total,
+                             String promoCode,
+                             String billingCycle,
+                             List<InvoiceItems> items) throws Exception {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String username = auth.getName();
@@ -65,29 +64,29 @@ public class CheckoutService {
         account.setBalance(account.getBalance() - amountToCharge);
         accountRepo.save(account);
 
-        Invoice invoice = new Invoice();
-        invoice.setInvoiceNumber("TC-" + System.currentTimeMillis());
-        invoice.setCustomerId(customerId);
-        invoice.setIssueDate(LocalDate.now());
-        invoice.setDueDate(LocalDate.now());
-        invoice.setSubtotal(subtotal);
-        invoice.setTaxTotal(tax);
-        invoice.setTotal(total);
-        invoice.setPromoCode(promoCode);
-        invoice.setPaidByAccount(account);
-        invoice.setStatus("PAID");
+        Invoices invoices = new Invoices();
+        invoices.setInvoiceNumber("TC-" + System.currentTimeMillis());
+        invoices.setCustomerId(customerId);
+        invoices.setIssueDate(LocalDate.now());
+        invoices.setDueDate(LocalDate.now());
+        invoices.setSubtotal(subtotal);
+        invoices.setTaxTotal(tax);
+        invoices.setTotal(total);
+        invoices.setPromoCode(promoCode);
+        invoices.setPaidByAccount(account);
+        invoices.setStatus("PAID");
 
-        Invoice savedInvoice = invoiceRepo.save(invoice);
+        Invoices savedInvoices = invoiceRepo.save(invoices);
 
         // Save invoice items
         for (InvoiceItems item : items) {
-            item.setInvoice(savedInvoice);
+            item.setInvoice(savedInvoices);
             if (item.getLineTotal() == null) {
                 item.setLineTotal(BigDecimal.valueOf(item.getQuantity() * item.getUnitPrice().doubleValue()));
             }
             itemRepo.save(item);
         }
 
-        return savedInvoice;
+        return savedInvoices;
     }
 }
