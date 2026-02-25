@@ -263,6 +263,7 @@ export default function RegisterPage() {
 //             navigate("/");
          }
         catch (err) {
+            console.error(err);
             setError("Cannot reach backend. Make sure Spring Boot is running.");
         }
     };

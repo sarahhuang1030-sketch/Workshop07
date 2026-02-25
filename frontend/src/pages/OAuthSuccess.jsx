@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {apiFetch} from "../utils/api.js";
 
 export default function OAuthSuccess({ setUser }) {
     const navigate = useNavigate();
@@ -7,7 +8,7 @@ export default function OAuthSuccess({ setUser }) {
     useEffect(() => {
         async function run() {
             try {
-                const res = await fetch("/api/me", { credentials: "include" });
+                const res = await apiFetch("/api/me");
                 if (!res.ok) throw new Error("Not logged in");
 
                 const me = await res.json();
@@ -28,7 +29,8 @@ export default function OAuthSuccess({ setUser }) {
                 localStorage.setItem("tc_user", JSON.stringify(mapped));
 
                 navigate("/profile", { replace: true });
-            } catch (e) {
+            } catch (err) {
+                console.error(err);
                 navigate("/login", { replace: true });
             }
         }

@@ -39,6 +39,7 @@ import ManagerReports from "./pages/manager/ManagerReports";
 import ManagerPromotions from "./pages/manager/ManagerPromotions";
 
 import RequireRole from "./components/auth/RequireRole";
+import {apiFetch} from "./utils/api.js";
 
 
 function mapOAuthMeToUser(meResponse) {
@@ -108,7 +109,8 @@ function OAuthSuccessHandler({ setUser }) {
 
         async function finishOAuthLogin() {
             try {
-                const res = await fetch("/api/me", { credentials: "include" });
+                // const res = await fetch("/api/me", { credentials: "include" });
+                const res = await apiFetch("/api/me");
                 const contentType = res.headers.get("content-type") || "";
                 if (!res.ok || !contentType.includes("application/json")) {
                     throw new Error("Not logged in (no /api/me JSON).");
@@ -162,7 +164,8 @@ export default function App() {
                 // if localStorage already had a user, don't overwrite it here
                 if (saved) return;
 
-                const res = await fetch("/api/me", { credentials: "include" });
+                // const res = await fetch("/api/me", { credentials: "include" });
+                const res = await apiFetch("/api/me");
                 const contentType = res.headers.get("content-type") || "";
                 if (!res.ok || !contentType.includes("application/json")) return;
 

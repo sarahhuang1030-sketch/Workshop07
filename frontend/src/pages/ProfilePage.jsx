@@ -16,6 +16,11 @@ import {
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Crown, CreditCard, Package, Star, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import {apiFetch} from "../utils/api.js";
+
+//
+// delete "eslint-disable-next-line no-unused-vars"
+//
 
 // --------- Business Rules (from your spec) ---------
 const POINTS_PER_DOLLAR = 1;
@@ -34,9 +39,11 @@ function initials(name = "") {
     return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
+// eslint-disable-next-line no-unused-vars
 function prevFirstName(full = "") {
     return String(full).trim().split(/\s+/)[0] || "";
 }
+// eslint-disable-next-line no-unused-vars
 function prevLastName(full = "") {
     const parts = String(full).trim().split(/\s+/);
     return parts.slice(1).join(" ");
@@ -324,7 +331,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 setError("");
                 setLoading(true);
 
-                const res = await fetch("/api/me", { credentials: "include" });
+                // const res = await fetch("/api/me", { credentials: "include" });
+                const res = await apiFetch("/api/me");
 
                 if (res.status === 401 || res.status === 404) {
                     // 401 = not authenticated, 404 = authenticated but no UA row ("Not registered")
@@ -429,6 +437,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }));
     }, [sessionUser]);
 
+    // eslint-disable-next-line no-unused-vars
     const canRegisterAsCustomer = useMemo(() => {
         if (loading) return false;
         if (!sessionUser) return false;
@@ -455,7 +464,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
     }, [sessionUser, profile.billing?.address]);
 
 
-
+// eslint-disable-next-line no-unused-vars
     function completeLater() {
         setAddressPromptDismissed(true);
         localStorage.setItem(dismissKey, "1");
@@ -495,6 +504,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         ? "Frequent Traveler (Bronze)"
         : (isEmployee ? "Employee Customer" : "Guest Customer");
 
+    // eslint-disable-next-line no-unused-vars
     const rewardsLabel = tierInfo.isBronze
         ? "Frequent Traveler (Bronze)"
         : "Guest Customer";
@@ -512,6 +522,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 // profile picture logic
     const isOAuthUser = !!sessionUser?.picture ||
         !!sessionUser?.raw?.provider; // since /api/me adds provider for OAuth;
+
+    // eslint-disable-next-line no-unused-vars
     const canEditAvatar = !isOAuthUser; // owner implied since it's /profile
 
 // avatarUrl = local preview only (from file input)
@@ -597,6 +609,8 @@ export default function ProfilePage({ user: userProp, onLogout }) {
 
     // shoiwng customer/employee id
     const employeeId = Number(sessionUser?.employeeId ?? sessionUser?.raw?.employeeId ?? 0);
+
+    // eslint-disable-next-line no-unused-vars
     const customerId =
         sessionUser?.raw?.externalId ??
         sessionUser?.customerId ??
