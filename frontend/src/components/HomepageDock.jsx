@@ -1,8 +1,6 @@
 import { Container, Row, Col } from "react-bootstrap";
-// import SpotlightImg from './Spotlight.png';
 
 const DOCK_ITEMS = [
-
     {
         key: "mobile",
         title: "Mobile",
@@ -15,20 +13,10 @@ const DOCK_ITEMS = [
         img: "https://images.ctfassets.net/8utyj17y1gom/4PiiPC8GYTTwobGz3NBh6F/4bac37e946791ab0425df690bdf814ec/XB8_Front_2.png",
         action: "home",
     },
-    // {
-    //     key: "tv",
-    //     title: "TV",
-    //     img: "https://images.ctfassets.net/8utyj17y1gom/6rFMeDwNqXBJPvEVU5EL7D/f20d056a9c254fa2517a5012745c19ad/Spotlight_4_2x.png",
-    // },
-    // {
-    //     key: "security",
-    //     title: "Home Security",
-    //     img: "https://images.ctfassets.net/8utyj17y1gom/7ccSvg8ULvLI9upVwmYvZB/f20963e3d643e0560a39d94f75755da0/Spotlight_5_2x.png",
-    // },
     {
         key: "support",
         title: "Support",
-        img: "/public/headset.svg",
+        img: "/headset.svg",
     },
 ];
 
@@ -38,35 +26,18 @@ export default function HomepageDock({ onSelect }) {
             <Container>
                 <Row className="justify-content-center g-3">
                     {DOCK_ITEMS.map((item) => (
-                        <Col
-                            key={item.key}
-                            xs={6}
-                            sm={3}
-                            md={2}
-                            className="text-center"
-                        >
+                        <Col key={item.key} xs={6} sm={3} md={2} className="text-center">
                             <div
-                                className="tc-dock-item"
+                                className={`tc-dock-item ${!item.action ? "disabled" : ""}`}
                                 onClick={() => item.action && onSelect?.(item.action)}
                             >
-                                {/*<img*/}
-                                {/*    src={item.img}*/}
-                                {/*    alt={item.title}*/}
-                                {/*    className="img-fluid rounded"*/}
-                                {/*/>*/}
                                 <img
                                     src={item.img}
                                     alt={item.title}
                                     className="img-fluid rounded"
-                                    style={{
-                                        width: "100px",
-                                        height: "100px",
-                                        objectFit: "contain"
-                                    }}
+                                    style={{ width: "100px", height: "100px", objectFit: "contain" }}
                                 />
-                                <div className="mt-2 fw-semibold">
-                                    {item.title}
-                                </div>
+                                <div className="mt-2 fw-semibold">{item.title}</div>
                             </div>
                         </Col>
                     ))}

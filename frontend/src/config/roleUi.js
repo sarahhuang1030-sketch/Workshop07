@@ -7,9 +7,8 @@ export const ROLE_UI = {
     customer: {
         dashboardPath: "/customer",
         nav: [
-            { label: "Home", to: "/" },
             { label: "My Plan", to: "/customer/plan" },
-            { label: "Billing", to: "/customer/billing" },
+            { labell: "Billing", to: "/customer/billing" },
             { label: "Support", to: "/customer/support" },
             { label: "Profile", to: "/profile" },
         ],
