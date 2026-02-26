@@ -164,13 +164,9 @@ export default function RegisterPage({
         setError("");
         setSuccess("");
 
-        // Final email resolution:
-        // - Normal signup: user types
-        // - OAuth complete: use provider email if present, else use typed email
-        // - Employee: optional typed email if you decide to show it
         const effectiveEmail = (isOAuthComplete ? (oauthEmail || form.email) : form.email).trim();
 
-        // required basics
+        // required basics (shared)
         if (
             !form.firstName.trim() ||
             !form.lastName.trim() ||
@@ -214,13 +210,14 @@ export default function RegisterPage({
             return;
         }
 
-        // base payload (matches RegisterAsCustomerRequestDTO)
-        const payload = {
+        // --- OAuth/Employee: /api/me/register-as-customer (RegisterAsCustomerRequestDTO) ---
+        const customerProfileBody = {
             customerType: form.customerType,
             firstName: form.firstName.trim(),
             lastName: form.lastName.trim(),
-            businessName: form.customerType === "Business" ? form.businessName.trim() : "",
+            businessName: isBusiness ? form.businessName.trim() : "",
             homePhone: form.homePhone.trim(),
+            email: effectiveEmail, // ok even if backend fills it
 
             street1: form.billingStreet1.trim(),
             street2: form.billingStreet2 ? form.billingStreet2.trim() : "",
@@ -228,27 +225,42 @@ export default function RegisterPage({
             province: form.billingProvince.trim(),
             postalCode: form.billingPostalCode.trim(),
             country: form.billingCountry.trim(),
+
+            addServiceAddress: false,
         };
 
-        // include email:
-        // - normal signup: yes
-        // - oauth complete: yes
-        // - employee: optional (only if filled)
-        if (isNormalSignup || isOAuthComplete || (!!effectiveEmail && isEmployeeMode)) {
-            payload.email = effectiveEmail;
-        }
+        // --- Normal signup (Design B): /api/auth/register (RegisterRequestDTO) ---
+        const registerBody = {
+            customerType: form.customerType,
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            businessName: isBusiness ? form.businessName.trim() : "",
 
-        if (isNormalSignup) {
-            payload.username = form.username.trim();
-            payload.password = form.password;
-        }
+            email: effectiveEmail,
+            homephone: form.homePhone.trim(), // DTO expects homephone
+
+            username: form.username.trim(),
+            password: form.password,
+
+            billingStreet1: form.billingStreet1.trim(),
+            billingStreet2: form.billingStreet2 ? form.billingStreet2.trim() : "",
+            billingCity: form.billingCity.trim(),
+            billingProvince: form.billingProvince.trim(),
+            billingPostalCode: form.billingPostalCode.trim(),
+            billingCountry: form.billingCountry.trim(),
+
+            sameAsBilling: true,
+        };
+
+        const isMeFlow = isEmployeeMode || isOAuthComplete;
+        const body = isMeFlow ? customerProfileBody : registerBody;
 
         try {
-            const res = await fetch("/api/me/register-as-customer", {
+            const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: isNormalSignup ? "omit" : "include",
-                body: JSON.stringify(payload),
+                credentials: isMeFlow ? "include" : "omit",
+                body: JSON.stringify(body),
             });
 
             const text = await res.text();
@@ -279,7 +291,27 @@ export default function RegisterPage({
                 return;
             }
 
-            navigate("/login");
+// --- Normal signup: auto-login then go to profile ---
+            try {
+                const loginRes = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include", // IMPORTANT for session cookie
+                    body: JSON.stringify({
+                        username: form.username.trim(),
+                        password: form.password,
+                    }),
+                });
+
+                if (!loginRes.ok) {
+                    navigate("/login");
+                    return;
+                }
+
+                navigate("/profile", { replace: true });
+            } catch {
+                navigate("/login");
+            }
         } catch {
             setError("Cannot reach backend. Make sure Spring Boot is running.");
         }

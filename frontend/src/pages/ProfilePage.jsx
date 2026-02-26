@@ -268,7 +268,9 @@ export default function ProfilePage({ user: userProp, onLogout }) {
                 setError("");
                 setLoading(true);
 
-                const res = await fetch("/api/me", { credentials: "include" });
+                const res = await fetch("/api/me", {
+                    method: "GET",
+                    credentials: "include" });
 
                 if (res.status === 401 || res.status === 404) {
                     // 401 = not authenticated, 404 = authenticated but no UA row ("Not registered")
@@ -1111,13 +1113,12 @@ export default function ProfilePage({ user: userProp, onLogout }) {
             {/* ============== for edit billing ====================   */}
             <Modal
                 show={showBillingModal}
-                onHide={needsAddress}
+                onHide={closeBillingEditor}
                 backdrop={true}
                 keyboard={true}
                 centered
             >
-
-                <Modal.Header closeButton={!needsAddress}>
+                <Modal.Header closeButton>
                     <Modal.Title>Edit Billing Address</Modal.Title>
                 </Modal.Header>
 
