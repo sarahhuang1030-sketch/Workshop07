@@ -158,12 +158,17 @@ public class MeController {
 
             out.put("employeeId", ua.getEmployeeId());
             out.put("customerId", ua.getCustomerId());
-            out.put("role", ua.getRole());
+            String roleKey =
+                    ua.getEmployeeId() != null ? "EMPLOYEE" :
+                            ua.getCustomerId() != null ? "CUSTOMER" :
+                                    "GUEST";
+            out.put("role", roleKey);
+            out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
 
             // Employee
             if (ua.getEmployeeId() != null) {
-                out.put("userType", "Employee");
+                out.put("userType", "EMPLOYEE");
 
                 employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
                     out.put("firstName", emp.getFirstName());
@@ -206,11 +211,7 @@ public class MeController {
                 out.put("provider", oauthTok.getAuthorizedClientRegistrationId().toLowerCase());
                 out.put("attributes", attrs);
 
-                out.put("oauthPicture", firstNonBlank(
-                        str(attrs.get("picture")),      // google
-                        str(attrs.get("avatar_url")),   // github
-                        str(attrs.get("picture"))
-                ));
+                out.put("oauthPicture", extractOAuthPictureUrl(attrs));
             }
 
             return ResponseEntity.ok(out);
@@ -460,6 +461,45 @@ public class MeController {
         return ResponseEntity.ok("Account deleted");
     }
 
+    @PutMapping("/api/me/profile")
+    @Transactional
+    public ResponseEntity<?> updateMyProfile(Principal principal,
+                                             Authentication auth,
+                                             @AuthenticationPrincipal OAuth2User oauthUser,
+                                             @RequestBody org.example.dto.UpdateMyProfileDTO req) {
+        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+
+        String key = resolveLoginKey(principal, auth, oauthUser);
+        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
+        if (uaOpt.isEmpty()) return ResponseEntity.status(404).body("UserAccount not found");
+
+        UserAccount ua = uaOpt.get();
+
+        // If employee: update employee name (optional, depends on your rules)
+        if (ua.getEmployeeId() != null) {
+            employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                if (req.firstName != null) emp.setFirstName(req.firstName.trim());
+                if (req.lastName != null) emp.setLastName(req.lastName.trim());
+                employeeRepo.save(emp);
+            });
+        }
+
+        // If customer: update customer name + phone
+        if (ua.getCustomerId() != null) {
+            customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
+                if (req.firstName != null) c.setFirstName(req.firstName.trim());
+                if (req.lastName != null) c.setLastName(req.lastName.trim());
+                if (req.homePhone != null) c.setHomePhone(req.homePhone.trim());
+                customerRepo.save(c);
+            });
+        }
+
+        // Return something useful (optional)
+        return ResponseEntity.ok(Map.of("message", "Profile updated"));
+    }
+
+
+
     // -------------------- helpers --------------------
 
     // OAuth => provider:externalId ; local login => principal.getName()
@@ -503,5 +543,41 @@ public class MeController {
             if (v != null && !v.trim().isEmpty()) return v.trim();
         }
         return null;
+    }
+
+    //-------------Help to extra different social media's profile picture url-------------//
+    private static String extractOAuthPictureUrl(Map<String, Object> attrs) {
+        // GitHub
+        Object gh = attrs.get("avatar_url");
+        if (gh != null && !gh.toString().isBlank()) return gh.toString();
+
+        // Google (OIDC) usually: picture is a direct string URL
+        Object pic = attrs.get("picture");
+        if (pic instanceof String s && !s.isBlank()) return s.trim();
+
+        // Facebook often: picture -> data -> url
+        if (pic instanceof Map<?, ?> picMap) {
+            Object data = picMap.get("data");
+            if (data instanceof Map<?, ?> dataMap) {
+                Object url = dataMap.get("url");
+                if (url != null && !url.toString().isBlank()) return url.toString();
+            }
+            // sometimes picture -> url
+            Object url = picMap.get("url");
+            if (url != null && !url.toString().isBlank()) return url.toString();
+        }
+
+        return null;
+    }
+
+    private static String asNonBlankString(Object o) {
+        if (o == null) return null;
+        if (o instanceof String s) {
+            s = s.trim();
+            return s.isEmpty() ? null : s;
+        }
+        // sometimes values come as other types (rare). Convert to string safely:
+        String s = o.toString().trim();
+        return s.isEmpty() ? null : s;
     }
 }

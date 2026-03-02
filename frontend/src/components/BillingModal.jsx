@@ -4,7 +4,7 @@ import { Modal, Button, Form, Alert, Row, Col, Spinner } from "react-bootstrap";
 /**
  * BillingModal: Integrated version
  */
-export function BillingModal({ show, profile, onClose, onSaveProfile, needsPhone = true }) {
+export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, needsPhone = true }) {
     const [draft, setDraft] = useState(null);       // local draft for form
     const [loading, setLoading] = useState(false);  // loading state for fetch
     const [saving, setSaving] = useState(false);    // saving state
@@ -111,6 +111,20 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, needsPhone
         setError("");
 
         try {
+            // 1) Save personal info
+            const resProfile = await fetch("/api/me/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    firstName: draft.firstName,
+                    lastName: draft.lastName,
+                    homePhone: draft.phone
+                }),
+            });
+            if (!resProfile.ok) throw new Error("Failed to update profile");
+
+            // 2) Save address (update)
             const res = await fetch("/api/billing/address", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -125,7 +139,12 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, needsPhone
 
             const updated = await res.json();
 
-            if (onSaveProfile) onSaveProfile(updated);
+            // optional optimistic update (keep if you like)
+            onSaveProfile?.(updated);
+
+            // ✅ the key: refresh /api/me in ProfilePage + App
+            await onSaved?.();
+
             handleClose();
         } catch (e) {
             setError(e.message || "Failed to save billing info");

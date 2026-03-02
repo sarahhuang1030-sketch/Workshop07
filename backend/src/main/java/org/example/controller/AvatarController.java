@@ -5,6 +5,10 @@ import org.example.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,8 +33,10 @@ public class AvatarController {
     @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, String> uploadAvatar(
             @RequestParam("avatar") MultipartFile avatar,
-            Principal principal
-    ) throws IOException {
+            Principal principal,
+            Authentication auth,
+            @AuthenticationPrincipal OAuth2User oauthUser
+    )throws IOException {
 
         if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         if (avatar == null || avatar.isEmpty())
@@ -40,7 +46,8 @@ public class AvatarController {
         if (!contentType.startsWith("image/"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File must be an image");
 
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(principal.getName())
+        String key = resolveLoginKey(principal, auth, oauthUser);
+        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
         // ✅ writes to backend/src/uploads/avatars (if uploadDir=src/uploads)
@@ -80,10 +87,15 @@ public class AvatarController {
     }
 
     @DeleteMapping("/avatar")
-    public Map<String, Boolean> deleteAvatar(Principal principal) throws IOException {
+    public Map<String, Boolean> deleteAvatar(
+            Principal principal,
+            Authentication auth,
+            @AuthenticationPrincipal OAuth2User oauthUser
+    ) throws IOException {
         if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
 
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(principal.getName())
+        String key = resolveLoginKey(principal, auth, oauthUser);
+        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
         Path avatarsDir = Paths.get(uploadDir, "avatars").toAbsolutePath().normalize();
@@ -101,5 +113,35 @@ public class AvatarController {
         userAccountRepo.save(ua);
 
         return Map.of("ok", true);
+    }
+
+    //--------------helper method----------------
+    private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
+        if (auth instanceof OAuth2AuthenticationToken oauthTok) {
+            Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
+            String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
+
+            String externalId = firstNonBlank(
+                    str(attrs.get("sub")),
+                    str(attrs.get("id")),
+                    str(attrs.get("login"))
+            );
+
+            if (externalId != null && !externalId.isBlank()) {
+                return (provider + ":" + externalId).toLowerCase();
+            }
+        }
+        return principal.getName();
+    }
+
+    private static String str(Object o) {
+        return o == null ? null : o.toString().trim();
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.trim().isEmpty()) return v.trim();
+        }
+        return null;
     }
 }

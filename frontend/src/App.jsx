@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 
 import Layout from "./components/layout/Layout";
@@ -81,22 +81,24 @@ function mapOAuthMeToUser(meResponse) {
         lastName: dbLastName || fallbackLast,
         email: dbEmail || fallbackEmail,
         username: dbUsername || fallbackUsername,
-        picture: meResponse?.avatarUrl || fallbackPicture,
+        // prefer backend avatarUrl, then oauth fallbacks
+        picture: meResponse?.avatarUrl || meResponse?.oauthPicture || fallbackPicture,
         raw: meResponse,
     };
 }
 
-// ✅ FIX: accept setNeedsRegistration in props
+// Calls finishOAuthLogin once when user lands on /oauth-success
 function OAuthSuccessHandler({ finishOAuthLogin }) {
     useEffect(() => {
         finishOAuthLogin?.();
     }, [finishOAuthLogin]);
-
-    return null; // or spinner
+    return null;
 }
 
 export default function App() {
     const navigate = useNavigate();
+    const location = useLocation();
+
     const [user, setUser] = useState(null);
 
     const [needsRegistration, setNeedsRegistration] = useState(() => {
@@ -108,37 +110,26 @@ export default function App() {
         }
     });
 
-    const location = useLocation();
-
-    useEffect(() => {
-        let cancelled = false;
-
-        fetch("/api/me", { credentials: "include" })
-            .then(async (res) => {
-                if (!res.ok) throw new Error("not logged in");
-                const me = await res.json();
-                if (!cancelled) setUser(mapOAuthMeToUser(me));
-            })
-            .catch(() => {
-                if (!cancelled) setUser(null);
-                localStorage.removeItem("tc_user");
-            });
-
-        return () => { cancelled = true; };
-    }, []);
-
-    const finishOAuthLogin = useCallback(async () => {
+    // ---- Single source of truth: hydrate / refresh session user ----
+    const refreshMe = useCallback(async () => {
         try {
             const res = await fetch("/api/me", { credentials: "include" });
-            const contentType = res.headers.get("content-type") || "";
 
-            // 409 = logged in with OAuth but no customer profile yet
+            // Not logged in
+            if (res.status === 401) {
+                setUser(null);
+                return null;
+            }
+
+            // If your backend uses 409 for "needs registration", keep this.
+            // If not, this block will never run (harmless).
             if (res.status === 409) {
                 const text = await res.text();
                 let data = null;
-                try { data = JSON.parse(text); } catch {}
+                try {
+                    data = JSON.parse(text);
+                } catch {}
 
-                // build a consistent needsRegistration object
                 const nr = {
                     status: data?.status || "NEEDS_REGISTRATION",
                     lookupKey: data?.lookupKey,
@@ -149,89 +140,59 @@ export default function App() {
 
                 sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
                 setNeedsRegistration(nr);
-                navigate("/profile", { replace: true });
-                return;
+                setUser(null);
+                return null;
             }
 
-            // not logged in / session missing
             if (!res.ok) {
                 setUser(null);
-                return;
+                return null;
             }
 
-            // logged in + profile exists
-            if (!contentType.includes("application/json")) return;
             const me = await res.json();
+            const mapped = mapOAuthMeToUser(me);
+
+            setUser(mapped);
+
+            // if we successfully have a user, registration prompt should be cleared
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
-            setUser(mapOAuthMeToUser(me));
-            navigate("/profile", { replace: true });
+
+            return mapped;
         } catch {
             setUser(null);
+            return null;
         }
-    }, [navigate]);
+    }, []);
 
-    // useEffect(() => {
-    //     let cancelled = false;
-    //
-    //
-    //
-    //     async function tryRestoreOAuthSession() {
-    //         try {
-    //
-    //             // ✅ skip while OAuth success handler is already doing /api/me
-    //             if (location.pathname === "/oauth-success") return;
-    //
-    //             // ✅ skip if we already know we need registration
-    //             if (needsRegistration) return;
-    //
-    //             const res = await fetch("/api/me", { credentials: "include" });
-    //             if (res.status === 401) {
-    //                 if (!cancelled) setUser(null);
-    //                 return;
-    //             }
-    //             const contentType = res.headers.get("content-type") || "";
-    //
-    //             if (res.status === 409) {
-    //                 const data = contentType.includes("application/json")
-    //                     ? await res.json().catch(() => null)
-    //                     : null;
-    //
-    //                 if (data?.status === "NEEDS_REGISTRATION") {
-    //                     const nr = {
-    //                         status: data.status,
-    //                         lookupKey: data.lookupKey,
-    //                         provider: data.provider,
-    //                         email: data.email || data.attributes?.email || "",
-    //                         attributes: data.attributes || {},
-    //                     };
-    //                     sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
-    //                     setNeedsRegistration(nr);
-    //                     navigate("/profile", { replace: true });
-    //                 }
-    //                 return;
-    //             }
-    //
-    //             if (!res.ok) {
-    //                 if (!cancelled) setUser(null);
-    //                 return;
-    //             }
-    //             if (!contentType.includes("application/json")) {
-    //                 if (!cancelled) setUser(null);
-    //                 return;
-    //             }
-    //             const me = await res.json();
-    //             if (!cancelled) setUser(mapOAuthMeToUser(me));
-    //         } catch {
-    //             // ignore
-    //         }
-    //     }
-    //
-    //     tryRestoreOAuthSession();
-    //     return () => { cancelled = true; };
-    // }, [navigate, location.pathname, needsRegistration]);
+    // ---- On initial app load, attempt to hydrate session ----
+    useEffect(() => {
+        refreshMe();
+    }, [refreshMe]);
 
+    // ---- KEY FIX: when navigating to /profile, re-hydrate if user is missing ----
+    // This removes the need for manual refresh if the first /api/me call raced.
+    useEffect(() => {
+        if (location.pathname === "/profile" && !user) {
+            refreshMe();
+        }
+    }, [location.pathname, user, refreshMe]);
 
+    // Redirect away from /login or /register once we have user
+    useEffect(() => {
+        if (!user) return;
+        if (location.pathname === "/login" || location.pathname === "/register") {
+            navigate("/profile", { replace: true });
+        }
+    }, [user, location.pathname, navigate]);
+
+    const finishOAuthLogin = useCallback(async () => {
+        // For OAuth, the session cookie might be set right around redirect time.
+        // Running refreshMe() here is the cleanest.
+        const u = await refreshMe();
+        if (u) navigate("/profile", { replace: true });
+        else navigate("/profile", { replace: true }); // still show profile (it can render needsRegistration)
+    }, [refreshMe, navigate]);
 
     async function logout() {
         try {
@@ -242,8 +203,8 @@ export default function App() {
             setUser(null);
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
-            localStorage.removeItem("tc_user"); // harmless if you remove usage
-            navigate("/", { replace: true });   // optional
+            localStorage.removeItem("tc_user"); // harmless if unused
+            navigate("/", { replace: true });
         }
     }
 
@@ -261,6 +222,7 @@ export default function App() {
                                 onLogout={logout}
                                 needsRegistration={needsRegistration}
                                 setNeedsRegistration={setNeedsRegistration}
+                                refreshMe={refreshMe}
                             />
                         }
                     />
@@ -268,17 +230,16 @@ export default function App() {
                     <Route path="/plans" element={<PlansPage />} />
                     <Route path="/cart" element={<ShoppingCartPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/login" element={<LoginPage setUser={setUser} />} />
+                    <Route path="/login" element={<LoginPage refreshMe={refreshMe} />} />
 
                     <Route
                         path="/register"
-                        element={<RegisterPage needsRegistration={null} />}
+                        element={<RegisterPage needsRegistration={null} refreshMe={refreshMe} />}
                     />
 
                     <Route path="/forgetpassword" element={<ForgetPasswordPage />} />
                     <Route path="/resetpassword" element={<ResetPasswordPage />} />
 
-                    {/* ✅ FIX: pass setNeedsRegistration */}
                     <Route
                         path="/oauth-success"
                         element={<OAuthSuccessHandler finishOAuthLogin={finishOAuthLogin} />}

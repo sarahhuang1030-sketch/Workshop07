@@ -57,25 +57,25 @@ public class AuthController {
                                    HttpServletRequest request,
                                    HttpServletResponse response) {
 
-        // Authenticate via Spring Security (this is the real login)
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
         );
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
+        SecurityContextHolder.setContext(context);
 
-        //make sure the session exists
-        request.getSession(true);
+        HttpSession session = request.getSession(true);
 
-        // Save context into session properly
         SecurityContextRepository repo = new HttpSessionSecurityContextRepository();
         repo.saveContext(context, request, response);
 
-        // If you still want to return your DTO:
+        session.setAttribute("SPRING_SECURITY_CONTEXT", context);  // explicit save
+
         LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
         return ResponseEntity.ok(user);
     }
+
 
 
 

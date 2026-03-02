@@ -50,6 +50,9 @@ export default function RegisterPage({
 
                                          // for modal close
                                          onClose,
+
+                                        //refreshMe for auto-login after normal signup
+                                         refreshMe,
                                      }) {
     const { darkMode } = useTheme();
     const navigate = useNavigate();

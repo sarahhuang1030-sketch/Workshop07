@@ -1,22 +1,32 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
-import { useTheme } from "../context/ThemeContext"; // adjust path if needed
+import { useTheme } from "../context/ThemeContext";
 import { Eye, EyeOff } from "lucide-react";
 import { FaGoogle, FaGithub, FaFacebook } from "react-icons/fa";
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export default function LoginPage({ setUser }) {
+export default function LoginPage({ refreshMe }) {
     const navigate = useNavigate();
     const { darkMode } = useTheme();
     const [showPassword, setShowPassword] = useState(false);
 
-    const [form, setForm] = useState({ username: "", password: "" });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+
+    async function refreshMeWithRetry() {
+        for (let i = 0; i < 15; i++) {  // increased from 8
+            const mapped = await refreshMe?.();
+            if (mapped) return mapped;
+            await sleep(200);  // increased from 150ms
+        }
+        return null;
+    }
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -32,45 +42,36 @@ export default function LoginPage({ setUser }) {
             });
 
             if (!res.ok) {
-                const msg = await res.text();
-                setError(msg || "Invalid username or password");
+                const msg = await res.text().catch(() => "");
+                setError("Invalid username or password");
                 return;
             }
 
-            const user = await res.json();
+            const mapped = await refreshMeWithRetry();
+            if (!mapped) {
+                setError("Login succeeded, but session user could not be loaded (still 401).");
+                return;
+            }
 
-            localStorage.setItem("tc_user", JSON.stringify(user));
-            // localStorage.setItem("token", user.token);
-            // localStorage.setItem("customerId", user.customerId);
-
-            setUser?.(user);
-            navigate("/profile");
+            navigate("/profile", { replace: true });
         } catch (err) {
-            console.error(err);
             setError(err?.message || "Unexpected error");
         } finally {
             setLoading(false);
         }
     };
 
-
     function loginWithProvider(provider) {
         return async (e) => {
             e.preventDefault();
-
-            // ensure we drop any existing oauth session (google, facebook, etc.)
             try {
                 await fetch("/logout", { method: "POST", credentials: "include" });
             } catch {}
-
-            // optional: clear your local cached user
             localStorage.removeItem("tc_user");
             sessionStorage.removeItem("tc_needs_registration");
-
             window.location.assign(`/oauth2/authorization/${provider}`);
         };
     }
-
 
     return (
         <Container className="py-5">

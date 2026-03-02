@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Button, Form, Badge } from "react-bootstrap";
 
-const DEFAULT_AVATAR = "/uploads/avatars/user_5.jpg";
+const DEFAULT_AVATAR = "/uploads/avatars/default.jpg";
 
 export function AvatarCard({
                                profile,
@@ -83,15 +83,13 @@ export function AvatarCard({
 
             const data = await res.json(); // { avatarUrl: "..." }
 
-            // 更新显示
-            setAvatarUrl(data.avatarUrl);
+            const freshUrl = `${data.avatarUrl}${data.avatarUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+
+            setAvatarUrl(freshUrl);
             setAvatarFile(null);
             setError(null);
 
-            // 通知父组件
-            if (onSaveAvatar) {
-                onSaveAvatar(data.avatarUrl);
-            }
+            onSaveAvatar?.(freshUrl);
         } catch (err) {
             setError("Upload failed");
         }
@@ -142,10 +140,26 @@ export function AvatarCard({
         };
     }, [avatarUrl]);
 
+
+    // -------------change the badge color and label based on role----------------//
+    const roleKey = String(profile?.role ?? "").toUpperCase();
+
     const roleLabel =
-        sessionUser?.roles?.includes("employee") || sessionUser?.isEmployee
+        roleKey === "EMPLOYEE"
             ? "Employee"
-            : "Guest Customer";
+            : roleKey === "CUSTOMER"
+                ? "Customer"
+                : "Guest";
+
+    let badgeVariant = "secondary"; // default grey
+
+    if (roleKey === "EMPLOYEE") {
+        badgeVariant = "info";        // light blue
+    } else if (roleKey === "CUSTOMER") {
+        badgeVariant = "secondary";   // grey
+    } else {
+        badgeVariant = "light";       // guest (very light)
+    }
 
     return (
         <Card className={`${cardBase} mt-4 p-3`} style={{ borderRadius: 22 }}>
@@ -186,7 +200,7 @@ export function AvatarCard({
                     </div>
 
                     <div className="mt-1">
-                        <Badge bg={darkMode ? "secondary" : "dark"}>
+                        <Badge bg={badgeVariant}>
                             {roleLabel}
                         </Badge>
                     </div>
