@@ -410,7 +410,10 @@ public class MeController {
         addr.setCountry(req.country);
 
         customerAddressRepo.save(addr);
-        return ResponseEntity.ok("Address updated");
+//        return ResponseEntity.ok("Address updated");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Address updated");
+        return ResponseEntity.ok(response);
     }
 
     // -------------------- DELETE /api/me --------------------

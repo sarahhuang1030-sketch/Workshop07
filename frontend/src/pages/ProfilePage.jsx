@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Container, Row, Col, Card, Badge, Button, Spinner, Alert } from "react-bootstrap";
 import { Star, Crown } from "lucide-react";
-const [billingDraft, setBillingDraft] = useState(null);
+// const [billingDraft, setBillingDraft] = useState(null);
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AvatarCard, BillingCard, BillingModal, SubscriptionPage, DeleteProfileModal } from "../components";
 
