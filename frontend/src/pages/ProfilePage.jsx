@@ -17,7 +17,7 @@ import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Crown, CreditCard, Package, Star, ShieldCheck } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 
-// --------- Business Rewards Rules  ---------
+// --------- Business Rules (from your spec) ---------
 const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
 const BRONZE_DISCOUNT_RATE = 0.15;
@@ -28,28 +28,37 @@ function formatMoney(n) {
     return Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
 }
 
-//Profile picture show initials if no picture
 function initials(name = "") {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return "TC";
     return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
+function prevFirstName(full = "") {
+    return String(full).trim().split(/\s+/)[0] || "";
+}
+function prevLastName(full = "") {
+    const parts = String(full).trim().split(/\s+/);
+    return parts.slice(1).join(" ");
+}
+
+
 export default function ProfilePage({ user: userProp, onLogout }) {
-    //----Theme const ----//
+
     const { darkMode } = useTheme();
+    const navigate = useNavigate();
+
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
     const cardBase = darkMode ? "tc-card-dark" : "bg-white border-0 shadow-sm";
 
-    //----General const----//
-    const navigate = useNavigate();
+    const [avatarUrl, setAvatarUrl] = useState(null);
     const [sessionUser, setSessionUser] = useState(userProp ?? null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
     const shouldRedirect = !loading && !sessionUser;
 
-    //----Profile const----//
-    const [avatarUrl, setAvatarUrl] = useState(null);
     const [profile, setProfile] = useState({
         customerId: null,
         firstName: "—",
@@ -86,14 +95,15 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         },
     });
 
-    //----edit billing const----//
+    //edit function billing
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [billingDraft, setBillingDraft] = useState(null);
     const [billingSaving, setBillingSaving] = useState(false);
     const [billingError, setBillingError] = useState("");
 
-    //----need address warning at the top ----//
     const [addressPromptDismissed, setAddressPromptDismissed] = useState(false);
+
+
     const needsAddress = useMemo(() => {
         const hasCustomer = (sessionUser?.customerId ?? 0) > 0;
 
@@ -108,10 +118,10 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         // ✅ customer exists, but address missing
         return hasCustomer && missing;
     }, [sessionUser?.customerId, profile.billing?.address]);
+
+
     const needsPhone = !profile.phone?.trim();
 
-
-    //----function for open billing ----//
     async function openBillingEditor() {
         setBillingError("");
         setShowBillingModal(true);
@@ -227,7 +237,7 @@ export default function ProfilePage({ user: userProp, onLogout }) {
         }
     };
 
-function
+
 
     // keep sessionUser synced with normal-login prop
     useEffect(() => {
@@ -391,12 +401,29 @@ function
     }, [sessionUser, profile.billing?.address]);
 
 
+
+    function completeLater() {
+        setAddressPromptDismissed(true);
+        localStorage.setItem(dismissKey, "1");
+
+        setShowBillingModal(false);
+        setBillingDraft(null);
+        setBillingError("");
+    }
+
+
     useEffect(() => {
         if (!dismissKey) return;
         const v = localStorage.getItem(dismissKey);
         setAddressPromptDismissed(v === "1");
     }, [dismissKey]);
 
+
+    // useEffect(() => {
+    //     if (!loading && sessionUser && shouldPromptBilling && !showBillingModal && !addressPromptDismissed) {
+    //         openBillingEditor();
+    //     }
+    // }, [loading, sessionUser, shouldPromptBilling, showBillingModal, addressPromptDismissed]);
 
 
     const tierInfo = useMemo(() => {
@@ -1015,14 +1042,6 @@ function
                                                 <div className={mutedClass}>
                                                     {profile.billing.paymentMethod?.brand ?? "—"} •••• {profile.billing.paymentMethod?.last4 ?? "—"}
                                                 </div>
-
-                                                <Button
-                                                    variant={darkMode ? "outline-light" : "outline-secondary"}
-                                                    className="mt-3 fw-bold"
-                                                    style={{ borderRadius: 14 }}
-                                                >
-                                                    Edit Payment Method
-                                                </Button>
                                             </div>
                                         </div>
                                     </Col>
