@@ -22,7 +22,7 @@ public class AgentCustomerService {
 
     private String oauthPasswordMarker(String provider) {
         String p = (provider == null ? "oauth" : provider.trim().toLowerCase());
-        return "OAUTH:" + p; // e.g. OAUTH:google, OAUTH:github, OAUTH:facebook
+        return "OAUTH:" + p; // e.g. OAUTH:google, OAUTH:GitHub, OAUTH:facebook
     }
 
     private String stripProviderPrefix(String key) {

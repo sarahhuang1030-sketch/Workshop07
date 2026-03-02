@@ -20,9 +20,10 @@ export default function OAuthSuccess({ setUser }) {
                     email: me.email || "",
                     firstName: me.given_name || (me.name ? me.name.split(" ")[0] : "—"),
                     lastName: me.family_name || (me.name ? me.name.split(" ").slice(1).join(" ") : ""),
-                    // customerId may not exist for OAuth users unless your backend maps it
-                    customerId: me.customerId ?? null,
+                    phone: me.phone ?? me.homePhone ?? me.HomePhone ?? "—",
+                    avatarUrl: me.avatarUrl ?? me.picture ?? null,
                     raw: me,
+                    customerId: me.customerId ?? null,
                 };
 
                 setUser?.(mapped);

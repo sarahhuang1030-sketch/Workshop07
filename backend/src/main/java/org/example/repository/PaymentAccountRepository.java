@@ -9,6 +9,10 @@ import java.util.Optional;
 @Repository
 public interface PaymentAccountRepository extends JpaRepository<PaymentAccounts, Integer> {
 
-    Optional<PaymentAccounts> findByAccountIdAndCustomerId(Integer accountId, Integer customerId);
+    Optional<PaymentAccounts> findByAccountIdAndCustomerId(
+            Integer accountId,
+            Integer customerId
+    );
+    Optional<PaymentAccounts> findFirstByCustomerIdOrderByCreatedAtDesc(Integer customerId);
 
 }

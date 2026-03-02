@@ -11,7 +11,7 @@ import java.util.List;
 
 @Configuration
 public class CorsConfig {
-//Sarah modifed it for social media login
+
     @Value("${app.frontend.origin:http://localhost:5173}")
     private String frontendOrigin;
 
@@ -19,18 +19,19 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // your frontend
+        // origin
         config.setAllowedOrigins(List.of(frontendOrigin));
 
-        // allow common methods (include OPTIONS for preflight)
+        // method
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
-        // allow headers
-        config.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With"));
-        config.setExposedHeaders(List.of("Set-Cookie"));
+        // headers
+        config.setAllowedHeaders(List.of("*"));
 
+        // header（selection）
+        config.setExposedHeaders(List.of());
 
-        // IMPORTANT for session cookies (JSESSIONID)
+        // session cookie
         config.setAllowCredentials(true);
 
         config.setMaxAge(3600L);
@@ -39,6 +40,4 @@ public class CorsConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
-
 }

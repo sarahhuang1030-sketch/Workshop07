@@ -1,33 +1,121 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-public final class PaymentAccounts {
+public class PaymentAccounts {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "AccountId")
     private Integer accountId;
 
+    @Column(name = "CustomerId")
     private Integer customerId;
-    private String accountName;
+
+    @Column(name = "HolderName")
+    private String holderName;
+
+    @Column(name = "Method")
+    private String method;
+
+    @Column(name = "Balance")
     private Double balance;
+
+    @Column(name = "CardNumber")
+    private String cardNumber;
+
+    @Column(name = "Cvv")
+    private String cvv;
+
+    @Column(name = "ExpiredDate")
+    private LocalDate expiredDate;
+
+    @Column(name = "CreatedAt")
     private LocalDateTime createdAt;
 
-    // ===== getters & setters =====
-    public Integer getAccountId() { return accountId; }
-    public void setAccountId(Integer accountId) { this.accountId = accountId; }
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
-    public Integer getCustomerId() { return customerId; }
-    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
+    // =============================
+    // Getters and Setters
+    // =============================
 
-    public String getAccountName() { return accountName; }
-    public void setAccountName(String accountName) { this.accountName = accountName; }
+    public Integer getAccountId() {
+        return accountId;
+    }
 
-    public Double getBalance() { return balance; }
-    public void setBalance(Double balance) { this.balance = balance; }
+    public void setAccountId(Integer accountId) {
+        this.accountId = accountId;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
+    public String getHolderName() {
+        return holderName;
+    }
+
+    public void setHolderName(String holderName) {
+        this.holderName = holderName;
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+
+    public Double getBalance() {
+        return balance;
+    }
+
+    public void setBalance(Double balance) {
+        this.balance = balance;
+    }
+
+    public String getCardNumber() {
+        return cardNumber;
+    }
+
+    public void setCardNumber(String cardNumber) {
+        this.cardNumber = cardNumber;
+    }
+
+    public String getCvv() {
+        return cvv;
+    }
+
+    public void setCvv(String cvv) {
+        this.cvv = cvv;
+    }
+
+    public LocalDate getExpiredDate() {
+        return expiredDate;
+    }
+
+    public void setExpiredDate(LocalDate expiredDate) {
+        this.expiredDate = expiredDate;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

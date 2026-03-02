@@ -27,6 +27,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import java.util.HashMap;
 
 @RestController
 public class MeController {
@@ -219,6 +220,60 @@ public class MeController {
             return ResponseEntity.status(500).body("Error in /api/me: " + e.getMessage());
         }
     }
+
+//    @GetMapping("/api/me")
+//    @Transactional(readOnly = true)
+//    public ResponseEntity<?> me(Principal principal,
+//                                Authentication auth,
+//                                @AuthenticationPrincipal OAuth2User oauthUser){
+//
+//        String email = oauthUser.getAttribute("email");
+//
+//        String key = resolveLoginKey(principal, auth, oauthUser);
+//        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElseThrow();
+//
+//        Customer c = customerRepo.findFirstByEmailIgnoreCase(email)
+//                .orElseThrow(() -> new RuntimeException("Customer not found"));
+//
+//        CustomerAddress addr = customerAddressRepo
+//                .findFirstByCustomerIdOrderByIsPrimaryDesc(c.getCustomerId())
+//                .orElse(null);
+//
+//        Map<String, Object> out = new HashMap<>();
+//
+//        // Personal section
+//        Map<String, Object> personal = new HashMap<>();
+//        personal.put("firstName", c.getFirstName());
+//        personal.put("lastName", c.getLastName());
+//        personal.put("email", c.getEmail());
+//        personal.put("phone", c.getHomePhone());
+//
+//        // Billing section
+//        Map<String, Object> billing = new HashMap<>();
+//
+//        if (addr != null) {
+//            Map<String, Object> address = new HashMap<>();
+//            address.put("street1", addr.getStreet1());
+//            address.put("street2", addr.getStreet2());
+//            address.put("city", addr.getCity());
+//            address.put("province", addr.getProvince());
+//            address.put("postalCode", addr.getPostalCode());
+//            address.put("country", addr.getCountry());
+//            billing.put("address", address);
+//        } else {
+//            billing.put("address", null);
+//        }
+//
+//        billing.put("nextBillAmount", 29.99);
+//        billing.put("nextBillDate", "2026-03-15");
+//        billing.put("paymentMethod", "Visa **** 1234");
+//
+//        out.put("id", c.getCustomerId());
+//        out.put("personal", personal);
+//        out.put("billing", billing);
+//
+//        return ResponseEntity.ok(out);
+//    }
 
     // -------------------- POST /api/me/register-as-customer --------------------
     @PostMapping("/api/me/register-as-customer")
