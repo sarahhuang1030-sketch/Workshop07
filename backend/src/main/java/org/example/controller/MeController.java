@@ -11,19 +11,18 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.example.dto.CurrentPlanDTO;
 import org.example.dto.RegisterAsCustomerRequestDTO;
 import org.example.dto.SaveMyAddressRequestDTO;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
 import org.example.model.UserAccount;
-import org.example.repository.CustomerAddressRepository;
-import org.example.repository.CustomerRepository;
-import org.example.repository.EmployeeRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.repository.*;
 import org.example.service.AgentCustomerService;
 
 import org.springframework.http.ResponseEntity;
@@ -44,17 +43,20 @@ public class MeController {
     private final CustomerAddressRepository customerAddressRepo;
     private final CustomerRepository customerRepo;
     private final EmployeeRepository employeeRepo;
+    private final MeRepository meRepository;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
                         CustomerAddressRepository customerAddressRepo,
                         CustomerRepository customerRepo,
-                        EmployeeRepository employeeRepo) {
+                        EmployeeRepository employeeRepo,
+                        MeRepository meRepository) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
         this.customerRepo = customerRepo;
         this.employeeRepo = employeeRepo;
+        this.meRepository = meRepository;
     }
 
     // -------------------- GET /api/me --------------------
@@ -552,6 +554,56 @@ public class MeController {
         return null;
     }
 
+    // -------------------- GET /api/me/subscription --------------------
+    @GetMapping("/api/me/subscription")
+    public ResponseEntity<?> getMySubscription(Principal principal,
+                                               Authentication auth,
+                                               @AuthenticationPrincipal OAuth2User oauthUser) {
+        try {
+            if (principal == null) {
+                return ResponseEntity.status(401).body("Not authenticated");
+            }
+
+            // IMPORTANT: use same login key logic as /api/me (works for OAuth + local)
+            String key = resolveLoginKey(principal, auth, oauthUser);
+            if (key == null || key.isBlank()) {
+                return ResponseEntity.status(401).body("Not authenticated");
+            }
+
+            // You already use this in /api/me, so keep consistent:
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+            if (ua == null || ua.getCustomerId() == null) {
+                // Return a safe shape for the frontend
+                return ResponseEntity.ok(Map.of(
+                        "plan", Map.of(
+                                "status", "Inactive",
+                                "name", "—",
+                                "monthlyPrice", null,
+                                "startedAt", null
+                        ),
+                        "lastPayment", null
+                ));
+            }
+
+            int customerId = ua.getCustomerId();
+
+            var plan = meRepository.findActivePlanForCustomer(customerId)
+                    .orElse(new CurrentPlanDTO("Inactive", "—", null, null));
+
+            var lastPayment = meRepository.findLastCompletedPayment(customerId)
+                    .orElse(null);
+
+            return ResponseEntity.ok(Map.of(
+                    "plan", plan,
+                    "lastPayment", lastPayment
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error in /api/me/subscription: " + e.getMessage());
+        }
+    }
+
     //-------------Help to extra different social media's profile picture url-------------//
     private static String extractOAuthPictureUrl(Map<String, Object> attrs) {
         // GitHub
@@ -587,4 +639,63 @@ public class MeController {
         String s = o.toString().trim();
         return s.isEmpty() ? null : s;
     }
+
+    // -------------------- GET /api/me/subscription/details --------------------
+    @GetMapping("/api/me/subscription/details")
+    public ResponseEntity<?> getMySubscriptionDetails(Principal principal,
+                                                      Authentication auth,
+                                                      @AuthenticationPrincipal OAuth2User oauthUser) {
+        try {
+            if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+
+            String key = resolveLoginKey(principal, auth, oauthUser);
+            if (key == null || key.isBlank()) return ResponseEntity.status(401).body("Not authenticated");
+
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+
+            if (ua == null || ua.getCustomerId() == null) {
+                return ResponseEntity.ok(Map.of(
+                        "subscription", null,
+                        "plan", null,
+                        "features", List.of(),
+                        "addOns", List.of(),
+                        "payments", List.of()
+                ));
+            }
+
+            int customerId = ua.getCustomerId();
+
+            Integer subId = meRepository.findActiveSubscriptionId(customerId).orElse(null);
+            if (subId == null) {
+                return ResponseEntity.ok(Map.of(
+                        "subscription", null,
+                        "plan", null,
+                        "features", List.of(),
+                        "addOns", List.of(),
+                        "payments", meRepository.findRecentPayments(customerId, 5)
+                ));
+            }
+
+            Map<String, Object> sub = meRepository.findSubscriptionRow(subId);
+
+            Object planIdObj = sub.get("planId");
+            int planId = (planIdObj instanceof Integer i)
+                    ? i
+                    : Integer.parseInt(String.valueOf(planIdObj));
+
+            Map<String, Object> plan = meRepository.findPlanInfo(planId);
+
+            return ResponseEntity.ok(Map.of(
+                    "subscription", sub,
+                    "plan", plan,
+                    "features", meRepository.findPlanFeatures(planId),
+                    "addOns", meRepository.findPurchasedAddOns(subId),
+                    "payments", meRepository.findRecentPayments(customerId, 5)
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error in /api/me/subscription/details: " + e.getMessage());
+        }
+    }
+
 }
