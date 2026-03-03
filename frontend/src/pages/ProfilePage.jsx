@@ -1,10 +1,13 @@
 /**
-Description: Profile page, showing user info, rewards points, subscription status,
-and billing details. Allows editing of profile, managing subscription, and
-updating billing info. Also includes a delete profile option with confirmation modal.
-Created by: Sarah
-Created on: February 2026
-**/
+ * Description: Profile page, showing user info, rewards points, subscription status,
+ * and billing details. Allows editing of profile, managing subscription, and
+ * updating billing info. Displays a top alert if profile/billing/payment info is incomplete.
+ * Created by: Sarah
+ * Created on: February 2026
+ *
+ * Modified by: Sherry
+ * Modified on: March 2026
+ **/
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
@@ -55,65 +58,35 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         const isBronze = points >= BRONZE_REQUIREMENT;
         const progress = Math.min(100, Math.round((points / BRONZE_REQUIREMENT) * 100));
         const remaining = Math.max(0, BRONZE_REQUIREMENT - points);
-
         return { isBronze, progress, remaining };
     }, [profile.points]);
-
-
 
     // ---- Loaders ----
     const loadAddress = useCallback(async () => {
         try {
             const res = await fetch("/api/billing/address", { credentials: "include" });
-
-            // if your backend returns 404 when no address yet, that's fine — just keep {}
-            if (res.status === 404) {
-                setProfile((prev) => ({
-                    ...prev,
-                    billing: { ...prev.billing, address: {} },
-                }));
+            if (res.status === 404 || res.status === 204) {
+                setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address: {} } }));
                 return;
             }
-
             if (!res.ok) return;
-
-            // const data = await res.json();
-            if (res.status === 204) {
-                return;
-            }
             const data = await res.json();
-
             const address = data?.address ?? data ?? {};
-
-            setProfile((prev) => ({
-                    ...prev,
-                    billing: { ...prev.billing, address },
-                })
-
-
-            );
-
-
+            setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address } }));
         } catch (err) {
             console.error("Failed to load billing address", err);
         }
     }, []);
 
-    //--------Payment method Modal----------//
     const loadPaymentMethod = useCallback(async () => {
         try {
             const res = await fetch("/api/billing/payment", { credentials: "include" });
-            if (res.status === 404) {
+            if (res.status === 404 || res.status === 204) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
                 return;
             }
             if (!res.ok) return;
-            // const data = await res.json();
-            if (res.status === 204) {
-                return;
-            }
             const data = await res.json();
-
             const paymentMethod = data?.paymentMethod ?? data ?? {};
             setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod } }));
         } catch (err) {
@@ -121,10 +94,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     }, []);
 
-
     // ---- Session hydrate (only once) ----
     useEffect(() => {
-        // if App.user hasn't loaded yet, ask App to fetch /api/me once
         if ((userProp === null || userProp === undefined) && !didTryHydrate.current) {
             didTryHydrate.current = true;
             Promise.resolve(refreshMe?.())
@@ -144,7 +115,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             raw.homePhone ??
             raw.mobilePhone ??
             raw.cellPhone ??
-            raw.customerPhone ?? // just in case your backend uses a different name
+            raw.customerPhone ??
             userProp.phone ??
             "—";
 
@@ -163,7 +134,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 userProp.picture ??
                 raw.picture ??
                 null,
-            // after (fallback derived from ids):
             role:
                 userProp.role ??
                 (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
@@ -172,23 +142,19 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         setLoading(false);
     }, [userProp]);
 
-    // ---- Load address whenever customerId becomes available ----
+    // ---- Load address & payment method ----
     useEffect(() => {
         if (!userProp?.customerId) return;
         loadAddress();
         loadPaymentMethod();
     }, [userProp?.customerId, loadAddress, loadPaymentMethod]);
 
-
     const closeBillingEditor = () => setShowBillingModal(false);
 
-
-    // ---- avatar controls ----
     const saveAvatar = async (newUrl) => {
         if (!newUrl) return;
         setError("");
         setProfile((prev) => ({ ...prev, avatarUrl: newUrl }));
-
     };
 
     const deleteAvatar = async () => {
@@ -196,7 +162,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         try {
             const res = await fetch("/api/me/avatar", { method: "DELETE", credentials: "include" });
             if (!res.ok) throw new Error("Avatar delete failed");
-
             const mapped = await refreshMe?.();
             setProfile((prev) => ({
                 ...prev,
@@ -212,42 +177,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     };
 
-    //---This is the alert for incomplete profile--------//
-    const isBlank = (v) => v == null || String(v).trim() === "" || v === "—";
-
-    const missingFields = useMemo(() => {
-        const missing = [];
-
-        // email / phone
-        if (isBlank(profile.email)) missing.push("Email");
-        if (isBlank(profile.phone)) missing.push("Phone number");
-
-        // address (adjust keys to match your backend field names)
-        const a = profile.billing?.address || {};
-        const addressMissing =
-            isBlank(a.street1) ||
-            isBlank(a.city) ||
-            isBlank(a.province) ||
-            isBlank(a.postalCode);
-
-        // const pm = profile.billing?.paymentMethod || {};
-        // // const cardDisplay = pm.displayCard || "—";
-        // // const holderName = pm.holderName || "—";
-        // const displayCard = pm.cardNumber ? "**** **** **** " + pm.cardNumber.slice(-4) : "—";
-        //
-        // const paymentMissing =
-        //     isBlank(pm.method) ||
-        //     isBlank(pm.cardNumber) ||
-        //     isBlank(pm.expiredDate) ||
-        //     isBlank(pm.holderName);
-
-        // if (paymentMissing) missing.push("Payment method");
-
-        if (addressMissing) missing.push("Billing address");
-
-        return missing;
-    }, [profile.email, profile.phone, profile.billing?.address, profile.billing?.paymentMethod]);
-
     const deleteProfile = async () => {
         setError("");
         try {
@@ -260,9 +189,39 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     };
 
+    // ---- Top alert for incomplete profile / billing / payment info ----
+    const isBlank = (v) => v == null || String(v).trim() === "" || v === "—";
 
+    const missingFields = useMemo(() => {
+        const missing = [];
 
-    // ---- Guards AFTER hooks ----
+        // Check essential profile info
+        if (isBlank(profile.email)) missing.push("Email");
+        if (isBlank(profile.phone)) missing.push("Phone number");
+
+        // Check billing address
+        const addr = profile.billing?.address || {};
+        if (
+            isBlank(addr.street1) ||
+            isBlank(addr.city) ||
+            isBlank(addr.province) ||
+            isBlank(addr.postalCode) ||
+            isBlank(addr.country)
+        ) missing.push("Billing address");
+
+        // Check payment method
+        const pm = profile.billing?.paymentMethod || {};
+        if (
+            isBlank(pm.method) ||
+            // isBlank(pm.cardNumber) ||
+            // isBlank(pm.holderName) ||
+            // isBlank(pm.expiredDate) ||
+            isBlank(pm.last4)
+        ) missing.push("Payment method");
+
+        return missing;
+    }, [profile]);
+
     if (loading) {
         return (
             <Container className="py-5 text-center">
@@ -272,16 +231,17 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         );
     }
 
-
-
-
-    if (!userProp) return <Navigate to="/login" replace />;
+    // if (!userProp) return <Navigate to="/login" replace />;
+    if (!loading && !userProp) {
+        return <Navigate to="/login" replace />;
+    }
 
     const hasAccount = !!userProp.customerId || !!userProp.employeeId;
     if (!hasAccount) return <Navigate to="/login" replace />;
 
     return (
         <Container className="py-4 py-md-5 px-4">
+            {/* ---- Page Header ---- */}
             <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
                 <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
                     My Profile
@@ -307,6 +267,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 </div>
             </div>
 
+            {/* ---- Global Error ---- */}
             {error && (
                 <Alert variant="danger">
                     <div className="fw-bold">Profile error</div>
@@ -314,9 +275,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 </Alert>
             )}
 
+            {/* ---- Top Alert for incomplete fields ---- */}
             {missingFields.length > 0 && (
                 <Alert
-                    variant={darkMode ? "warning" : "warning"}
+                    variant="warning"
                     className="d-flex align-items-start gap-2"
                     style={{ borderRadius: 16 }}
                 >
@@ -331,11 +293,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
                                 onClick={() => {
-                                    if (missingFields.includes("Payment method")) {
-                                        setShowPaymentModal(true);
-                                    } else {
-                                        setShowBillingModal(true);
-                                    }
+                                    if (missingFields.includes("Payment method")) setShowPaymentModal(true);
+                                    else setShowBillingModal(true);
                                 }}
                                 style={{ borderRadius: 12 }}
                             >
@@ -378,9 +337,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
                             <div className="mt-3">
                                 <div className="d-flex justify-content-between small">
-                  <span className={mutedClass}>
-                    Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                  </span>
+                                    <span className={mutedClass}>
+                                        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                                    </span>
                                     <span className={mutedClass}>{tierInfo.progress}%</span>
                                 </div>
 
@@ -408,6 +367,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
                 <Col lg={8}>
                     <SubscriptionPage user={profile} darkMode={darkMode} />
+                    {/* ---- BillingCard no longer has its own alert ---- */}
                     <BillingCard
                         profile={profile}
                         darkMode={darkMode}
@@ -425,7 +385,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 profile={profile}
                 onClose={closeBillingEditor}
                 onSaved={async (updatedPersonal) => {
-                    // updatedPersonal = { firstName, lastName, phone }
                     if (updatedPersonal) {
                         setProfile((prev) => ({
                             ...prev,
@@ -434,9 +393,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             phone: updatedPersonal.phone ?? prev.phone,
                         }));
                     }
-
-                    await refreshMe?.();   // update App.user (for navbar / other pages)
-                    await loadAddress();   // refresh address in UI
+                    await refreshMe?.();
+                    await loadAddress();
                 }}
                 backdrop
                 keyboard
