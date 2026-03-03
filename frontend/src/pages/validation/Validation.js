@@ -1,4 +1,11 @@
-// src/validation/registerValidation.js
+//***
+// Description: Validation logic for different forms,
+// including shared regex patterns and helper functions for formatting and
+// validating phone numbers and postal codes.
+// Created by: Sarah
+// Created on: March 2026
+
+
 
 // ---- regex (shared) ----
 export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -92,6 +99,24 @@ export function validateRegisterForm({
         if (!form.confirmPassword) errors.confirmPassword = "Please confirm your password.";
         else if (form.password !== form.confirmPassword) errors.confirmPassword = "Passwords do not match.";
     }
+
+    return errors;
+}
+
+
+///---------Reset Password Validation (shared with ResetPasswordPage) ---------///
+export function validateResetPassword({ pw1, pw2 }) {
+    const errors = { pw1: "", pw2: "" };
+
+    if (!pw1) errors.pw1 = "Password is required.";
+    else if (pw1.length < 8) errors.pw1 = "Password must be at least 8 characters.";
+    else if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(pw1)) {
+        errors.pw1 =
+            "Password must include at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.";
+    }
+
+    if (!pw2) errors.pw2 = "Please confirm your password.";
+    else if (pw1 !== pw2) errors.pw2 = "Passwords do not match.";
 
     return errors;
 }

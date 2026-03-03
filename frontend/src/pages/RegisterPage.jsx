@@ -1,3 +1,9 @@
+//***
+// Description: Register page component handling normal signup,
+// employee registration, and OAuth completion flows with dynamic form fields and validation.
+// Created by: Sarah
+// Created on: February 2026
+
 import { useEffect, useMemo, useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
@@ -210,41 +216,6 @@ export default function RegisterPage({
         }
         setSubmitting(true);
         const effectiveEmail = (isOAuthComplete ? (oauthEmail || form.email) : form.email).trim();
-
-        // // required basics (shared)
-        // if (
-        //     !form.firstName.trim() ||
-        //     !form.lastName.trim() ||
-        //     !form.homePhone.trim() ||
-        //     !form.billingStreet1.trim() ||
-        //     !form.billingCity.trim() ||
-        //     !form.billingProvince.trim() ||
-        //     !form.billingPostalCode.trim() ||
-        //     !form.billingCountry.trim()
-        // ) {
-        //     setError("Please fill in all required fields.");
-        //     return;
-        // }
-        //
-        // if (isBusiness && !form.businessName.trim()) {
-        //     setError("Business name is required for business accounts.");
-        //     return;
-        // }
-        //
-        // if (isNormalSignup) {
-        //     if (!effectiveEmail) {
-        //         setError("Email is required.");
-        //         return;
-        //     }
-        //     if (!form.username.trim() || !form.password) {
-        //         setError("Username and password required.");
-        //         return;
-        //     }
-        //     if (form.password !== form.confirmPassword) {
-        //         setError("Passwords do not match.");
-        //         return;
-        //     }
-        // }
 
         if (isOAuthComplete && !effectiveEmail) {
             setError(

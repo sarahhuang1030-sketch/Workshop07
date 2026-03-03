@@ -1,8 +1,15 @@
+//***
+// Description: Reset password page, accessed via the link in the password reset email.
+// Validates the new password and submits it to the backend.
+// Created by: Sarah
+// Created on: February 2026
+
 import { useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Container, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { Eye, EyeOff } from "lucide-react";
+import {validateResetPassword } from "../pages/validation/Validation.js";
 
 export default function ResetPasswordPage() {
     const { darkMode } = useTheme();
@@ -24,21 +31,15 @@ export default function ResetPasswordPage() {
         setMsg("");
         setFieldError({ pw1: "", pw2: "" });
 
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-
         if (!token) {
             setError("Missing token. Use the link from your email.");
             return;
         }
-        if (!passwordRegex.test(pw1)) {
-            setFieldError((p) => ({ ...p, pw1: "Password must be at least 8 characters and include one uppercase letter, one lowercase letter, and one number." }));
-            setError(
-                "Please fix the highlighted fields."
-            );
-            return;
-        }
-        if (pw1 !== pw2) {
-            setFieldError((p) => ({ ...p, pw2: "Passwords do not match." }));
+
+        const v = validateResetPassword({ pw1, pw2 });
+        setFieldError(v);
+
+        if (v.pw1 || v.pw2) {
             setError("Please fix the highlighted fields.");
             return;
         }
@@ -91,10 +92,8 @@ export default function ResetPasswordPage() {
                                         type={showPw ? "text" : "password"}
                                         value={pw1}
                                         onChange={(e) => setPw1(e.target.value)}
+                                        isInvalid={!!fieldError.pw1}
                                     />
-                                    <Form.Control.Feedback type="invalid">
-                                        {fieldError.pw1}
-                                    </Form.Control.Feedback>
                                     <Button
                                         type="button"
                                         variant={darkMode ? "outline-light" : "outline-secondary"}
@@ -103,6 +102,7 @@ export default function ResetPasswordPage() {
                                     >
                                         {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </Button>
+                                    <Form.Control.Feedback type="invalid">{fieldError.pw1}</Form.Control.Feedback>
                                 </InputGroup>
                             </Form.Group>
 
@@ -115,10 +115,9 @@ export default function ResetPasswordPage() {
                                         type={showConfirmPw ? "text" : "password"}
                                         value={pw2}
                                         onChange={(e) => setPw2(e.target.value)}
+                                        isInvalid={!!fieldError.pw2}
                                     />
-                                    <Form.Control.Feedback type="invalid">
-                                        {fieldError.pw2}
-                                    </Form.Control.Feedback>
+                                    <Form.Control.Feedback type="invalid">{fieldError.pw2}</Form.Control.Feedback>
                                     <Button
                                         type="button"
                                         variant={darkMode ? "outline-light" : "outline-secondary"}
