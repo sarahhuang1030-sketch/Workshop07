@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AvatarCard, BillingCard, BillingModal, SubscriptionPage, DeleteProfileModal } from "../components";
+import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal } from "../components";
 
 const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
@@ -39,7 +39,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
     const didTryHydrate = useRef(false);
 
     // ---- Derived / computed (hooks MUST be above any returns) ----
@@ -48,8 +48,11 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         const isBronze = points >= BRONZE_REQUIREMENT;
         const progress = Math.min(100, Math.round((points / BRONZE_REQUIREMENT) * 100));
         const remaining = Math.max(0, BRONZE_REQUIREMENT - points);
+
         return { isBronze, progress, remaining };
     }, [profile.points]);
+
+
 
     // ---- Loaders ----
     const loadAddress = useCallback(async () => {
@@ -83,6 +86,24 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             console.error("Failed to load billing address", err);
         }
     }, []);
+
+    //--------Payment method Modal----------//
+    const loadPaymentMethod = useCallback(async () => {
+        try {
+            const res = await fetch("/api/billing/payment-method", { credentials: "include" });
+            if (res.status === 404) {
+                setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
+                return;
+            }
+            if (!res.ok) return;
+            const data = await res.json();
+            const paymentMethod = data?.paymentMethod ?? data ?? {};
+            setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod } }));
+        } catch (err) {
+            console.error("Failed to load payment method", err);
+        }
+    }, []);
+
 
     // ---- Session hydrate (only once) ----
     useEffect(() => {
@@ -138,7 +159,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     useEffect(() => {
         if (!userProp?.customerId) return;
         loadAddress();
-    }, [userProp?.customerId, loadAddress]);
+        loadPaymentMethod();
+    }, [userProp?.customerId, loadAddress, loadPaymentMethod]);
 
 
     const closeBillingEditor = () => setShowBillingModal(false);
@@ -191,10 +213,19 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             isBlank(a.province) ||
             isBlank(a.postalCode);
 
+        const pm = profile.billing?.paymentMethod || {};
+        const paymentMissing =
+            isBlank(pm.method) ||
+            isBlank(pm.cardNumber) ||
+            isBlank(pm.expiredDate) ||
+            isBlank(pm.holderName);
+
+        if (paymentMissing) missing.push("Payment method");
+
         if (addressMissing) missing.push("Billing address");
 
         return missing;
-    }, [profile.email, profile.phone, profile.billing?.address]);
+    }, [profile.email, profile.phone, profile.billing?.address, profile.billing?.paymentMethod]);
 
     const deleteProfile = async () => {
         setError("");
@@ -208,6 +239,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     };
 
+
+
     // ---- Guards AFTER hooks ----
     if (loading) {
         return (
@@ -217,6 +250,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             </Container>
         );
     }
+
+
+
 
     if (!userProp) return <Navigate to="/login" replace />;
 
@@ -273,7 +309,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             <Button
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
-                                onClick={() => setShowBillingModal(true)}
+                                onClick={() => {
+                                    if (missingFields.includes("Payment method")) setShowPaymentModal(true);
+                                    else setShowBillingModal(true);
+                                }}
                                 style={{ borderRadius: 12 }}
                             >
                                 Complete now
@@ -348,7 +387,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                     <BillingCard
                         profile={profile}
                         darkMode={darkMode}
-                        onEdit={() => setShowBillingModal(true)}
+                        onEdit={(section) => {
+                            if (section === "payment") setShowPaymentModal(true);
+                            else setShowBillingModal(true);
+                        }}
                         className="mt-4"
                     />
                 </Col>
@@ -375,6 +417,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 backdrop
                 keyboard
                 centered
+            />
+
+            <PaymentModal
+                show={showPaymentModal}
+                darkMode={darkMode}
+                onClose={() => setShowPaymentModal(false)}
+                onSaved={(savedPm) => {
+                    setProfile((prev) => ({
+                        ...prev,
+                        billing: { ...prev.billing, paymentMethod: savedPm ?? {} },
+                    }));
+                }}
             />
 
             <DeleteProfileModal

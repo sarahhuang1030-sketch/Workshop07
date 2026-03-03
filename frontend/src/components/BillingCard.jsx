@@ -1,13 +1,19 @@
 import React from "react";
 import { Card, Row, Col, Button } from "react-bootstrap";
 import { CreditCard } from "lucide-react";
+import {useState} from "react";
 
-export function BillingCard({ profile, darkMode, onEdit }) {
+export function BillingCard({ profile, darkMode, onEdit, onEditPayment }) {
     const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
     const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
 
     const addr = profile.billing.address || {};
     const pay = profile.billing.paymentMethod || {};
+
+    const last4 =
+        pay.cardNumber && String(pay.cardNumber).length >= 4
+            ? String(pay.cardNumber).slice(-4)
+            : "—";
 
     return (
         <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
@@ -32,7 +38,11 @@ export function BillingCard({ profile, darkMode, onEdit }) {
                             </div>
 
                             <div className="mt-3 fw-bold">Payment method</div>
-                            <div className={mutedClass}>{pay.brand ?? "—"} •••• {pay.last4 ?? "—"}</div>
+
+                            <div className={mutedClass}>
+                                {(pay.method ?? "—")} •••• {last4}
+                            </div>
+                            <Button variant={darkMode ? "outline-light" : "outline-secondary"} className="mt-3 fw-bold" style={{ borderRadius: 14 }} onClick={() => onEdit("payment")}>Edit Payment Method</Button>
                         </div>
                     </Col>
                     <Col md={6}>
