@@ -9,7 +9,7 @@ public class CustomerAddress {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "AddressId")
-    private Long addressId;
+    private Integer addressId;
 
     @Column(name = "CustomerId", nullable = false)
     private Integer customerId;
@@ -39,7 +39,7 @@ public class CustomerAddress {
     private Integer isPrimary; // 1 or 0
 
     // getters/setters
-    public Long getAddressId() { return addressId; }
+    public Integer getAddressId() { return addressId; }
 
     public Integer getCustomerId() { return customerId; }
     public void setCustomerId(Integer customerId) { this.customerId = customerId; }
