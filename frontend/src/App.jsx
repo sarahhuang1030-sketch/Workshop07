@@ -1,3 +1,12 @@
+/**
+ Description: This is the main App component that sets up routing and user session management for the
+ application. It handles OAuth login flow, session hydration, and role-based access control for different
+ pages. The app uses React Router for navigation and Context API for cart state management.
+ Created by: Sarah
+ Created on: February 2026
+
+ **/
+
 import { useEffect, useState, useCallback } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 

@@ -1,3 +1,10 @@
+/**
+ Description: Employee entity class representing the Employee table in the database.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.model;
 
 import jakarta.persistence.*;

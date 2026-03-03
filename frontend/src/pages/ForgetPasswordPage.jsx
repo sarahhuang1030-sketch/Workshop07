@@ -1,3 +1,10 @@
+/**
+Description: Forget password page, where user enters their email or
+username to receive a password reset link.
+Created by: Sarah
+Created on: February 2026
+**/
+
 import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";

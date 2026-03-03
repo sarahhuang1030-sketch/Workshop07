@@ -1,3 +1,11 @@
+/**
+ Description: Navbar component, shown on all pages. Displays different navigation links based on user role,
+ and includes a dark mode toggle and shopping cart icon with item count badge.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import React from "react";
 import { Signal, Moon, Sun, ShoppingCart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";

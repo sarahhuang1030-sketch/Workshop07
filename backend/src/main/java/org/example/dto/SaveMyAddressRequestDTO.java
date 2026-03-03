@@ -1,3 +1,11 @@
+/**
+ Description: This DTO class is used for saving a user's address information,
+ including the type of address (billing or service),
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.dto;
 
 public class SaveMyAddressRequestDTO {

@@ -1,3 +1,13 @@
+/**
+ Description: This DTO class is used for representing a customer's profile information, including their total
+ spending, points, customer type, subscription plan details, billing information, and associated employee and
+ role information. It serves as a data transfer object between the client and server when retrieving or
+ displaying a customer's profile details.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.dto;
 
 import java.util.List;

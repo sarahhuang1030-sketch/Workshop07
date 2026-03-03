@@ -1,10 +1,10 @@
-//***
-// Description: Validation logic for different forms,
-// including shared regex patterns and helper functions for formatting and
-// validating phone numbers and postal codes.
-// Created by: Sarah
-// Created on: March 2026
-
+/**
+ Description: Validation logic for different forms,
+ including shared regex patterns and helper functions for formatting and
+ validating phone numbers and postal codes.
+ Created by: Sarah
+ Created on: March 2026
+**/
 
 
 // ---- regex (shared) ----

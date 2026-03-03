@@ -1,8 +1,9 @@
-//***
-// Description: Reset password page, accessed via the link in the password reset email.
-// Validates the new password and submits it to the backend.
-// Created by: Sarah
-// Created on: February 2026
+/**
+Description: Reset password page, accessed via the link in the password reset email.
+Validates the new password and submits it to the backend.
+Created by: Sarah
+Created on: February 2026
+**/
 
 import { useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";

@@ -1,3 +1,12 @@
+/**
+ Description: This is for the footer of the app, which is shown on all pages.
+ It contains some basic info about the company, quick links to main pages, and support contact info.
+ The styling adapts to dark mode using the ThemeContext.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import { Container, Row, Col } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";

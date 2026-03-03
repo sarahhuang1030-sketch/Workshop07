@@ -1,8 +1,9 @@
-//***
-// Description: Register page component handling normal signup,
-// employee registration, and OAuth completion flows with dynamic form fields and validation.
-// Created by: Sarah
-// Created on: February 2026
+/**
+Description: Register page component handling normal signup,
+employee registration, and OAuth completion flows with dynamic form fields and validation.
+Created by: Sarah
+Created on: February 2026
+**/
 
 import { useEffect, useMemo, useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";

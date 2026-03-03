@@ -1,3 +1,15 @@
+/**
+ Description: Billing Card component, used in the profile page and settings page.
+ Shows the user's current billing information, including next bill amount/date, payment method, and billing address.
+ Also has buttons to edit the payment method and billing address, which trigger modals in the settings page.
+
+ Created by: Sarah
+ Created on: February 2026
+
+ Modified by: Sherry
+ Modified on: March 2026
+ **/
+
 import React from "react";
 import { Card, Row, Col, Button } from "react-bootstrap";
 import { CreditCard } from "lucide-react";

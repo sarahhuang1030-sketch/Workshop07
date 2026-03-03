@@ -1,3 +1,9 @@
+/**
+ Description: NotFound page for unmatched routes, with a friendly message and a button to return home.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import { Container, Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";

@@ -1,3 +1,9 @@
+/**
+Description: Login page for existing users, with username/password and OAuth options.
+Created by: Sarah
+Created on: February 2026
+**/
+
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";

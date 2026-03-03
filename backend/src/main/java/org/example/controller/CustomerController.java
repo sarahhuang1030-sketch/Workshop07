@@ -1,3 +1,9 @@
+/**
+ Description: This Controller class is responsible for handling customer-related API endpoints.
+ It allows customers to view their profile information and update their billing address.
+ Created by: Sarah
+ Created on: February 2026
+ **/
 package org.example.controller;
 
 import java.security.Principal;

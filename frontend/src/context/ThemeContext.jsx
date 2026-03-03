@@ -1,3 +1,10 @@
+/**Description: ThemeContext provides a React context for managing dark mode state across the app.
+ It loads the user's preference from localStorage on mount, and saves any changes back to localStorage.
+ Components can use the useTheme hook to access the current mode and toggle function.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext(null);

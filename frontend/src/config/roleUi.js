@@ -1,3 +1,10 @@
+/**
+ Description: roleUi Helping functions and constants for role-based UI rendering, such as navigation
+ links and dashboard paths for each user role.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 export function roleKeyFromUser(user) {
     const roleRaw = user?.role || user?.raw?.role || "Customer";
     return roleRaw.trim().toLowerCase().replace(/\s+/g, ""); // "Sales Agent" -> "salesagent"

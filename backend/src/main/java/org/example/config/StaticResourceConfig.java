@@ -1,3 +1,12 @@
+/**
+ Description: This configuration class is responsible for setting up the handling of static resources in the application.
+ It defines a resource handler that maps requests to the "/uploads/**" URL pattern to the physical location
+ of the uploaded files on the server.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.config;
 
 import org.springframework.beans.factory.annotation.Value;

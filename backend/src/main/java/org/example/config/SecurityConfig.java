@@ -1,3 +1,10 @@
+/**
+ Description: This class configures the security settings for the application using Spring Security.
+ It defines how authentication and authorization are handled.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.config;
 
 import org.example.repository.UserAccountRepository;

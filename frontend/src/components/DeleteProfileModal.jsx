@@ -1,3 +1,13 @@
+/**Description: Delete profile modal, shown when user clicks "Delete Profile" in settings.
+Asks user to type "DELETE" to confirm,
+and shows a warning that this action is irreversible.
+Created by: Sarah
+Created on: February 2026
+
+Modified by: Sherry
+Modified on: March 2026
+**/
+
 import React, { useState } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 
