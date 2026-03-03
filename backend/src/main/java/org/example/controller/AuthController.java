@@ -1,5 +1,12 @@
-//email/password register/login
+/**
+ Description: This Controller class is responsible for handling authentication-related endpoints,
+ including user registration, login, password reset requests, and password resets. It interacts with the
+ CustomerRegistrationService for registering new users and the AuthService for handling login and password reset logic.
+ The controller also manages the security context for authenticated sessions.
 
+ Created by: Sarah
+ Created on: February 2026
+ **/
 package org.example.controller;
 
 import jakarta.servlet.http.HttpServletResponse;

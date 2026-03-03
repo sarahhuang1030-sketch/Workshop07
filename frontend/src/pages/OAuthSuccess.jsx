@@ -1,3 +1,10 @@
+/**
+ Description: OAuth success callback page. After user completes OAuth flow with Google,
+ they are redirected here, which brings the user to profile page if successful, or back to login if not.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {apiFetch} from "../utils/api.js";

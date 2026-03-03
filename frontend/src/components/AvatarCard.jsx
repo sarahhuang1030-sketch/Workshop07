@@ -1,4 +1,15 @@
-// AvatarCard.jsx
+/**
+ Description: Avatar/Profile Picture component, used in the profile page and settings page.
+ Shows the user's current avatar (from backend or OAuth), and allows uploading a new one or deleting it.
+ Also displays user's name, email, phone, customer ID, and role badge.
+
+ Created by: Sarah
+ Created on: February 2026
+
+ Modified by: Sherry
+ Modified on: March 2026
+ **/
+
 import React, { useState, useEffect } from "react";
 import { Card, Button, Form, Badge } from "react-bootstrap";
 

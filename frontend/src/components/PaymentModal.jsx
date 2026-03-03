@@ -1,3 +1,10 @@
+/**
+ Description: Payment Modal page, where users can add or edit their payment method details.
+ Created by: Sarah
+ Created on: March 2026
+**/
+
+
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Form, Alert, Row, Col } from "react-bootstrap";
 

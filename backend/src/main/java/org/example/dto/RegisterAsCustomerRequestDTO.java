@@ -1,3 +1,14 @@
+/**
+ Description: This DTO class is used for handling customer registration requests for when employee registerater.
+ It contains all the necessary fields for registering a new customer, including
+ personal information, contact details, and address information. This class serves
+ as a data transfer object between the client and server when a user wants to register as a customer.
+ c
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.dto;
 
 public class RegisterAsCustomerRequestDTO {

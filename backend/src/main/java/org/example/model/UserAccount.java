@@ -1,3 +1,10 @@
+/**
+ Description: UserAccount entity class representing the UserAccounts table in the database.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.model;
 
 import jakarta.persistence.*;

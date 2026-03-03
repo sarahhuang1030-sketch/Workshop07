@@ -1,3 +1,10 @@
+/**
+ Description: This DTO class is used for handling login responses.
+ It contains the relevant information about the user who has logged in.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.dto;
 
 public class LoginResponseDTO {

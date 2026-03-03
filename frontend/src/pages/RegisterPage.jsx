@@ -1,8 +1,17 @@
+/**
+Description: Register page component handling normal signup,
+employee registration, and OAuth completion flows with dynamic form fields and validation.
+Created by: Sarah
+Created on: February 2026
+**/
+
 import { useEffect, useMemo, useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { Signal, Eye, EyeOff } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import {validateRegisterForm, digitsOnly, formatPhoneFromDigits, formatPostalCode} from "../pages/validation/Validation.js"
+
 
 function providerFromNeedsRegistration(needsRegistration) {
     const lk = needsRegistration?.lookupKey ? String(needsRegistration.lookupKey) : "";
@@ -64,6 +73,7 @@ export default function RegisterPage({
     const modeFromUrl = new URLSearchParams(search).get("mode");
     const mode = forceMode ?? modeFromUrl;
 
+    //------------------------ Mode Determination & Prefill Logic -----------------------///
     const isEmployeeMode = mode === "employee";
     const isOAuthComplete = !!needsRegistration;
     const isNormalSignup = !isEmployeeMode && !isOAuthComplete;
@@ -73,7 +83,7 @@ export default function RegisterPage({
         return "/api/auth/register";
     }, [isEmployeeMode, isOAuthComplete]);
 
-    // Prefill sources
+    // Prefill sources from OAuth2 userinfo
     const oauthProvider = useMemo(
         () => providerFromNeedsRegistration(needsRegistration),
         [needsRegistration]
@@ -146,63 +156,67 @@ export default function RegisterPage({
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
     const isBusiness = form.customerType === "Business";
 
+    const [errors, setErrors] = useState({});
+    const [submitting, setSubmitting] = useState(false);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        let newValue = type === "checkbox" ? checked : value;
+
+        if (name === "homePhone") {
+            const digits = digitsOnly(value);
+            newValue = formatPhoneFromDigits(digits);
+        }
+
+        if (name === "billingPostalCode") {
+            newValue = formatPostalCode(value);
+        }
 
         setForm((prev) => {
-            const newValue = type === "checkbox" ? checked : value;
+            let next = { ...prev, [name]: newValue };
 
+            // if switching away from Business, clear businessName
             if (name === "customerType" && newValue !== "Business") {
-                return { ...prev, customerType: newValue, businessName: "" };
+                next.businessName = "";
             }
 
-            return { ...prev, [name]: newValue };
+            // live validate the *updated* form
+            const v = validateRegisterForm({
+                form: next,
+                isBusiness: next.customerType === "Business",
+                isNormalSignup,
+                isOAuthComplete,
+                oauthEmailMissing,
+                oauthEmail,
+            });
+            setErrors(v);
+
+            return next;
         });
     };
-
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         setSuccess("");
+        if (submitting) return;
 
+        const v = validateRegisterForm({
+            form,
+            isBusiness,
+            isNormalSignup,
+            isOAuthComplete,
+            oauthEmailMissing,
+            oauthEmail,
+        });
+        setErrors(v);
+
+        if (Object.keys(v).length > 0) {
+            setError("Please fix the highlighted fields.");
+            return;
+        }
+        setSubmitting(true);
         const effectiveEmail = (isOAuthComplete ? (oauthEmail || form.email) : form.email).trim();
-
-        // required basics (shared)
-        if (
-            !form.firstName.trim() ||
-            !form.lastName.trim() ||
-            !form.homePhone.trim() ||
-            !form.billingStreet1.trim() ||
-            !form.billingCity.trim() ||
-            !form.billingProvince.trim() ||
-            !form.billingPostalCode.trim() ||
-            !form.billingCountry.trim()
-        ) {
-            setError("Please fill in all required fields.");
-            return;
-        }
-
-        if (isBusiness && !form.businessName.trim()) {
-            setError("Business name is required for business accounts.");
-            return;
-        }
-
-        if (isNormalSignup) {
-            if (!effectiveEmail) {
-                setError("Email is required.");
-                return;
-            }
-            if (!form.username.trim() || !form.password) {
-                setError("Username and password required.");
-                return;
-            }
-            if (form.password !== form.confirmPassword) {
-                setError("Passwords do not match.");
-                return;
-            }
-        }
 
         if (isOAuthComplete && !effectiveEmail) {
             setError(
@@ -399,13 +413,15 @@ export default function RegisterPage({
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>First Name</Form.Label>
-                                                <Form.Control name="firstName" value={form.firstName} onChange={handleChange} />
+                                                <Form.Control name="firstName" value={form.firstName} onChange={handleChange} isInvalid={!!errors.firstName} />
+                                                <Form.Control.Feedback type="invalid">{errors.firstName}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Last Name</Form.Label>
-                                                <Form.Control name="lastName" value={form.lastName} onChange={handleChange} />
+                                                <Form.Control name="lastName" value={form.lastName} onChange={handleChange} isInvalid={!!errors.lastName} />
+                                                <Form.Control.Feedback type="invalid">{errors.lastName}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                     </Row>
@@ -415,11 +431,15 @@ export default function RegisterPage({
                                         <Form.Control
                                             type="tel"
                                             name="homePhone"
+                                            inputMode="numeric"
                                             placeholder="403-999-8888"
                                             value={form.homePhone}
                                             onChange={handleChange}
+                                            isInvalid={!!errors.homePhone}
                                         />
+                                        <Form.Control.Feedback type="invalid">{errors.homePhone}</Form.Control.Feedback>
                                     </Form.Group>
+
 
                                     {isBusiness && (
                                         <Form.Group className="mb-3">
@@ -430,8 +450,11 @@ export default function RegisterPage({
                                                 placeholder="Your company name"
                                                 value={form.businessName}
                                                 onChange={handleChange}
+                                                isInvalid={!!errors.businessName}
                                             />
+                                            <Form.Control.Feedback type="invalid">{errors.businessName}</Form.Control.Feedback>
                                         </Form.Group>
+
                                     )}
 
                                     {showEmailField && (
@@ -444,8 +467,9 @@ export default function RegisterPage({
                                                 value={emailValue}
                                                 onChange={handleChange}
                                                 disabled={emailReadOnly}
+                                                isInvalid={!!errors.email}
                                             />
-
+                                            <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
                                             {/* Optional helper text — delete if you want it super clean */}
                                             {isOAuthComplete && !oauthEmailMissing && (
                                                 <div className={`small mt-1 ${mutedClass}`}>
@@ -470,17 +494,20 @@ export default function RegisterPage({
                                                     placeholder="Choose a username"
                                                     value={form.username}
                                                     onChange={handleChange}
+                                                    isInvalid={!!errors.username}
                                                 />
+                                                <Form.Control.Feedback type="invalid">{errors.username}</Form.Control.Feedback>
                                             </Form.Group>
 
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Password</Form.Label>
-                                                <InputGroup>
+                                                <InputGroup hasValidation>
                                                     <Form.Control
                                                         type={showPw ? "text" : "password"}
                                                         name="password"
                                                         value={form.password}
                                                         onChange={handleChange}
+                                                        isInvalid={!!errors.password}
                                                     />
                                                     <Button
                                                         type="button"
@@ -490,7 +517,9 @@ export default function RegisterPage({
                                                     >
                                                         {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                                                     </Button>
+                                                    <Form.Control.Feedback type="invalid">{errors.password}</Form.Control.Feedback>
                                                 </InputGroup>
+
                                             </Form.Group>
 
                                             <Form.Group className="mb-3">
@@ -501,6 +530,7 @@ export default function RegisterPage({
                                                         name="confirmPassword"
                                                         value={form.confirmPassword}
                                                         onChange={handleChange}
+                                                        isInvalid={!!errors.confirmPassword}
                                                     />
                                                     <Button
                                                         type="button"
@@ -510,14 +540,17 @@ export default function RegisterPage({
                                                     >
                                                         {showConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
                                                     </Button>
+                                                    <Form.Control.Feedback type="invalid">{errors.confirmPassword}</Form.Control.Feedback>
                                                 </InputGroup>
+
                                             </Form.Group>
                                         </>
                                     )}
 
                                     <Form.Group className="mb-3">
                                         <Form.Label className={darkMode ? "text-light" : "text-dark"}>Street 1</Form.Label>
-                                        <Form.Control name="billingStreet1" value={form.billingStreet1} onChange={handleChange} />
+                                        <Form.Control name="billingStreet1" value={form.billingStreet1} onChange={handleChange}  isInvalid={!!errors.billingStreet1}/>
+                                        <Form.Control.Feedback type="invalid">{errors.billingStreet1}</Form.Control.Feedback>
                                     </Form.Group>
 
                                     <Form.Group className="mb-3">
@@ -529,13 +562,15 @@ export default function RegisterPage({
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>City</Form.Label>
-                                                <Form.Control name="billingCity" value={form.billingCity} onChange={handleChange} />
+                                                <Form.Control name="billingCity" value={form.billingCity} onChange={handleChange}  isInvalid={!!errors.billingCity}/>
+                                                <Form.Control.Feedback type="invalid">{errors.billingCity}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Province</Form.Label>
-                                                <Form.Control name="billingProvince" value={form.billingProvince} onChange={handleChange} />
+                                                <Form.Control name="billingProvince" value={form.billingProvince} onChange={handleChange} isInvalid={!!errors.billingProvince} />
+                                                <Form.Control.Feedback type="invalid">{errors.billingProvince}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                     </Row>
@@ -547,14 +582,18 @@ export default function RegisterPage({
                                                 <Form.Control
                                                     name="billingPostalCode"
                                                     value={form.billingPostalCode}
+                                                    maxLength={7}
                                                     onChange={handleChange}
+                                                    isInvalid={!!errors.billingPostalCode}
                                                 />
+                                                <Form.Control.Feedback type="invalid">{errors.billingPostalCode}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                         <Col md={6}>
                                             <Form.Group className="mb-3">
                                                 <Form.Label className={darkMode ? "text-light" : "text-dark"}>Country</Form.Label>
-                                                <Form.Control name="billingCountry" value={form.billingCountry} onChange={handleChange} />
+                                                <Form.Control name="billingCountry" value={form.billingCountry} onChange={handleChange} isInvalid={!!errors.billingCountry} />
+                                                <Form.Control.Feedback type="invalid">{errors.billingCountry}</Form.Control.Feedback>
                                             </Form.Group>
                                         </Col>
                                     </Row>

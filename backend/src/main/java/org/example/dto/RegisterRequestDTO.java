@@ -1,3 +1,13 @@
+/**
+ Description: This DTO class is used for handling user registration requests.
+ It contains all the necessary fields for registering a new customer, including personal information, login
+ credentials, and address details. The class also includes validation annotations to ensure that the input
+ data meets the required criteria before processing the registration.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.dto;
 
 import jakarta.validation.constraints.Email;

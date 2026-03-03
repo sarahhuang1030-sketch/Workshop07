@@ -1,3 +1,10 @@
+/**
+ Description: PasswordResetToken entity class representing the password_reset_tokens table in the database.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.model;
 
 import jakarta.persistence.*;

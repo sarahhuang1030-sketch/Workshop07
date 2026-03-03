@@ -1,3 +1,10 @@
+/**
+Description: Forget password page, where user enters their email or
+username to receive a password reset link.
+Created by: Sarah
+Created on: February 2026
+**/
+
 import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
@@ -14,7 +21,10 @@ export default function ForgetPasswordPage() {
 
     async function submit(e) {
         e.preventDefault();
-
+        if (loading) return;
+        setLoading(true);
+        setError("");
+        setMsg("");
         try {
             console.log("FORGET PASSWORD PAGE VERSION: 2026-02-07 v5");
             const res = await fetch("/api/auth/forgetpassword", {
@@ -34,7 +44,7 @@ export default function ForgetPasswordPage() {
                 return;
             }
             setStatus("sent");
-            navigate("/resetpassword");
+
             // OPTIONAL: only redirect if your UX requires it
             // Most apps do NOT redirect here, because user must click the link in email.
             // navigate("/login");

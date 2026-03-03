@@ -1,3 +1,10 @@
+/**
+ Description: This Controller class is responsible for configuring Cross-Origin
+ Resource Sharing (CORS) settings for the application.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
 package org.example.config;
 
 import org.springframework.beans.factory.annotation.Value;

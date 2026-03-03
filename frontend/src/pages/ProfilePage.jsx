@@ -1,4 +1,11 @@
-// ProfilePage.jsx
+/**
+Description: Profile page, showing user info, rewards points, subscription status,
+and billing details. Allows editing of profile, managing subscription, and
+updating billing info. Also includes a delete profile option with confirmation modal.
+Created by: Sarah
+Created on: February 2026
+**/
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";

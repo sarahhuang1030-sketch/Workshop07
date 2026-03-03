@@ -1,3 +1,11 @@
+/**
+ Description: This controller class handles the uploading and deleting of user avatar images.
+ It provides endpoints for users to upload a new avatar image or delete their existing avatar.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.controller;
 
 import org.example.model.UserAccount;

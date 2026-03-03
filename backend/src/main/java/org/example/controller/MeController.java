@@ -1,3 +1,10 @@
+/**
+ Description: This Controller class handles all the endpoints related to the currently authenticated user's
+ profile and account management.
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 package org.example.controller;
 
 import java.security.Principal;

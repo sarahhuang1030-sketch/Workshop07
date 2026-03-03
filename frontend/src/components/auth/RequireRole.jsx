@@ -1,5 +1,12 @@
+/**
+ Description: Requires a user to have a specific role to access the wrapped component.
+
+ Created by: Sarah
+ Created on: February 2026
+ **/
+
 import React from "react";
-import { Navigate, useLocation } from "react-router-dom"; // ✅ add useLocation
+import { Navigate, useLocation } from "react-router-dom";
 import { roleKeyFromUser } from "../../config/roleUi";
 
 export default function RequireRole({ user, allow, children }) {

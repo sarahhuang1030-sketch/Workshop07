@@ -1,9 +1,15 @@
+/**
+Description: Billing Modal component, used for both adding and editing billing information.
+Created by: Sarah
+Created on: February 2026
+
+Modified by: Sherry
+Modified on: March 2026
+**/
+
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert, Row, Col, Spinner } from "react-bootstrap";
 
-/**
- * BillingModal: Integrated version
- */
 export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, needsPhone = true }) {
     const [draft, setDraft] = useState(null);       // local draft for form
     const [loading, setLoading] = useState(false);  // loading state for fetch
