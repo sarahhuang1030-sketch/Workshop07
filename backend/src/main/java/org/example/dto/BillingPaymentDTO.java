@@ -8,8 +8,15 @@ public class BillingPaymentDTO {
     private LocalDate expiredDate;
     private Double balance;
     private String last4;
+    private String holderName;
+    private String displayCard;
 
     // getters and setters
+    public String getHolderName() { return holderName; }
+    public void setHolderName(String holderName) { this.holderName = holderName; }
+
+    public String getDisplayCard() { return displayCard; }
+    public void setDisplayCard(String displayCard) { this.displayCard = displayCard; }
 
     public String getMethod() {
         return method;

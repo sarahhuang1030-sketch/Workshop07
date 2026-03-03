@@ -49,6 +49,10 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, n
                     return;
                 }
 
+                if (res.status === 204) {
+                    return;
+                }
+
                 const data = await res.json();
 
                 // Fill the draft with DB data

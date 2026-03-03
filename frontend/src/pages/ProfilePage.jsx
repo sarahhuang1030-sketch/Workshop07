@@ -70,13 +70,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
             if (!res.ok) return;
 
+            // const data = await res.json();
+            if (res.status === 204) {
+                return;
+            }
             const data = await res.json();
+
             const address = data?.address ?? data ?? {};
 
             setProfile((prev) => ({
-                ...prev,
-                billing: { ...prev.billing, address },
-            })
+                    ...prev,
+                    billing: { ...prev.billing, address },
+                })
 
 
             );
@@ -90,13 +95,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     //--------Payment method Modal----------//
     const loadPaymentMethod = useCallback(async () => {
         try {
-            const res = await fetch("/api/billing/payment-method", { credentials: "include" });
+            const res = await fetch("/api/billing/payment", { credentials: "include" });
             if (res.status === 404) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
                 return;
             }
             if (!res.ok) return;
+            // const data = await res.json();
+            if (res.status === 204) {
+                return;
+            }
             const data = await res.json();
+
             const paymentMethod = data?.paymentMethod ?? data ?? {};
             setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod } }));
         } catch (err) {
@@ -213,14 +223,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             isBlank(a.province) ||
             isBlank(a.postalCode);
 
-        const pm = profile.billing?.paymentMethod || {};
-        const paymentMissing =
-            isBlank(pm.method) ||
-            isBlank(pm.cardNumber) ||
-            isBlank(pm.expiredDate) ||
-            isBlank(pm.holderName);
+        // const pm = profile.billing?.paymentMethod || {};
+        // // const cardDisplay = pm.displayCard || "—";
+        // // const holderName = pm.holderName || "—";
+        // const displayCard = pm.cardNumber ? "**** **** **** " + pm.cardNumber.slice(-4) : "—";
+        //
+        // const paymentMissing =
+        //     isBlank(pm.method) ||
+        //     isBlank(pm.cardNumber) ||
+        //     isBlank(pm.expiredDate) ||
+        //     isBlank(pm.holderName);
 
-        if (paymentMissing) missing.push("Payment method");
+        // if (paymentMissing) missing.push("Payment method");
 
         if (addressMissing) missing.push("Billing address");
 
@@ -310,8 +324,11 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
                                 onClick={() => {
-                                    if (missingFields.includes("Payment method")) setShowPaymentModal(true);
-                                    else setShowBillingModal(true);
+                                    if (missingFields.includes("Payment method")) {
+                                        setShowPaymentModal(true);
+                                    } else {
+                                        setShowBillingModal(true);
+                                    }
                                 }}
                                 style={{ borderRadius: 12 }}
                             >
@@ -422,12 +439,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             <PaymentModal
                 show={showPaymentModal}
                 darkMode={darkMode}
+                profileBilling={profile.billing.paymentMethod}
                 onClose={() => setShowPaymentModal(false)}
-                onSaved={(savedPm) => {
+                onSaved={(savedPm, cvv) => {
                     setProfile((prev) => ({
                         ...prev,
-                        billing: { ...prev.billing, paymentMethod: savedPm ?? {} },
+                        billing: {
+                            ...prev.billing,
+                            paymentMethod: savedPm ?? {},
+                            localCvv: cvv ?? "",
+                        },
                     }));
+                    setShowPaymentModal(false);
                 }}
             />
 

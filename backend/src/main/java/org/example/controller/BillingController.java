@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import org.example.dto.PaymentUpdateDTO;
 import org.example.entity.PaymentAccounts;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
@@ -44,7 +45,7 @@ public class BillingController {
         this.paymentAccountRepo = paymentAccountRepo;
     }
 
-    // DTO for updating address
+    // ------------------- Address Update DTO -------------------
     public record AddressUpdateRequest(
             String street1,
             String street2,
@@ -74,6 +75,7 @@ public class BillingController {
         var ua = uaOpt.get();
         Integer customerId = ua.getCustomerId();
         Integer employeeId = ua.getEmployeeId();
+        boolean isEmployee = employeeId != null;
 
         if (customerId == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
 
@@ -82,8 +84,8 @@ public class BillingController {
         out.put("customerId", customerId);
         out.put("employeeId", employeeId);
 
-        // Get name: Employee first/last takes priority
-        if (employeeId != null) {
+        // Name: Employee first/last takes priority
+        if (isEmployee) {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
@@ -121,33 +123,105 @@ public class BillingController {
     @GetMapping("/payment")
     public ResponseEntity<?> getPayment(Principal principal,
                                         @AuthenticationPrincipal OAuth2User oauthUser) {
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+        if (principal == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
         String key = resolveLoginKey(principal, null, oauthUser);
-        if (key == null || key.isBlank()) return ResponseEntity.status(401).body("Not authenticated");
+        if (key == null || key.isBlank()) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
-        var ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        if (ua == null || ua.getCustomerId() == null) return ResponseEntity.ok(null);
+        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
+        if (uaOpt.isEmpty() || uaOpt.get().getCustomerId() == null) {
+            return ResponseEntity.noContent().build();
+        }
 
-        Integer customerId = ua.getCustomerId();
-
+        Integer customerId = uaOpt.get().getCustomerId();
         var accountOpt = paymentAccountRepo.findFirstByCustomerIdOrderByCreatedAtDesc(customerId);
-        if (accountOpt.isEmpty()) return ResponseEntity.ok(null);
+        if (accountOpt.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
 
         PaymentAccounts account = accountOpt.get();
 
+        // Prepare safe DTO for frontend
         BillingPaymentDTO dto = new BillingPaymentDTO();
         dto.setMethod(account.getMethod());
         dto.setExpiredDate(account.getExpiredDate());
         dto.setBalance(account.getBalance());
+        dto.setHolderName(account.getHolderName());
 
-        // Only return last 4 digits of card
         String card = account.getCardNumber();
         if (card != null && card.length() >= 4) {
-            dto.setLast4(card.substring(card.length() - 4));
+            String last4 = card.substring(card.length() - 4);
+            dto.setLast4(last4);
+            dto.setDisplayCard(account.getMethod() + " ••••" + last4);
+        } else {
+            dto.setLast4(null);
+            dto.setDisplayCard(account.getMethod() + " ••••");
         }
 
         return ResponseEntity.ok(dto);
+    }
+
+    // ------------------- PUT Update Payment -------------------
+    @Transactional
+    @PutMapping("/payment")
+    public ResponseEntity<?> updatePayment(
+            @RequestBody PaymentUpdateDTO dto,
+            Principal principal,
+            Authentication auth,
+            @AuthenticationPrincipal OAuth2User oauthUser) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        String key = resolveLoginKey(principal, auth, oauthUser);
+        if (key == null || key.isBlank()) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
+        if (uaOpt.isEmpty() || uaOpt.get().getCustomerId() == null) {
+            return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
+        }
+
+        Integer customerId = uaOpt.get().getCustomerId();
+
+        // Upsert payment account
+        PaymentAccounts account = paymentAccountRepo
+                .findFirstByCustomerIdOrderByCreatedAtDesc(customerId)
+                .orElse(new PaymentAccounts());
+
+        account.setCustomerId(customerId);
+        account.setMethod(dto.getMethod());
+        account.setCardNumber(dto.getCardNumber());
+        account.setExpiredDate(dto.getExpiredDate());
+        account.setHolderName(dto.getHolderName());
+        account.setCvv(dto.getCvv());
+
+        paymentAccountRepo.save(account);
+
+        // Prepare safe DTO to return
+        BillingPaymentDTO responseDto = new BillingPaymentDTO();
+        responseDto.setMethod(account.getMethod());
+        responseDto.setExpiredDate(account.getExpiredDate());
+        responseDto.setBalance(account.getBalance());
+        responseDto.setHolderName(account.getHolderName());
+
+        String card = account.getCardNumber();
+        if (card != null && card.length() >= 4) {
+            String last4 = card.substring(card.length() - 4);
+            responseDto.setLast4(last4);
+            responseDto.setDisplayCard(account.getMethod() + " ••••" + last4);
+        } else {
+            responseDto.setLast4(null);
+            responseDto.setDisplayCard(account.getMethod() + " ••••");
+        }
+
+        return ResponseEntity.ok(responseDto);
     }
 
     // ------------------- PUT Update Address -------------------
@@ -172,14 +246,13 @@ public class BillingController {
 
         if (customerId == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
 
-        // Update basic customer fields
+        // Update Customer info
         Customer c = customerRepo.findById(customerId).orElse(null);
         if (c == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
 
         if (req.homePhone() != null && !req.homePhone().isBlank()) c.setHomePhone(req.homePhone().trim());
         if (req.email() != null && !req.email().isBlank()) c.setEmail(req.email().trim());
 
-        // Only allow updating names if not an employee
         if (!isEmployee) {
             if (req.firstName() != null && !req.firstName().isBlank()) c.setFirstName(req.firstName().trim());
             if (req.lastName() != null && !req.lastName().isBlank()) c.setLastName(req.lastName().trim());
@@ -232,18 +305,16 @@ public class BillingController {
         return ResponseEntity.ok(out);
     }
 
-
-
     // ------------------- Helper Methods -------------------
     /**
      * Resolve login key from Principal, OAuth2User, or Authentication token.
-     * Priority: Email → preferred_username → login/username → externalId
+     * Priority: email → preferred_username → login → externalId
      */
     private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
         if (auth instanceof OAuth2AuthenticationToken oauthTok) {
             Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
 
-            // Try email first
+            // Try email
             Object email = attrs.get("email");
             if (email != null && !email.toString().isBlank()) return email.toString().trim();
 
@@ -275,5 +346,4 @@ public class BillingController {
         }
         return null;
     }
-
 }
