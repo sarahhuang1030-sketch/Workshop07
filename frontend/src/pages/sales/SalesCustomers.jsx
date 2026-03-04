@@ -4,7 +4,8 @@ export default function SalesCustomers() {
     return (
         <div className="container py-4">
             <h2>Customers</h2>
-            <p>Placeholder: list customers + create new customer.</p>
+            <p>     able to add/edit/update/view customer
+                •	Salary should say monthly, yearly or hourly for clarification</p>
         </div>
     );
 }

@@ -14,8 +14,8 @@ export const ROLE_UI = {
     customer: {
         dashboardPath: "/customer",
         nav: [
-            { label: "My Plan", to: "/customer/plan" },
-            { labell: "Billing", to: "/customer/billing" },
+            // { label: "My Plan", to: "/customer/plan" },
+            // { labell: "Billing", to: "/customer/billing" },
             { label: "Support", to: "/customer/support" },
             { label: "Profile", to: "/profile" },
         ],
