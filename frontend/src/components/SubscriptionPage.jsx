@@ -9,23 +9,27 @@ const formatMoney = (n) =>
         ? "—"
         : Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
 
+
+//-----Default plan structure to ensure consistent rendering even if userProp is missing or incomplete-----//
+const defaultPlan = {
+    status: "Inactive",
+    name: "—",
+    monthlyPrice: null,
+    startedAt: null,
+    features: [],
+    addOns: [],
+};
+
 export default function SubscriptionPage({ user: userProp, darkMode = false }) {
     const [loading, setLoading] = useState(!userProp);
     const [error, setError] = useState("");
-    const [profile, setProfile] = useState({
-        plan: {
-            status: "Inactive",
-            name: "—",
-            monthlyPrice: null,
-            startedAt: null,
-            features: [],
-            addOns: [],
-        },
-    });
+    const [profile, setProfile] = useState({ plan: defaultPlan });
 
     const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
     const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
     const navigate = useNavigate();
+
+
 
     useEffect(() => {
         let isMounted = true;
@@ -37,6 +41,26 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                 if (res.status === 401) {
                     if (isMounted) {
                         setError("Unauthorized");
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                // If backend returns 204 No Content => no plan yet, not an error
+                if (res.status === 204) {
+                    if (isMounted) {
+                        setProfile(prev => ({ ...prev, plan: prev.plan ?? defaultPlan }));
+                        setError("");
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                // If backend uses 404 when no subscription exists => treat as no plan
+                if (res.status === 404) {
+                    if (isMounted) {
+                        setProfile(prev => ({ ...prev, plan: defaultPlan }));
+                        setError("");
                         setLoading(false);
                     }
                     return;
@@ -93,6 +117,12 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
             </Container>
         );
     }
+
+    const hasPlan =
+        profile?.plan &&
+        profile.plan.status === "Active" &&
+        profile.plan.name &&
+        profile.plan.name !== "—";
 
     return (
         <Container className="py-4 py-md-5 px-4">
@@ -168,7 +198,8 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                                     variant={darkMode ? "outline-light" : "outline-secondary"}
                                     className="mt-3 fw-bold"
                                     style={{ borderRadius: 14 }}
-                                    onClick={() => navigate("/customer/plan")}
+                                    disabled={!hasPlan}
+                                    onClick={() => hasPlan && navigate("/customer/plan")}
                                 >
                                     View Plan Details
                                 </Button>
@@ -177,7 +208,15 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                         </Col>
 
                     </Row>
-
+                    {profile.plan.status !== "Active" && (
+                        <Alert
+                            variant={darkMode ? "secondary" : "info"}
+                            className="mt-3 mb-0"
+                            style={{ borderRadius: 14 }}
+                        >
+                            You don’t have an active plan yet. Choose a plan to get started.
+                        </Alert>
+                    )}
                 </Card.Body>
             </Card>
         </Container>

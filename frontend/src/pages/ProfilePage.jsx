@@ -192,35 +192,63 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     // ---- Top alert for incomplete profile / billing / payment info ----
     const isBlank = (v) => v == null || String(v).trim() === "" || v === "—";
 
+    const needsCustomerRegistration =
+        (!!profile.employeeId || String(profile.role).toUpperCase() === "EMPLOYEE") && !profile.customerId;
+
     const missingFields = useMemo(() => {
         const missing = [];
 
-        // Check essential profile info
+        // Always check essential profile info
         if (isBlank(profile.email)) missing.push("Email");
         if (isBlank(profile.phone)) missing.push("Phone number");
 
-        // Check billing address
-        const addr = profile.billing?.address || {};
-        if (
-            isBlank(addr.street1) ||
-            isBlank(addr.city) ||
-            isBlank(addr.province) ||
-            isBlank(addr.postalCode) ||
-            isBlank(addr.country)
-        ) missing.push("Billing address");
+        // Only check billing/payment AFTER they are a customer
+        if (!needsCustomerRegistration) {
+            const addr = profile.billing?.address || {};
+            if (
+                isBlank(addr.street1) ||
+                isBlank(addr.city) ||
+                isBlank(addr.province) ||
+                isBlank(addr.postalCode) ||
+                isBlank(addr.country)
+            ) missing.push("Billing address");
 
-        // Check payment method
-        const pm = profile.billing?.paymentMethod || {};
-        if (
-            isBlank(pm.method) ||
-            // isBlank(pm.cardNumber) ||
-            // isBlank(pm.holderName) ||
-            // isBlank(pm.expiredDate) ||
-            isBlank(pm.last4)
-        ) missing.push("Payment method");
+            const pm = profile.billing?.paymentMethod || {};
+            if (isBlank(pm.method) || isBlank(pm.last4)) missing.push("Payment method");
+        }
 
         return missing;
-    }, [profile]);
+    }, [profile, needsCustomerRegistration]);
+
+    // const missingFields = useMemo(() => {
+    //     const missing = [];
+    //
+    //     // Check essential profile info
+    //     if (isBlank(profile.email)) missing.push("Email");
+    //     if (isBlank(profile.phone)) missing.push("Phone number");
+    //
+    //     // Check billing address
+    //     const addr = profile.billing?.address || {};
+    //     if (
+    //         isBlank(addr.street1) ||
+    //         isBlank(addr.city) ||
+    //         isBlank(addr.province) ||
+    //         isBlank(addr.postalCode) ||
+    //         isBlank(addr.country)
+    //     ) missing.push("Billing address");
+    //
+    //     // Check payment method
+    //     const pm = profile.billing?.paymentMethod || {};
+    //     if (
+    //         isBlank(pm.method) ||
+    //         // isBlank(pm.cardNumber) ||
+    //         // isBlank(pm.holderName) ||
+    //         // isBlank(pm.expiredDate) ||
+    //         isBlank(pm.last4)
+    //     ) missing.push("Payment method");
+    //
+    //     return missing;
+    // }, [profile]);
 
     if (loading) {
         return (
@@ -276,33 +304,47 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             )}
 
             {/* ---- Top Alert for incomplete fields ---- */}
-            {missingFields.length > 0 && (
+            {needsCustomerRegistration ? (
                 <Alert
-                    variant="warning"
+                    variant="info"
                     className="d-flex align-items-start gap-2"
                     style={{ borderRadius: 16 }}
                 >
                     <AlertTriangle size={18} className="mt-1" />
                     <div>
-                        <div className="fw-bold">Your profile isn’t complete yet</div>
+                        <div className="fw-bold">Enable customer features</div>
                         <div className="small">
-                            Please add: {missingFields.join(", ")}. This helps checkout and billing work properly.
+                            You’re logged in as an employee. To manage billing, payment, and subscriptions, please register as a customer.
                         </div>
+
                         <div className="mt-2">
                             <Button
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
-                                onClick={() => {
-                                    if (missingFields.includes("Payment method")) setShowPaymentModal(true);
-                                    else setShowBillingModal(true);
-                                }}
+                                onClick={() => navigate("/register-as-customer")}  // or setShowRegisterModal(true)
                                 style={{ borderRadius: 12 }}
                             >
-                                Complete now
+                                Register as Customer
                             </Button>
                         </div>
                     </div>
                 </Alert>
+            ) : (
+                missingFields.length > 0 && (
+                    <Alert
+                        variant="warning"
+                        className="d-flex align-items-start gap-2"
+                        style={{ borderRadius: 16 }}
+                    >
+                        <AlertTriangle size={18} className="mt-1" />
+                        <div>
+                            <div className="fw-bold">Your profile isn’t complete yet</div>
+                            <div className="small">
+                                Please add: {missingFields.join(", ")}. This helps checkout and billing work properly.
+                            </div>
+                        </div>
+                    </Alert>
+                )
             )}
 
             <Row className="g-4">

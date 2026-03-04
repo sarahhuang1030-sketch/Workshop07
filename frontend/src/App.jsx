@@ -59,7 +59,20 @@ function mapOAuthMeToUser(meResponse) {
     const dbLastName = meResponse?.lastName ?? null;
     const dbEmail = meResponse?.email ?? null;
     const dbUsername = meResponse?.lookupKey ?? meResponse?.username ?? null;
-    const dbRole = (meResponse?.role ?? "").toLowerCase() || null;
+    const dbRoleRaw =
+        meResponse?.uaRole ??
+        meResponse?.role ??
+        meResponse?.authorities?.[0]?.authority ??
+        meResponse?.raw?.role ??
+        null;
+
+    const dbRole = dbRoleRaw
+        ? String(dbRoleRaw)
+            .replace(/^ROLE_/i, "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "")
+        : null;
 
     const fullName = attrs.name || "";
     const fallbackFirst =
@@ -159,8 +172,9 @@ export default function App() {
             }
 
             const me = await res.json();
+            console.log("ME Response:", me)
             const mapped = mapOAuthMeToUser(me);
-
+            console.log("Mapped Role:", mapped.role);
             setUser(mapped);
 
             // if we successfully have a user, registration prompt should be cleared

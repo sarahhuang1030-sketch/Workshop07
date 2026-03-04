@@ -59,6 +59,30 @@ public class AuthController {
         }
     }
 
+//    @PostMapping("/login")
+//    public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO req,
+//                                   HttpServletRequest request,
+//                                   HttpServletResponse response) {
+//
+//        Authentication auth = authenticationManager.authenticate(
+//                new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
+//        );
+//
+//        SecurityContext context = SecurityContextHolder.createEmptyContext();
+//        context.setAuthentication(auth);
+//        SecurityContextHolder.setContext(context);
+//
+//        HttpSession session = request.getSession(true);
+//
+//        SecurityContextRepository repo = new HttpSessionSecurityContextRepository();
+//        repo.saveContext(context, request, response);
+//
+//        session.setAttribute("SPRING_SECURITY_CONTEXT", context);  // explicit save
+//
+//        LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
+//        return ResponseEntity.ok(user);
+//    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO req,
                                    HttpServletRequest request,
@@ -72,18 +96,17 @@ public class AuthController {
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);
 
+        // Force creation of session + store context
         HttpSession session = request.getSession(true);
 
-        SecurityContextRepository repo = new HttpSessionSecurityContextRepository();
-        repo.saveContext(context, request, response);
+        System.out.println("Login OK. Session ID = " + session.getId());
+        System.out.println("Response committed? " + response.isCommitted());
 
-        session.setAttribute("SPRING_SECURITY_CONTEXT", context);  // explicit save
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
 
         LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
         return ResponseEntity.ok(user);
     }
-
-
 
 
     @PostMapping("/forgetpassword")

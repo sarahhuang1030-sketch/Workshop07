@@ -504,7 +504,9 @@ public class MeController {
         }
 
         // Return something useful (optional)
-        return ResponseEntity.ok(Map.of("message", "Profile updated"));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("message", "Profile updated");
+        return ResponseEntity.ok(out);
     }
 
 
@@ -573,16 +575,7 @@ public class MeController {
             // You already use this in /api/me, so keep consistent:
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
             if (ua == null || ua.getCustomerId() == null) {
-                // Return a safe shape for the frontend
-                return ResponseEntity.ok(Map.of(
-                        "plan", Map.of(
-                                "status", "Inactive",
-                                "name", "—",
-                                "monthlyPrice", null,
-                                "startedAt", null
-                        ),
-                        "lastPayment", null
-                ));
+                return ResponseEntity.noContent().build(); // no subscription yet
             }
 
             int customerId = ua.getCustomerId();
@@ -593,10 +586,10 @@ public class MeController {
             var lastPayment = meRepository.findLastCompletedPayment(customerId)
                     .orElse(null);
 
-            return ResponseEntity.ok(Map.of(
-                    "plan", plan,
-                    "lastPayment", lastPayment
-            ));
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("plan", plan);
+            out.put("lastPayment", lastPayment); // can be null safely
+            return ResponseEntity.ok(out);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -654,26 +647,26 @@ public class MeController {
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
 
             if (ua == null || ua.getCustomerId() == null) {
-                return ResponseEntity.ok(Map.of(
-                        "subscription", null,
-                        "plan", null,
-                        "features", List.of(),
-                        "addOns", List.of(),
-                        "payments", List.of()
-                ));
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("subscription", null);
+                out.put("plan", null);
+                out.put("features", List.of());
+                out.put("addOns", List.of());
+                out.put("payments", List.of());
+                return ResponseEntity.ok(out);
             }
 
             int customerId = ua.getCustomerId();
 
             Integer subId = meRepository.findActiveSubscriptionId(customerId).orElse(null);
             if (subId == null) {
-                return ResponseEntity.ok(Map.of(
-                        "subscription", null,
-                        "plan", null,
-                        "features", List.of(),
-                        "addOns", List.of(),
-                        "payments", meRepository.findRecentPayments(customerId, 5)
-                ));
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("subscription", null);
+                out.put("plan", null);
+                out.put("features", List.of());
+                out.put("addOns", List.of());
+                out.put("payments", meRepository.findRecentPayments(customerId, 5));
+                return ResponseEntity.ok(out);
             }
 
             Map<String, Object> sub = meRepository.findSubscriptionRow(subId);
