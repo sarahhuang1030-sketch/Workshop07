@@ -88,7 +88,8 @@ public class SecurityConfig {
                                 "/api/auth/resetpassword",
                                 "/api/plans/**",
                                 "/api/addons/**",
-                                "/uploads/**"
+                                "/uploads/**",
+                                "/api/db-test"
                         ).permitAll()
                         .requestMatchers("/api/manager/**").hasRole("MANAGER")
                         .requestMatchers("/api/sales/**").hasAnyRole("SALES_AGENT", "MANAGER")

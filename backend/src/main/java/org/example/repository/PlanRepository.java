@@ -73,7 +73,7 @@ public class PlanRepository {
         String placeholders = String.join(",", Collections.nCopies(planIds.size(), "?"));
 
         String sql =
-                "SELECT pa.PlanId, a.AddOnId, a.AddOnName, a.MonthlyPrice, a.Description " +
+                "SELECT pa.PlanId, a.AddOnId, a.ServiceTypeId, a.AddOnName, a.MonthlyPrice, a.Description " +
                         "FROM PlanAddOns pa " +
                         "JOIN AddOns a ON a.AddOnId = pa.AddOnId " +
                         "WHERE pa.PlanId IN (" + placeholders + ") " +
@@ -86,6 +86,7 @@ public class PlanRepository {
                         rs.getInt("PlanId"),
                         new AddOnDTO(
                                 rs.getInt("AddOnId"),
+                                rs.getInt("ServiceTypeId"),
                                 rs.getString("AddOnName"),
                                 rs.getDouble("MonthlyPrice"),
                                 rs.getString("Description")
@@ -93,7 +94,6 @@ public class PlanRepository {
                 ),
                 planIds.toArray()
         );
-
 
         Map<Integer, List<AddOnDTO>> map = new HashMap<>();
         for (PlanAddOnRow r : rows) {
