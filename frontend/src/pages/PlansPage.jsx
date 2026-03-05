@@ -12,17 +12,17 @@ import {
 } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { useCart } from "../context/CartContext";
-import {
-    Smartphone,
-    Video,
-    Zap,
-    Music,
-    Users,
-    Gift,
-} from "lucide-react";
+import { Smartphone, Video, Zap, Music, Users, Gift } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const ICONS = { smartphone: Smartphone, video: Video, zap: Zap, music: Music, users: Users, gift: Gift };
+const ICONS = {
+    smartphone: Smartphone,
+    video: Video,
+    zap: Zap,
+    music: Music,
+    users: Users,
+    gift: Gift,
+};
 
 function planIconKey(planName) {
     const n = (planName || "").toLowerCase();
@@ -39,13 +39,11 @@ function planGradClass(planName) {
 }
 
 export default function PlansPage() {
-    // const { addPlan, addAddOn, plan, addOns, clearCart, total } = useCart();
-    const { addPlan, addAddOn, addOns } = useCart();
+    const { addPlan } = useCart(); // ✅ only plan on this page now
     const { darkMode } = useTheme();
     const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
 
     const [plans, setPlans] = useState([]);
-    const [addOnsList, setAddOnsList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [serviceType, setServiceType] = useState("Mobile");
@@ -53,7 +51,7 @@ export default function PlansPage() {
 
     const navigate = useNavigate();
 
-    // Load plans & add-ons
+    // Load ONLY plans
     useEffect(() => {
         let cancelled = false;
 
@@ -62,19 +60,13 @@ export default function PlansPage() {
                 setLoading(true);
                 setError("");
 
-                const [plansRes, addOnsRes] = await Promise.all([
-                    fetch(`/api/plans?type=${encodeURIComponent(serviceType)}`),
-                    fetch("/api/addons"),
-                ]);
+                const plansRes = await fetch(
+                    `/api/plans?type=${encodeURIComponent(serviceType)}`
+                );
 
                 if (!plansRes.ok) throw new Error(`Plans API failed: ${plansRes.status}`);
-                if (!addOnsRes.ok) throw new Error(`AddOns API failed: ${addOnsRes.status}`);
 
-                const [plansJson, addOnsJson] = await Promise.all([
-                    plansRes.json(),
-                    addOnsRes.json(),
-                ]);
-
+                const plansJson = await plansRes.json();
                 if (cancelled) return;
 
                 const uiPlans = (plansJson ?? []).map((p) => ({
@@ -86,10 +78,12 @@ export default function PlansPage() {
                     features: p.features ?? [],
                     gradClass: planGradClass(p.planName),
                     icon: ICONS[planIconKey(p.planName)] || Smartphone,
+
+                    // IMPORTANT: cart will filter add-ons using this
+                    serviceTypeId: serviceType === "Mobile" ? 1 : 2,
                 }));
 
                 setPlans(uiPlans);
-                setAddOnsList(addOnsJson ?? []);
             } catch (e) {
                 if (!cancelled) setError(e.message || "Failed to load plans");
             } finally {
@@ -98,7 +92,9 @@ export default function PlansPage() {
         }
 
         load();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [serviceType]);
 
     const sortedPlans = useMemo(() => {
@@ -108,12 +104,12 @@ export default function PlansPage() {
         return copy;
     }, [plans, sortBy]);
 
-    // const handleCheckout = () => {
-    //     navigate("/checkout");
-    // };
-    const handleCheckout = () => {
-        console.log("navigate triggered");
-        navigate("/checkout");
+    const handlePickPlan = (p) => {
+        addPlan(p);
+
+        // Go to cart page where add-ons will show
+        // If your cart page route is "/checkout" instead, change this line to navigate("/checkout")
+        navigate("/cart");
     };
 
     return (
@@ -121,8 +117,15 @@ export default function PlansPage() {
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <Badge className="tc-badge-hot px-3 py-2">Choose your plan</Badge>
-                    <h1 className={`mt-3 mb-1 fw-black ${darkMode ? "text-light" : "text-dark"}`}>Plans & Pricing</h1>
+                    <h1
+                        className={`mt-3 mb-1 fw-black ${
+                            darkMode ? "text-light" : "text-dark"
+                        }`}
+                    >
+                        Plans & Pricing
+                    </h1>
                 </div>
+
                 <div className="d-flex gap-2">
                     <Form.Select
                         value={serviceType}
@@ -131,10 +134,8 @@ export default function PlansPage() {
                         <option value="Mobile">Mobile</option>
                         <option value="Internet">Home</option>
                     </Form.Select>
-                    <Form.Select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                    >
+
+                    <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                         <option value="recommended">Recommended</option>
                         <option value="priceLow">Price Low → High</option>
                         <option value="priceHigh">Price High → Low</option>
@@ -149,9 +150,7 @@ export default function PlansPage() {
                 </div>
             )}
 
-            {!loading && error && (
-                <Alert variant="danger">{error}</Alert>
-            )}
+            {!loading && error && <Alert variant="danger">{error}</Alert>}
 
             {!loading && !error && (
                 <>
@@ -162,45 +161,27 @@ export default function PlansPage() {
                             return (
                                 <Col key={p.id} md={4}>
                                     <Card>
-                                        <div className={`${p.gradClass} d-flex align-items-center justify-content-center`} style={{height: 120}}>
+                                        <div
+                                            className={`${p.gradClass} d-flex align-items-center justify-content-center`}
+                                            style={{ height: 120 }}
+                                        >
                                             <Icon size={40} color="white" />
                                         </div>
+
                                         <Card.Body className="d-flex flex-column">
                                             <h5>{p.name}</h5>
                                             <p>{p.tagline}</p>
                                             <div className="fw-bold mb-2">${p.price}/mo</div>
-                                            <Button className="mt-auto" onClick={() => addPlan(p)}>Add to Cart</Button>
+
+                                            <Button className="mt-auto" onClick={() => handlePickPlan(p)}>
+                                                Add to Cart
+                                            </Button>
                                         </Card.Body>
                                     </Card>
                                 </Col>
                             );
                         })}
                     </Row>
-
-                    <h3 className="mb-3">Add-ons</h3>
-                    <Row className="g-3 mb-4">
-                        {addOnsList.map((a) => (
-                            <Col key={a.addOnId} md={3}>
-                                <Card>
-                                    <Card.Body className="d-flex flex-column">
-                                        <div className="fw-bold">{a.addOnName}</div>
-                                        <div className="mb-2">${a.monthlyPrice}/mo</div>
-                                        <div className="small mb-2">{a.description}</div>
-                                        <Button
-                                            disabled={addOns.some((x) => x.addOnId === a.addOnId)}
-                                            onClick={() => addAddOn(a)}
-                                        >
-                                            {addOns.some((x) => x.addOnId === a.addOnId) ? "Added" : "Add to Cart"}
-                                        </Button>
-                                    </Card.Body>
-                                </Card>
-                            </Col>
-                        ))}
-                    </Row>
-
-                    <div className="text-end">
-                        <Button onClick={handleCheckout} className="fw-bold px-4 py-2">Checkout</Button>
-                    </div>
                 </>
             )}
         </Container>

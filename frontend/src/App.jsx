@@ -176,8 +176,9 @@ export default function App() {
             const mapped = mapOAuthMeToUser(me);
             console.log("Mapped Role:", mapped.role);
             setUser(mapped);
+            localStorage.setItem("tc_user", JSON.stringify(mapped));
 
-            // if we successfully have a user, registration prompt should be cleared
+// if we successfully have a user, registration prompt should be cleared
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
 

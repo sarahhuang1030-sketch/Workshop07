@@ -13,17 +13,23 @@ import { useTheme } from "../../context/ThemeContext";
 import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
 import { ROLE_UI, roleKeyFromUser } from "../../config/roleUi";
+import WeatherCard from "../WeatherCard";
 
-export default function AppNavbar({ user, setUser, onLogout }) {
+export default function AppNavbar({ user, setUser }) {
     const { darkMode, toggleDarkMode } = useTheme();
     const navigate = useNavigate();
-    const { plan, addOns } = useCart();
+    const { plan, addOns, clearCart } = useCart();
 
     const cartCount = (plan ? 1 : 0) + addOns.length;
 
     // Role-based UI config
     const roleKey = roleKeyFromUser(user);
     const ui = ROLE_UI[roleKey] || ROLE_UI.customer;
+
+    // Customer-only checks
+    const isCustomer = !!user && roleKey === "customer";
+    const showCart = !user || roleKey === "customer";
+    const showWeather = isCustomer;
 
     const displayName =
         user?.firstName ||
@@ -35,17 +41,13 @@ export default function AppNavbar({ user, setUser, onLogout }) {
         user?.email ||
         "there";
 
-    // Optional: only show cart for Customer (change if you want)
-    const showCart = !user || roleKey === "customer";
-
     async function handleLogout() {
         try {
-            // important for OAuth session / JSESSIONID cookie
             await fetch("/logout", { method: "POST", credentials: "include" });
-        } catch {
-            // ignore
-        } finally {
+        } catch {}
+        finally {
             localStorage.removeItem("tc_user");
+            clearCart();
             setUser(null);
             navigate("/");
         }
@@ -75,6 +77,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
             }}
         >
             <div className="container-xl px-3 py-2 position-relative">
+
                 {/* Brand */}
                 <Link className="navbar-brand d-flex align-items-center gap-3" to="/">
                     <div
@@ -89,6 +92,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                     >
                         <Signal size={22} color="white" />
                     </div>
+
                     <div className="lh-sm">
                         <div
                             className="fw-black"
@@ -103,6 +107,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                         >
                             TeleConnect
                         </div>
+
                         <div
                             className={
                                 darkMode
@@ -114,6 +119,20 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                         </div>
                     </div>
                 </Link>
+
+                {/* Weather pill (customers only) */}
+                {showWeather && (
+                    <div
+                        className="d-none d-lg-flex justify-content-center"
+                        style={{
+                            position: "absolute",
+                            left: "43%",
+                            transform: "translateX(-50%)",
+                        }}
+                    >
+                        <WeatherCard />
+                    </div>
+                )}
 
                 {/* Mobile toggler */}
                 <button
@@ -149,6 +168,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                         zIndex: 1050,
                     }}
                 >
+
                     {/* Left group */}
                     <ul className="navbar-nav ms-lg-auto mt-0 gap-2">
                         <li className="nav-item">
@@ -156,15 +176,13 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                                 Plans
                             </Link>
                         </li>
-                        {!user ? (
-                            <>
 
-                                <li className="nav-item">
-                                    <Link className="nav-link fw-semibold" to="/login">
-                                        Login
-                                    </Link>
-                                </li>
-                            </>
+                        {!user ? (
+                            <li className="nav-item">
+                                <Link className="nav-link fw-semibold" to="/login">
+                                    Login
+                                </Link>
+                            </li>
                         ) : (
                             ui.nav.map((item) => (
                                 <li className="nav-item" key={item.to}>
@@ -180,6 +198,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
 
                     {/* Right group */}
                     <div className="d-flex flex-column flex-lg-row align-items-end align-items-lg-center ms-lg-3 gap-2">
+
                         {!user ? (
                             <Link
                                 className="btn text-white fw-bold px-4 py-2"
@@ -193,15 +212,16 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                             </Link>
                         ) : (
                             <>
-                <span
-                    className={
-                        darkMode
-                            ? "text-light fw-semibold me-lg-2"
-                            : "text-dark fw-semibold me-lg-2"
-                    }
-                >
-                  Hi, {displayName}
-                </span>
+                                <span
+                                    className={
+                                        darkMode
+                                            ? "text-light fw-semibold me-lg-2"
+                                            : "text-dark fw-semibold me-lg-2"
+                                    }
+                                >
+                                    Hi, {displayName}
+                                </span>
+
                                 <button
                                     type="button"
                                     className={
@@ -239,6 +259,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                                 style={{ width: 42, height: 42, borderRadius: 10 }}
                             >
                                 <ShoppingCart size={24} />
+
                                 {cartCount > 0 && (
                                     <Badge
                                         bg="danger"
@@ -250,6 +271,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                                 )}
                             </Link>
                         )}
+
                     </div>
                 </div>
             </div>
