@@ -30,7 +30,8 @@ export function BillingCard({
 
 
     const missingFields = [];
-    if (!pay.method || !pay.cardNumber) missingFields.push("Payment method");
+    // if (!pay.method || !pay.cardNumber) missingFields.push("Payment method");
+    if (!pay.method && !pay.last4) missingFields.push("Payment method");
     if (!addr.street1 || !addr.city || !addr.province || !addr.postalCode || !addr.country)
         missingFields.push("Billing address");
 

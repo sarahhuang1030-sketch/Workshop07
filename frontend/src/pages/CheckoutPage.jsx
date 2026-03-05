@@ -3,6 +3,7 @@ import { Container, Card, Button, Form, Alert } from "react-bootstrap";
 import { useCart } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
+import PaymentForm from "../components/PaymentForm.jsx";
 
 const PROVINCE_TAX = {
     ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975,
@@ -113,6 +114,12 @@ export default function CheckoutPage({ user }) {
                                 checked={billingCycle === "yearly"}
                                 onChange={() => setBillingCycle("yearly")}
                             />
+                        </Card.Body>
+                    </Card>
+
+                    <Card className="mb-4">
+                        <Card.Body>
+                         <PaymentForm/>
                         </Card.Body>
                     </Card>
 

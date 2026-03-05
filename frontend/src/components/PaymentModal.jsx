@@ -1,6 +1,7 @@
 /**
  Description: Payment Modal page, where users can add or edit their payment method details.
  Created by: Sarah
+ Edited by: Sherry
  Created on: March 2026
 **/
 
@@ -17,6 +18,7 @@ export function PaymentModal({
                              }) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [confirmDefault, setConfirmDefault] = useState(false);
 
     const [method, setMethod] = useState("");
     const [cardNumber, setCardNumber] = useState("");
@@ -31,7 +33,8 @@ export function PaymentModal({
         if (!show) return;
 
         setMethod(profileBilling.method ?? "");
-        setCardNumber(profileBilling.last4 ? "**** **** **** " + profileBilling.last4 : "");
+        // setCardNumber(profileBilling.last4 ? "**** **** **** " + profileBilling.last4 : ""); // secret num
+        setCardNumber(profileBilling.cardNumber ? formatCardNumber(profileBilling.cardNumber) : "");
         setExpiredDate(profileBilling.expiredDate?.slice(0, 7) ?? "");
         setHolderName(profileBilling.holderName ?? "");
         setCvv(profileBilling.localCvv ?? "");
@@ -52,6 +55,10 @@ export function PaymentModal({
         setError("");
 
         try {
+            if (!confirmDefault) {
+                throw new Error("Please confirm saving this card as your default payment method.");
+            }
+
             if (!method) throw new Error("Please select a card type.");
             if (!holderName.trim()) throw new Error("Please enter the cardholder name.");
             if (!cardNumber.trim()) throw new Error("Please enter a card number.");
@@ -158,6 +165,17 @@ export function PaymentModal({
                             />
                         </Form.Group>
                     </Col>
+
+                    <Col md={12}>
+                        <Form.Group>
+                            <Form.Check
+                                type="checkbox"
+                                label="I confirm this card will be saved as my default payment method."
+                                checked={confirmDefault}
+                                onChange={(e) => setConfirmDefault(e.target.checked)}
+                            />
+                        </Form.Group>
+                    </Col>
                 </Row>
             </Modal.Body>
 
@@ -165,10 +183,14 @@ export function PaymentModal({
                 <Button variant={darkMode ? "outline-light" : "outline-secondary"} onClick={onClose} disabled={saving}>
                     Cancel
                 </Button>
-                <Button variant="primary" onClick={save} disabled={saving}>
+                <Button
+                    variant="primary"
+                    onClick={save}
+                    disabled={saving || !confirmDefault}>
                     {saving ? "Saving..." : "Save"}
                 </Button>
-            </Modal.Footer>
+
+        </Modal.Footer>
         </Modal>
     );
 }
