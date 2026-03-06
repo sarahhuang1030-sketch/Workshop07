@@ -8,7 +8,7 @@
 
 import React from "react";
 import { Signal, Moon, Sun, ShoppingCart } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
@@ -16,7 +16,7 @@ import { ROLE_UI, roleKeyFromUser } from "../../config/roleUi";
 
 export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
-    const navigate = useNavigate();
+
     const { plan, addOns } = useCart();
 
     const cartCount = (plan ? 1 : 0) + addOns.length;
@@ -37,19 +37,6 @@ export default function AppNavbar({ user, setUser, onLogout }) {
 
     // Optional: only show cart for Customer (change if you want)
     const showCart = !user || roleKey === "customer";
-
-    async function handleLogout() {
-        try {
-            // important for OAuth session / JSESSIONID cookie
-            await fetch("/logout", { method: "POST", credentials: "include" });
-        } catch {
-            // ignore
-        } finally {
-            localStorage.removeItem("tc_user");
-            setUser(null);
-            navigate("/");
-        }
-    }
 
     // Fix navbar collapse positioning on mobile
     const [isLgUp, setIsLgUp] = React.useState(false);
@@ -209,7 +196,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                                             ? "btn btn-outline-light fw-bold"
                                             : "btn btn-outline-secondary fw-bold"
                                     }
-                                    onClick={handleLogout}
+                                    onClick={onLogout}
                                 >
                                     Logout
                                 </button>

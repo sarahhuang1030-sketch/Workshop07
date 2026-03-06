@@ -45,9 +45,6 @@ export default function ForgetPasswordPage() {
             }
             setStatus("sent");
 
-            // OPTIONAL: only redirect if your UX requires it
-            // Most apps do NOT redirect here, because user must click the link in email.
-            // navigate("/login");
         } catch (err) {
             console.error("Cannot reach backend:", err);
             setError("Cannot reach backend. Is Spring Boot running?");

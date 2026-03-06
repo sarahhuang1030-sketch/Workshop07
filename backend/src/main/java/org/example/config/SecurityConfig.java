@@ -81,14 +81,15 @@ public class SecurityConfig {
                                 "/",
                                 "/public/**",
                                 "/oauth2/**",
-                                "/login/**",
+
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/forgetpassword",
                                 "/api/auth/resetpassword",
                                 "/api/plans/**",
                                 "/api/addons/**",
-                                "/uploads/**"
+                                "/uploads/**",
+                                "/login/**"
                         ).permitAll()
                         .requestMatchers("/api/manager/**").hasRole("MANAGER")
                         .requestMatchers("/api/sales/**").hasAnyRole("SALES_AGENT", "MANAGER")

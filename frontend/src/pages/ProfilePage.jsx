@@ -50,7 +50,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const didTryHydrate = useRef(false);
+    const loadedBillingForRef = useRef(null);
 
     // ---- Derived / computed (hooks MUST be above any returns) ----
     const tierInfo = useMemo(() => {
@@ -65,7 +65,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const loadAddress = useCallback(async () => {
         try {
             const res = await fetch("/api/billing/address", { credentials: "include" });
-            if (res.status === 404 || res.status === 204) {
+            if (res.status === 404 || res.status === 204 || res.status === 409) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address: {} } }));
                 return;
             }
@@ -81,7 +81,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const loadPaymentMethod = useCallback(async () => {
         try {
             const res = await fetch("/api/billing/payment", { credentials: "include" });
-            if (res.status === 404 || res.status === 204) {
+            if (res.status === 404 || res.status === 204 || res.status === 409) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
                 return;
             }
@@ -94,19 +94,13 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     }, []);
 
-    // ---- Session hydrate (only once) ----
-    useEffect(() => {
-        if ((userProp === null || userProp === undefined) && !didTryHydrate.current) {
-            didTryHydrate.current = true;
-            Promise.resolve(refreshMe?.())
-                .catch(() => {})
-                .finally(() => setLoading(false));
-        }
-    }, [userProp, refreshMe]);
 
     // ---- Copy App.user into local profile ----
     useEffect(() => {
-        if (!userProp) return;
+        if (!userProp) {
+            setLoading(false);
+            return;
+        }
 
         const raw = userProp.raw ?? {};
         const phone =
@@ -129,6 +123,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             phone,
             avatarUrl:
                 userProp.avatarUrl ??
+                null,
+            oauthPicture:
                 userProp.oauthPicture ??
                 raw.oauthPicture ??
                 userProp.picture ??
@@ -144,7 +140,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
     // ---- Load address & payment method ----
     useEffect(() => {
-        if (!userProp?.customerId) return;
+        const customerId = userProp?.customerId;
+        if (!customerId) return;
+
+        if (loadedBillingForRef.current === customerId) return;
+        loadedBillingForRef.current = customerId;
+
         loadAddress();
         loadPaymentMethod();
     }, [userProp?.customerId, loadAddress, loadPaymentMethod]);
@@ -165,11 +166,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             const mapped = await refreshMe?.();
             setProfile((prev) => ({
                 ...prev,
-                avatarUrl:
-                    mapped?.avatarUrl ??
+                avatarUrl: mapped?.avatarUrl ?? null,
+                oauthPicture:
                     mapped?.oauthPicture ??
                     mapped?.raw?.oauthPicture ??
                     mapped?.picture ??
+                    prev.oauthPicture ??
                     null,
             }));
         } catch (e) {
@@ -435,7 +437,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             phone: updatedPersonal.phone ?? prev.phone,
                         }));
                     }
-                    await refreshMe?.();
                     await loadAddress();
                 }}
                 backdrop

@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
+import React, { useEffect, useMemo, useState } from "react";import {
     Container,
     Row,
     Col,
@@ -40,6 +39,7 @@ export default function HomePage() {
     const { addPlan, addAddOn } = useCart();
     const navigate = useNavigate();
 
+
     const [selectedTab, setSelectedTab] = useState("mobile");
     const [mobilePlans, setMobilePlans] = useState([]);
     const [homePlans, setHomePlans] = useState([]);
@@ -56,21 +56,43 @@ export default function HomePage() {
 
     useEffect(() => {
         let cancelled = false;
+
         async function load() {
             setLoading(true);
-            const [m, h, a] = await Promise.all([
-                fetch("/api/plans?type=Mobile").then(r => r.json()),
-                fetch("/api/plans?type=Internet").then(r => r.json()),
-                fetch("/api/addons").then(r => r.json())
-            ]);
-            if (cancelled) return;
-            setMobilePlans(m ?? []);
-            setHomePlans(h ?? []);
-            setAddOns(a ?? []);
-            setLoading(false);
+            try {
+                const [mRes, hRes, aRes] = await Promise.all([
+                    fetch("/api/plans?type=Mobile"),
+                    fetch("/api/plans?type=Internet"),
+                    fetch("/api/addons")
+                ]);
+
+                if (!mRes.ok || !hRes.ok || !aRes.ok) {
+                    throw new Error("Failed to load homepage catalog");
+                }
+
+                const [m, h, a] = await Promise.all([
+                    mRes.json(),
+                    hRes.json(),
+                    aRes.json()
+                ]);
+
+                if (cancelled) return;
+
+                setMobilePlans(m ?? []);
+                setHomePlans(h ?? []);
+                setAddOns(a ?? []);
+            } catch (err) {
+                console.error("Failed to load homepage catalog", err);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         }
+
         load();
-        return () => (cancelled = true);
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const plans = useMemo(() => {
@@ -231,8 +253,7 @@ export default function HomePage() {
                         {visiblePlans.map(plan => {
                             const Icon = plan.icon;
                             return (
-                                <Col md={4} key={plan.id}>
-                                    <Card className="h-100 shadow-lg border-0 tc-card-hover">
+                                <Col md={4} key={plan.id ?? plan.planId ?? plan.name}>                                    <Card className="h-100 shadow-lg border-0 tc-card-hover">
                                         <div className={`${plan.gradClass} text-center py-4 rounded-top`}>
                                             <Icon size={40} color="white"/>
                                         </div>

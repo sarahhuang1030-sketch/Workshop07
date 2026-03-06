@@ -7,7 +7,7 @@
 
  **/
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 
 import Layout from "./components/layout/Layout";
@@ -93,6 +93,7 @@ function mapOAuthMeToUser(meResponse) {
     const fallbackPicture =
         attrs.picture || attrs.avatar_url || attrs.picture?.data?.url || null;
 
+
     return {
         authType: "oauth",
         provider,
@@ -120,8 +121,10 @@ function OAuthSuccessHandler({ finishOAuthLogin }) {
 export default function App() {
     const navigate = useNavigate();
     const location = useLocation();
-
+    const didHydrateRef = useRef(false);
+    const refreshInFlightRef = useRef(null);
     const [user, setUser] = useState(null);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const [needsRegistration, setNeedsRegistration] = useState(() => {
         try {
@@ -133,73 +136,84 @@ export default function App() {
     });
 
     // ---- Single source of truth: hydrate / refresh session user ----
-    const refreshMe = useCallback(async () => {
-        try {
-            const res = await fetch("/api/me", { credentials: "include" });
+    const refreshMe = useCallback(async ({ force = false } = {}) => {
+        if (isLoggingOut) return null;
 
-            // Not logged in
-            if (res.status === 401) {
-                setUser(null);
-                return null;
-            }
-
-            // If your backend uses 409 for "needs registration", keep this.
-            // If not, this block will never run (harmless).
-            if (res.status === 409) {
-                const text = await res.text();
-                let data = null;
-                try {
-                    data = JSON.parse(text);
-                } catch {}
-
-                const nr = {
-                    status: data?.status || "NEEDS_REGISTRATION",
-                    lookupKey: data?.lookupKey,
-                    provider: data?.provider,
-                    email: data?.email || data?.attributes?.email || "",
-                    attributes: data?.attributes || {},
-                };
-
-                sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
-                setNeedsRegistration(nr);
-                setUser(null);
-                return null;
-            }
-
-            if (!res.ok) {
-                setUser(null);
-                return null;
-            }
-
-            const me = await res.json();
-            console.log("ME Response:", me)
-            const mapped = mapOAuthMeToUser(me);
-            console.log("Mapped Role:", mapped.role);
-            setUser(mapped);
-
-            // if we successfully have a user, registration prompt should be cleared
-            setNeedsRegistration(null);
-            sessionStorage.removeItem("tc_needs_registration");
-
-            return mapped;
-        } catch {
-            setUser(null);
-            return null;
+        if (!force && refreshInFlightRef.current) {
+            return refreshInFlightRef.current;
         }
-    }, []);
+
+        const request = (async () => {
+            try {
+                const res = await fetch("/api/me", { credentials: "include" });
+
+                if (res.status === 401) {
+                    setUser(null);
+                    return null;
+                }
+
+                if (res.status === 409) {
+                    const text = await res.text();
+                    let data = null;
+                    try {
+                        data = JSON.parse(text);
+                    } catch {}
+
+                    const nr = {
+                        status: data?.status || "NEEDS_REGISTRATION",
+                        lookupKey: data?.lookupKey,
+                        provider: data?.provider,
+                        email: data?.email || data?.attributes?.email || "",
+                        attributes: data?.attributes || {},
+                    };
+
+                    sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
+                    setNeedsRegistration(nr);
+                    setUser(null);
+                    return null;
+                }
+
+                if (!res.ok) {
+                    setUser(null);
+                    return null;
+                }
+
+                const me = await res.json();
+                const mapped = mapOAuthMeToUser(me);
+                setUser(mapped);
+
+                setNeedsRegistration(null);
+                sessionStorage.removeItem("tc_needs_registration");
+
+                return mapped;
+            } catch {
+                setUser(null);
+                return null;
+            } finally {
+                refreshInFlightRef.current = null;
+            }
+        })();
+
+        refreshInFlightRef.current = request;
+        return request;
+    }, [isLoggingOut]);
 
     // ---- On initial app load, attempt to hydrate session ----
     useEffect(() => {
+        if (didHydrateRef.current) return;
+        didHydrateRef.current = true;
         refreshMe();
     }, [refreshMe]);
 
     // ---- KEY FIX: when navigating to /profile, re-hydrate if user is missing ----
     // This removes the need for manual refresh if the first /api/me call raced.
     useEffect(() => {
-        if (location.pathname === "/profile" && !user) {
-            refreshMe();
-        }
-    }, [location.pathname, user, refreshMe]);
+        if (location.pathname !== "/profile") return;
+        if (user) return;
+        if (isLoggingOut) return;
+
+        refreshMe();
+    }, [location.pathname, user, isLoggingOut, refreshMe]);
 
     // Redirect away from /login or /register once we have user
     useEffect(() => {
@@ -212,29 +226,30 @@ export default function App() {
     const finishOAuthLogin = useCallback(async () => {
         // For OAuth, the session cookie might be set right around redirect time.
         // Running refreshMe() here is the cleanest.
-        const u = await refreshMe();
-        if (u) navigate("/profile", { replace: true });
-        else navigate("/profile", { replace: true }); // still show profile (it can render needsRegistration)
+        await refreshMe();
+        navigate("/profile", { replace: true });
     }, [refreshMe, navigate]);
 
     async function logout() {
+        setIsLoggingOut(true);
+
         try {
             await fetch("/logout", { method: "POST", credentials: "include" });
-        } catch {
-            // ignore
-        } finally {
+        } catch {}
             setUser(null);
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
             localStorage.removeItem("tc_user"); // harmless if unused
             navigate("/", { replace: true });
-        }
+
+        setTimeout(() => setIsLoggingOut(false), 300);
+
     }
 
     return (
         <CartProvider>
             <Routes>
-                <Route element={<Layout user={user} setUser={setUser} />}>
+                <Route element={<Layout user={user} setUser={setUser} onLogout={logout} />}>
                     <Route path="/" element={<HomePage />} />
 
                     <Route

@@ -41,12 +41,18 @@ export function AvatarCard({
     }
 
     const oauthPictureUrl =
+        pictureToUrl(profile?.oauthPicture) ||
+        pictureToUrl(profile?.picture) ||
+        pictureToUrl(sessionUser?.oauthPicture) ||
         pictureToUrl(sessionUser?.picture) ||
+        pictureToUrl(sessionUser?.raw?.oauthPicture) ||
         pictureToUrl(sessionUser?.raw?.picture) ||
         pictureToUrl(sessionUser?.raw?.avatarUrl) ||
         null;
 
-    const savedAvatarUrl = profile?.avatarUrl || null;
+    const savedAvatarUrl =
+        pictureToUrl(profile?.avatarUrl) ||
+        null;
 
     /* -------------------------
        Decide which avatar to show
@@ -172,6 +178,11 @@ export function AvatarCard({
         badgeVariant = "light";       // guest (very light)
     }
 
+    // console.log("profile =", profile);
+    // console.log("savedAvatarUrl =", savedAvatarUrl);
+    // console.log("oauthPictureUrl =", oauthPictureUrl);
+    // console.log("avatarUrl state =", avatarUrl);
+
     return (
         <Card className={`${cardBase} mt-4 p-3`} style={{ borderRadius: 22 }}>
             <div className="d-flex align-items-center gap-3">
@@ -185,8 +196,11 @@ export function AvatarCard({
                         borderRadius: "50%",
                         objectFit: "cover",
                     }}
+                    onError={(e) => {
+                        console.error("Avatar failed to load:", avatarUrl);
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                    }}
                 />
-
                 {/* Right Information */}
                 <div className="flex-grow-1">
                     <div

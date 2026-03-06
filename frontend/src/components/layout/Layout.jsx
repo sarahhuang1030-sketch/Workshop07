@@ -4,7 +4,7 @@ import AppFooter from "./Footer";
 import { useTheme } from "../../context/ThemeContext";
 import "../../style/style.css";
 
-export default function Layout({ user, setUser }) {
+export default function Layout({ user, setUser, onLogout }) {
     const { darkMode } = useTheme();
 
     return (
@@ -13,7 +13,7 @@ export default function Layout({ user, setUser }) {
             style={{ minHeight: "100vh" }}
             data-bs-theme={darkMode ? "dark" : "light"}
         >
-            <AppNavbar user={user} setUser={setUser}/>
+            <AppNavbar user={user} setUser={setUser} onLogout={onLogout}/>
             <main className="flex-grow-1">
                 <Outlet />
             </main>

@@ -7,6 +7,7 @@
 
 package org.example.controller;
 
+import java.io.IOException;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -25,6 +26,7 @@ import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.example.service.AgentCustomerService;
 
+import org.example.service.AvatarStorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,19 +46,22 @@ public class MeController {
     private final CustomerRepository customerRepo;
     private final EmployeeRepository employeeRepo;
     private final MeRepository meRepository;
+    private final AvatarStorageService avatarStorageService;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
                         CustomerAddressRepository customerAddressRepo,
                         CustomerRepository customerRepo,
                         EmployeeRepository employeeRepo,
-                        MeRepository meRepository) {
+                        MeRepository meRepository,
+                        AvatarStorageService avatarStorageService) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
         this.customerRepo = customerRepo;
         this.employeeRepo = employeeRepo;
         this.meRepository = meRepository;
+        this.avatarStorageService = avatarStorageService;
     }
 
     // -------------------- GET /api/me --------------------
@@ -146,7 +151,7 @@ public class MeController {
                 // 2) Create UA for this key, linked to that customer
                 UserAccount newUa = new UserAccount();
                 newUa.setUsername(key);
-                newUa.setRole("Customer");
+                newUa.setRole("CUSTOMER");
                 newUa.setCustomerId(customer.getCustomerId());
                 newUa.setEmployeeId(null);
                 newUa.setIsLocked(0);
@@ -159,6 +164,18 @@ public class MeController {
             // Update last login
             ua.setLastLoginAt(LocalDateTime.now());
             userAccountRepo.save(ua);
+
+            String oauthPictureUrl = isOauth ? extractOAuthPictureUrl(attrs) : null;
+
+            if (isOauth && ua != null && (ua.getAvatarUrl() == null || ua.getAvatarUrl().isBlank())) {
+                String provider = oauthTok != null ? oauthTok.getAuthorizedClientRegistrationId().toLowerCase() : null;
+                try {
+                    avatarStorageService.importOAuthAvatarForUser(ua, oauthPictureUrl, provider);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    // do not fail /api/me just because avatar import failed
+                }
+            }
 
             // Build response
             Map<String, Object> out = new LinkedHashMap<>();
@@ -193,7 +210,7 @@ public class MeController {
             }
             // Customer
             else if (ua.getCustomerId() != null) {
-                out.put("userType", "Customer");
+                out.put("userType", "CUSTOMER");
                 customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
                     out.put("firstName", c.getFirstName());
                     out.put("lastName", c.getLastName());
@@ -219,8 +236,7 @@ public class MeController {
             if (isOauth && oauthTok != null) {
                 out.put("provider", oauthTok.getAuthorizedClientRegistrationId().toLowerCase());
                 out.put("attributes", attrs);
-
-                out.put("oauthPicture", extractOAuthPictureUrl(attrs));
+                out.put("oauthPicture", oauthPictureUrl);
             }
 
             return ResponseEntity.ok(out);
@@ -622,16 +638,16 @@ public class MeController {
         return null;
     }
 
-    private static String asNonBlankString(Object o) {
-        if (o == null) return null;
-        if (o instanceof String s) {
-            s = s.trim();
-            return s.isEmpty() ? null : s;
-        }
-        // sometimes values come as other types (rare). Convert to string safely:
-        String s = o.toString().trim();
-        return s.isEmpty() ? null : s;
-    }
+//    private static String asNonBlankString(Object o) {
+//        if (o == null) return null;
+//        if (o instanceof String s) {
+//            s = s.trim();
+//            return s.isEmpty() ? null : s;
+//        }
+//        // sometimes values come as other types (rare). Convert to string safely:
+//        String s = o.toString().trim();
+//        return s.isEmpty() ? null : s;
+//    }
 
     // -------------------- GET /api/me/subscription/details --------------------
     @GetMapping("/api/me/subscription/details")

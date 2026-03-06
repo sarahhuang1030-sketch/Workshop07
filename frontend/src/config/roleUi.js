@@ -42,9 +42,9 @@ export const ROLE_UI = {
         dashboardPath: "/manager",
         nav: [
             { label: "Dashboard", to: "/manager" },
-            { label: "User Management", to: "/manager/users" },
-            { label: "Reports", to: "/manager/reports" },
-            { label: "Promotions", to: "/manager/promotions" },
+            // { label: "User Management", to: "/manager/users" },
+            // { label: "Reports", to: "/manager/reports" },
+            // { label: "Promotions", to: "/manager/promotions" },
             { label: "Profile", to: "/profile" },
         ],
     },
