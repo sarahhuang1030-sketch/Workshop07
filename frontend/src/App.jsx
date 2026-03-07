@@ -44,8 +44,8 @@ import ServiceDashboard from "./pages/service/ServiceDashboard";
 // Manager
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ManagerUsers from "./pages/manager/ManagerUsers";
-import ManagerReports from "./pages/manager/ManagerReports";
-import ManagerPromotions from "./pages/manager/ManagerPromotions";
+import ManagerEmployee from "./pages/manager/ManagerEmployee";
+import ManagerPlan from "./pages/manager/ManagerPlan";
 
 import RequireRole from "./components/auth/RequireRole";
 
@@ -395,18 +395,18 @@ export default function App() {
                         }
                     />
                     <Route
-                        path="/manager/reports"
+                        path="/manager/employee"
                         element={
                             <RequireRole user={user} allow={["manager"]}>
-                                <ManagerReports />
+                                <ManagerEmployee />
                             </RequireRole>
                         }
                     />
                     <Route
-                        path="/manager/promotions"
+                        path="/manager/plan"
                         element={
                             <RequireRole user={user} allow={["manager"]}>
-                                <ManagerPromotions />
+                                <ManagerPlan />
                             </RequireRole>
                         }
                     />

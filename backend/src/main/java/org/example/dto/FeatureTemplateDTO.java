@@ -1,9 +1,7 @@
 package org.example.dto;
 
-public record PlanFeatureDTO (
-
+public record FeatureTemplateDTO(
         String featureName,
         String featureValue,
         String unit
-
-){}
+) {}

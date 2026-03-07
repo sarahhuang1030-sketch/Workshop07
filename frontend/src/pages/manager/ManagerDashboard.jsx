@@ -1,5 +1,5 @@
-import React from "react";
-import { Container, Row, Col, Card, Button, Badge } from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { Container, Row, Col, Card, Button, Badge, Spinner, Alert } from "react-bootstrap";
 import {
     Users,
     UserCog,
@@ -103,19 +103,78 @@ function ManageCard({ title, desc, icon: Icon, badge, to, darkMode, onGo }) {
     );
 }
 
+const formatMoney = (n) =>
+    n == null || Number.isNaN(Number(n))
+        ? "—"
+        : Number(n).toLocaleString(undefined, {
+            style: "currency",
+            currency: "CAD",
+            maximumFractionDigits: 0,
+        });
+
 export default function ManagerDashboard({ darkMode = false }) {
     const nav = useNavigate();
-
-    // Later: replace with API data from /api/manager/summary
-    const summary = {
-        customers: 214,
-        activeSubs: 187,
-        monthlyRevenue: "$18,200",
-        pastDue: 7,
-    };
-
     const muted = darkMode ? "text-light-50" : "text-muted";
     const go = (to) => nav(to);
+
+    const [summary, setSummary] = useState({
+        customers: 0,
+        activeSubs: 0,
+        monthlyRevenue: 0,
+        pastDue: 0,
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadSummary() {
+            try {
+                setLoading(true);
+                setError("");
+
+                const response = await fetch("/api/manager/summary", {
+                    method: "GET",
+                    credentials: "include",
+                    headers: {
+                        Accept: "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load summary: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!ignore) {
+                    setSummary({
+                        customers: data.customers ?? 0,
+                        activeSubs: data.activeSubs ?? 0,
+                        monthlyRevenue: data.monthlyRevenue ?? 0,
+                        pastDue: data.pastDue ?? 0,
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading manager summary:", err);
+                if (!ignore) {
+                    setError("Unable to load dashboard summary.");
+                }
+            } finally {
+                if (!ignore) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadSummary();
+
+        return () => {
+            ignore = true;
+        };
+    }, []);
 
     return (
         <Container className="py-4">
@@ -137,26 +196,32 @@ export default function ManagerDashboard({ darkMode = false }) {
                     <Button
                         variant={darkMode ? "outline-light" : "outline-primary"}
                         style={{ borderRadius: 14 }}
-                        onClick={() => go("/manager/employees/new")}
+                        onClick={() => go("/manager/employee")}
                     >
-                        Add Employee
+                        Manage Employee
                     </Button>
                     <Button
                         variant={darkMode ? "outline-light" : "outline-primary"}
                         style={{ borderRadius: 14 }}
-                        onClick={() => go("/manager/plans/new")}
+                        onClick={() => go("/manager/plan")}
                     >
-                        Create Plan
+                        Manage Plan
                     </Button>
                     <Button
-                        variant={darkMode ? "light" : "primary"}
+                        variant={darkMode ? "light" : "outline-primary"}
                         style={{ borderRadius: 14 }}
-                        onClick={() => go("/manager/customers")}
+                        onClick={() => go("/manager/users")}
                     >
-                        Find Customer
+                        Manage Customer
                     </Button>
                 </div>
             </div>
+
+            {error && (
+                <Alert variant="danger" className="mb-3">
+                    {error}
+                </Alert>
+            )}
 
             {/* Stats */}
             <Row className="g-3">
@@ -164,7 +229,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                     <Stat
                         darkMode={darkMode}
                         title="Total Customers"
-                        value={summary.customers}
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.customers}
                         hint="All accounts"
                         icon={Users}
                     />
@@ -173,25 +238,30 @@ export default function ManagerDashboard({ darkMode = false }) {
                     <Stat
                         darkMode={darkMode}
                         title="Active Subscriptions"
-                        value={summary.activeSubs}
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
                         hint="Currently active"
                         icon={Repeat}
                     />
                 </Col>
                 <Col xs={12} md={6} lg={3}>
+
+                    {/*monthly revenue*/}
+                    {/*= sum of active subscription plan prices*/}
+                    {/*+ sum of active add-on prices attached to active subscriptions*/}
                     <Stat
                         darkMode={darkMode}
                         title="Monthly Revenue"
-                        value={summary.monthlyRevenue}
+                        value={loading ? <Spinner animation="border" size="sm" /> : formatMoney(summary.monthlyRevenue)}
                         hint="Estimated"
                         icon={Package}
                     />
                 </Col>
                 <Col xs={12} md={6} lg={3}>
+                    {/*look for status in subscriptions table, and past due is invoices and payment allocation*/}
                     <Stat
                         darkMode={darkMode}
                         title="Past Due / Suspended"
-                        value={summary.pastDue}
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.pastDue}
                         hint="Needs follow-up"
                         icon={ListChecks}
                     />
@@ -203,47 +273,11 @@ export default function ManagerDashboard({ darkMode = false }) {
                 <Col xs={12} md={6} lg={4}>
                     <ManageCard
                         darkMode={darkMode}
-                        title="Manage Customers"
-                        desc="CRUD, search, edit profiles, status changes."
-                        icon={Users}
-                        badge="CRUD"
-                        to="/manager/customers"
-                        onGo={go}
-                    />
-                </Col>
-
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
-                        darkMode={darkMode}
                         title="Manage Subscriptions"
                         desc="Change plan, add/remove add-ons, suspend/cancel/reactivate."
                         icon={Repeat}
                         badge="Lifecycle"
                         to="/manager/subscriptions"
-                        onGo={go}
-                    />
-                </Col>
-
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
-                        darkMode={darkMode}
-                        title="Manage Employees"
-                        desc="CRUD employees, salary type/rate, assign positions."
-                        icon={UserCog}
-                        badge="Roles + Pay"
-                        to="/manager/employees"
-                        onGo={go}
-                    />
-                </Col>
-
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
-                        darkMode={darkMode}
-                        title="Manage Plans"
-                        desc="Create/edit/deactivate plans used in the storefront."
-                        icon={Package}
-                        badge="Catalog"
-                        to="/manager/plans"
                         onGo={go}
                     />
                 </Col>
@@ -263,21 +297,6 @@ export default function ManagerDashboard({ darkMode = false }) {
                 <Col xs={12} md={6} lg={4}>
                     <ManageCard
                         darkMode={darkMode}
-                        title="Positions + Admin"
-                        desc="Manage dropdown positions and review change history."
-                        icon={Briefcase}
-                        badge="Admin"
-                        to="/manager/positions"
-                        onGo={go}
-                    />
-                </Col>
-            </Row>
-
-            {/* Reports row */}
-            <Row className="g-3 mt-2">
-                <Col xs={12} md={6}>
-                    <ManageCard
-                        darkMode={darkMode}
                         title="Reports"
                         desc="Revenue by plan, churn, growth, past-due trends."
                         icon={FileBarChart2}
@@ -286,7 +305,10 @@ export default function ManagerDashboard({ darkMode = false }) {
                         onGo={go}
                     />
                 </Col>
+            </Row>
 
+            {/* Reports row */}
+            <Row className="g-3 mt-2">
                 <Col xs={12} md={6}>
                     <ManageCard
                         darkMode={darkMode}
