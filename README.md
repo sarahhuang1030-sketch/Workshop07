@@ -1,12 +1,14 @@
 Open Workshop07 folder in Intellij
 
-Turn on backend
+# Turn on backend
 run Main.java
 
-In the terminal
+# In the terminal
 go to Workshop07 -> frontend
 npm install react-icons
 type npm run dev
+     npm install react-credit-cards-2
+
 Then the system should bring up a window with homepage
 
 ┌──────────────────────────┐
@@ -22,3 +24,7 @@ Then the system should bring up a window with homepage
 │  localhost:8080 / 8081   │
 └──────────────────────────┘
 REST APIs
+
+# If port 5173 is in use, please run：
+lsof -i :5173
+kill -9 <PID>

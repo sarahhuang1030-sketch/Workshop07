@@ -94,7 +94,6 @@ export function PaymentModal({
 
             const data = await res.json();
 
-            // 回调，保存前端 CVV
             onSaved?.(data ?? payload, cvv);
         } catch (e) {
             setError(e.message || "Failed to save payment method");
