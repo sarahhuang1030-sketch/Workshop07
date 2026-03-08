@@ -29,7 +29,7 @@ public class AuthService {
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
     private final EmployeeRepository employeeRepository;
-    private final PasswordEncoder passwordEncoder;
+  //  private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JavaMailSender mailSender;
 
@@ -44,7 +44,7 @@ public class AuthService {
         this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.employeeRepository = employeeRepository;
-        this.passwordEncoder = passwordEncoder;
+    //    this.passwordEncoder = passwordEncoder;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.mailSender = mailSender;
     }
@@ -55,9 +55,18 @@ public class AuthService {
         UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
 
-        if (!passwordEncoder.matches(passwordRaw, ua.getPasswordHash())) {
+
+        //hash password
+//        if (!passwordEncoder.matches(passwordRaw, ua.getPasswordHash())) {
+//            throw new IllegalArgumentException("Invalid username or password");
+//        }
+
+        //raw password
+        if (!passwordRaw.equals(ua.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid username or password");
         }
+
+
 
         // Customer login
         if (ua.getCustomerId() != null) {
@@ -196,7 +205,11 @@ public class AuthService {
         UserAccount ua = userAccountRepository.findById(prt.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("User account not found"));
 
-        ua.setPasswordHash(passwordEncoder.encode(newPassword));
+
+        //hash password
+//        ua.setPasswordHash(passwordEncoder.encode(newPassword));
+        //raw password
+        ua.setPasswordHash(newPassword);
         userAccountRepository.save(ua);
 
         prt.setUsed(true);

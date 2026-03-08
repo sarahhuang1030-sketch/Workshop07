@@ -19,7 +19,7 @@ public class CustomerRegistrationService {
     private final CustomerRepository customerRepo;
     private final CustomerAddressRepository addressRepo;
     private final UserAccountRepository userAccountRepo;
-    private final PasswordEncoder passwordEncoder;
+    //private final PasswordEncoder passwordEncoder;
 
     public CustomerRegistrationService(CustomerRepository customerRepo,
                                        CustomerAddressRepository addressRepo,
@@ -28,7 +28,7 @@ public class CustomerRegistrationService {
         this.customerRepo = customerRepo;
         this.addressRepo = addressRepo;
         this.userAccountRepo = userAccountRepo;
-        this.passwordEncoder = passwordEncoder;
+      //  this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -60,10 +60,12 @@ public class CustomerRegistrationService {
         c.setHomePhone(req.homephone.trim());
         c.setStatus("Active");
 
-        // login password stored in useraccounts and customers
-        String hash = passwordEncoder.encode(req.password);
-        c.setPasswordHash(hash);
-
+        // login password stored in useraccounts and customers -- hash password stored
+//        String hash = passwordEncoder.encode(req.password);
+//        c.setPasswordHash(hash);
+        //storing raw passwords
+        String rawPassword = req.password;
+        c.setPasswordHash(rawPassword);
 
         Customer saved = customerRepo.save(c);
 
@@ -108,7 +110,10 @@ public class CustomerRegistrationService {
         ua.setCustomerId(saved.getCustomerId());
         ua.setEmployeeId(null);
         ua.setUsername(username);
-        ua.setPasswordHash(hash);
+        //hash password set
+//        ua.setPasswordHash(hash);
+        //storing raw passwords
+        ua.setPasswordHash(rawPassword);
         ua.setRole("Customer");
         ua.setIsLocked(0);
         ua.setLastLoginAt(null);
