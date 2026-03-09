@@ -44,7 +44,27 @@ function planGradClass(planName) {
     if (n.includes("power")) return "tc-grad-orange";
     return "tc-grad-cyan";
 }
+function getPlanImage(planName, serviceType) {
+    const name = (planName || "").toLowerCase().trim();
 
+    if (serviceType === "Mobile") {
+        if (name.includes("starter 30")) return "/plans/30.jpg";
+        if (name.includes("value 45")) return "/plans/45.jpg";
+        if (name.includes("unlimited mobile 50")) return "/plans/50.jpg";
+        if (name.includes("plus 65")) return "/plans/65.jpg";
+        if (name.includes("premium 85")) return "/plans/85.jpg";
+    }
+
+    if (serviceType === "Internet") {
+        if (name.includes("internet 100")) return "/plans/home100.jpg";
+        if (name.includes("fibre internet 300")) return "/plans/home300a.jpg";
+        if (name.includes("fibre 300")) return "/plans/home300b.jpg";
+        if (name.includes("internet 500")) return "/plans/home500.jpg";
+        if (name.includes("gigabit 1000")) return "/plans/home1000.jpg";
+    }
+
+    return "/plans/default.jpg";
+}
 export default function PlansPage() {
     const { addPlan } = useCart();
     const { darkMode } = useTheme();
@@ -164,11 +184,16 @@ export default function PlansPage() {
                             return (
                                 <Col key={p.id} md={4}>
                                     <Card>
-                                        <div
-                                            className={`${p.gradClass} d-flex align-items-center justify-content-center`}
-                                            style={{ height: 120 }}
-                                        >
-                                            <Icon size={40} color="white" />
+                                        <div style={{ height: 200, overflow: "hidden" }}>
+                                            <img
+                                                src={getPlanImage(p.name, serviceType)}
+                                                alt={p.name}
+                                                style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover"
+                                                }}
+                                            />
                                         </div>
 
                                         <Card.Body className="d-flex flex-column">
