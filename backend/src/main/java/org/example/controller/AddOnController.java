@@ -1,34 +1,34 @@
 package org.example.controller;
 
+
 import org.example.dto.AddOnDTO;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.example.repository.AddOnRepository;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/addons")
 public class AddOnController {
-    private final JdbcTemplate jdbc;
 
-    public AddOnController(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+
+    private final AddOnRepository repo;
+
+
+    public AddOnController(AddOnRepository repo) {
+        this.repo = repo;
     }
 
+
+    // GET /api/addons              -> all active addons
+    // GET /api/addons?planId=123   -> only addons allowed for that plan
     @GetMapping
-    public List<AddOnDTO> getAllAddOns() {
-        return jdbc.query("""
-                SELECT AddOnId, AddOnName, MonthlyPrice, Description
-                FROM AddOns
-                WHERE IsActive = TRUE
-                ORDER BY AddOnName
-                """,
-                (rs, rowNum) -> new AddOnDTO(
-                        rs.getInt("AddOnId"),
-                        rs.getString("AddOnName"),
-                        rs.getDouble("MonthlyPrice"),
-                        rs.getString("Description")
-                )
-        );
+    public List<AddOnDTO> getAddOns(@RequestParam(required = false) Integer planId) {
+        if (planId != null) {
+            return repo.findActiveAddOnsByPlanId(planId);
+        }
+        return repo.findAllActiveAddOns();
     }
 }

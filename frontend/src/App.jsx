@@ -18,7 +18,6 @@ import ProfilePage from "./pages/ProfilePage";
 import PlansPage from "./pages/PlansPage";
 import ShoppingCartPage from "./pages/ShoppingCartPage";
 import CheckoutPage from "./pages/CheckoutPage";
-import { CartProvider } from "./context/CartContext";
 import ForgetPasswordPage from "./pages/ForgetPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -93,7 +92,6 @@ function mapOAuthMeToUser(meResponse) {
     const fallbackPicture =
         attrs.picture || attrs.avatar_url || attrs.picture?.data?.url || null;
 
-
     return {
         authType: "oauth",
         provider,
@@ -104,17 +102,16 @@ function mapOAuthMeToUser(meResponse) {
         lastName: dbLastName || fallbackLast,
         email: dbEmail || fallbackEmail,
         username: dbUsername || fallbackUsername,
-        // prefer backend avatarUrl, then oauth fallbacks
         picture: meResponse?.avatarUrl || meResponse?.oauthPicture || fallbackPicture,
         raw: meResponse,
     };
 }
 
-// Calls finishOAuthLogin once when user lands on /oauth-success
 function OAuthSuccessHandler({ finishOAuthLogin }) {
     useEffect(() => {
         finishOAuthLogin?.();
     }, [finishOAuthLogin]);
+
     return null;
 }
 
@@ -123,6 +120,7 @@ export default function App() {
     const location = useLocation();
     const didHydrateRef = useRef(false);
     const refreshInFlightRef = useRef(null);
+
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -135,7 +133,6 @@ export default function App() {
         }
     });
 
-    // ---- Single source of truth: hydrate / refresh session user ----
     const refreshMe = useCallback(async ({ force = false } = {}) => {
         if (isLoggingOut) return null;
 
@@ -149,12 +146,14 @@ export default function App() {
 
                 if (res.status === 401) {
                     setUser(null);
+                    localStorage.removeItem("tc_user");
                     return null;
                 }
 
                 if (res.status === 409) {
                     const text = await res.text();
                     let data = null;
+
                     try {
                         data = JSON.parse(text);
                     } catch {}
@@ -170,6 +169,7 @@ export default function App() {
                     sessionStorage.setItem("tc_needs_registration", JSON.stringify(nr));
                     setNeedsRegistration(nr);
                     setUser(null);
+                    localStorage.removeItem("tc_user");
                     return null;
                 }
 
@@ -180,7 +180,9 @@ export default function App() {
 
                 const me = await res.json();
                 const mapped = mapOAuthMeToUser(me);
+
                 setUser(mapped);
+                localStorage.setItem("tc_user", JSON.stringify(mapped));
 
                 setNeedsRegistration(null);
                 sessionStorage.removeItem("tc_needs_registration");
@@ -198,15 +200,12 @@ export default function App() {
         return request;
     }, [isLoggingOut]);
 
-    // ---- On initial app load, attempt to hydrate session ----
     useEffect(() => {
         if (didHydrateRef.current) return;
         didHydrateRef.current = true;
         refreshMe();
     }, [refreshMe]);
 
-    // ---- KEY FIX: when navigating to /profile, re-hydrate if user is missing ----
-    // This removes the need for manual refresh if the first /api/me call raced.
     useEffect(() => {
         if (location.pathname !== "/profile") return;
         if (user) return;
@@ -215,17 +214,15 @@ export default function App() {
         refreshMe();
     }, [location.pathname, user, isLoggingOut, refreshMe]);
 
-    // Redirect away from /login or /register once we have user
     useEffect(() => {
         if (!user) return;
+
         if (location.pathname === "/login" || location.pathname === "/register") {
             navigate("/profile", { replace: true });
         }
     }, [user, location.pathname, navigate]);
 
     const finishOAuthLogin = useCallback(async () => {
-        // For OAuth, the session cookie might be set right around redirect time.
-        // Running refreshMe() here is the cleanest.
         await refreshMe();
         navigate("/profile", { replace: true });
     }, [refreshMe, navigate]);
@@ -235,192 +232,186 @@ export default function App() {
 
         try {
             await fetch("/logout", { method: "POST", credentials: "include" });
-        } catch {}
+        } catch {
+        } finally {
             setUser(null);
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
-            localStorage.removeItem("tc_user"); // harmless if unused
+            localStorage.removeItem("tc_user");
             navigate("/", { replace: true });
-
-        setTimeout(() => setIsLoggingOut(false), 300);
-
+            setTimeout(() => setIsLoggingOut(false), 300);
+        }
     }
 
     return (
-        <CartProvider>
-            <Routes>
-                <Route element={<Layout user={user} setUser={setUser} onLogout={logout} />}>
-                    <Route path="/" element={<HomePage />} />
+        <Routes>
+            <Route element={<Layout user={user} setUser={setUser} onLogout={logout} />}>
+                <Route path="/" element={<HomePage />} />
 
-                    <Route
-                        path="/profile"
-                        element={
-                            <ProfilePage
-                                user={user}
-                                onLogout={logout}
-                                needsRegistration={needsRegistration}
-                                setNeedsRegistration={setNeedsRegistration}
-                                refreshMe={refreshMe}
-                            />
-                        }
-                    />
+                <Route
+                    path="/profile"
+                    element={
+                        <ProfilePage
+                            user={user}
+                            onLogout={logout}
+                            needsRegistration={needsRegistration}
+                            setNeedsRegistration={setNeedsRegistration}
+                            refreshMe={refreshMe}
+                        />
+                    }
+                />
 
-                    <Route path="/plans" element={<PlansPage />} />
-                    <Route path="/cart" element={<ShoppingCartPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/login" element={<LoginPage refreshMe={refreshMe} />} />
+                <Route path="/plans" element={<PlansPage />} />
+                <Route path="/cart" element={<ShoppingCartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/login" element={<LoginPage refreshMe={refreshMe} />} />
 
-                    <Route
-                        path="/register"
-                        element={<RegisterPage needsRegistration={null} refreshMe={refreshMe} />}
-                    />
+                <Route
+                    path="/register"
+                    element={<RegisterPage needsRegistration={null} refreshMe={refreshMe} />}
+                />
 
-                    <Route path="/forgetpassword" element={<ForgetPasswordPage />} />
-                    <Route path="/resetpassword" element={<ResetPasswordPage />} />
+                <Route path="/forgetpassword" element={<ForgetPasswordPage />} />
+                <Route path="/resetpassword" element={<ResetPasswordPage />} />
 
-                    <Route
-                        path="/oauth-success"
-                        element={<OAuthSuccessHandler finishOAuthLogin={finishOAuthLogin} />}
-                    />
+                <Route
+                    path="/oauth-success"
+                    element={<OAuthSuccessHandler finishOAuthLogin={finishOAuthLogin} />}
+                />
 
-                    {/* Customer */}
-                    <Route
-                        path="/customer"
-                        element={
-                            <RequireRole user={user} allow={["customer"]}>
-                                <CustomerDashboard />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/customer/plan"
-                        element={
-                            <RequireRole user={user} allow={["customer"]}>
-                                <CustomerPlan />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/customer/billing"
-                        element={
-                            <RequireRole user={user} allow={["customer"]}>
-                                <CustomerBilling />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/customer/support"
-                        element={
-                            <RequireRole user={user} allow={["customer"]}>
-                                <CustomerSupport />
-                            </RequireRole>
-                        }
-                    />
+                <Route
+                    path="/customer"
+                    element={
+                        <RequireRole user={user} allow={["customer"]}>
+                            <CustomerDashboard />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/customer/plan"
+                    element={
+                        <RequireRole user={user} allow={["customer"]}>
+                            <CustomerPlan />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/customer/billing"
+                    element={
+                        <RequireRole user={user} allow={["customer"]}>
+                            <CustomerBilling />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/customer/support"
+                    element={
+                        <RequireRole user={user} allow={["customer"]}>
+                            <CustomerSupport />
+                        </RequireRole>
+                    }
+                />
 
-                    {/* Sales */}
-                    <Route
-                        path="/sales"
-                        element={
-                            <RequireRole user={user} allow={["salesagent", "manager"]}>
-                                <SalesDashboard />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/sales/customers"
-                        element={
-                            <RequireRole user={user} allow={["salesagent", "manager"]}>
-                                <SalesCustomers />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/sales/quotes/new"
-                        element={
-                            <RequireRole user={user} allow={["salesagent", "manager"]}>
-                                <SalesCreateQuote />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/sales/activations"
-                        element={
-                            <RequireRole user={user} allow={["salesagent", "manager"]}>
-                                <SalesActivations />
-                            </RequireRole>
-                        }
-                    />
+                <Route
+                    path="/sales"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                            <SalesDashboard />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/sales/customers"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                            <SalesCustomers />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/sales/quotes/new"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                            <SalesCreateQuote />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/sales/activations"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                            <SalesActivations />
+                        </RequireRole>
+                    }
+                />
 
-                    {/* Service */}
-                    <Route
-                        path="/service"
-                        element={
-                            <RequireRole user={user} allow={["servicetechnician", "manager"]}>
-                                <ServiceDashboard />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/service/work-orders"
-                        element={
-                            <RequireRole user={user} allow={["servicetechnician", "manager"]}>
-                                <ServiceWorkOrders />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/service/tickets"
-                        element={
-                            <RequireRole user={user} allow={["servicetechnician", "manager"]}>
-                                <ServiceTickets />
-                            </RequireRole>
-                        }
-                    />
+                <Route
+                    path="/service"
+                    element={
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                            <ServiceDashboard />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/service/work-orders"
+                    element={
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                            <ServiceWorkOrders />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/service/tickets"
+                    element={
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                            <ServiceTickets />
+                        </RequireRole>
+                    }
+                />
 
-                    {/* Manager */}
-                    <Route
-                        path="/manager"
-                        element={
-                            <RequireRole user={user} allow={["manager"]}>
-                                <ManagerDashboard />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/manager/users"
-                        element={
-                            <RequireRole user={user} allow={["manager"]}>
-                                <ManagerUsers />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/manager/employee"
-                        element={
-                            <RequireRole user={user} allow={["manager"]}>
-                                <ManagerEmployee />
-                            </RequireRole>
-                        }
-                    />
-                    <Route
-                        path="/manager/plan"
-                        element={
-                            <RequireRole user={user} allow={["manager"]}>
-                                <ManagerPlan />
-                            </RequireRole>
-                        }
-                    />
+                <Route
+                    path="/manager"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerDashboard />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/users"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerUsers />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/employee"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerEmployee />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/plan"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerPlan />
+                        </RequireRole>
+                    }
+                />
 
-                    <Route
-                        path="*"
-                        element={
-                            <div className="container py-4">
-                                <h2>Not Found</h2>
-                            </div>
-                        }
-                    />
-                </Route>
-            </Routes>
-        </CartProvider>
+                <Route
+                    path="*"
+                    element={
+                        <div className="container py-4">
+                            <h2>Not Found</h2>
+                        </div>
+                    }
+                />
+            </Route>
+        </Routes>
     );
 }

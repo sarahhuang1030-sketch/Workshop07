@@ -13,6 +13,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
 import { ROLE_UI, roleKeyFromUser } from "../../config/roleUi";
+import WeatherCard from "../WeatherCard";
 
 export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
@@ -37,6 +38,7 @@ export default function AppNavbar({ user, setUser, onLogout }) {
 
     // Optional: only show cart for Customer (change if you want)
     const showCart = !user || roleKey === "customer";
+    const showWeather = true;
 
     // Fix navbar collapse positioning on mobile
     const [isLgUp, setIsLgUp] = React.useState(false);
@@ -101,6 +103,19 @@ export default function AppNavbar({ user, setUser, onLogout }) {
                         </div>
                     </div>
                 </Link>
+                {/* Weather pill */}
+                {showWeather && (
+                    <div
+                        className="d-none d-lg-flex justify-content-center"
+                        style={{
+                            position: "absolute",
+                            left: "43%",
+                            transform: "translateX(-50%)",
+                        }}
+                    >
+                        <WeatherCard />
+                    </div>
+                )}
 
                 {/* Mobile toggler */}
                 <button

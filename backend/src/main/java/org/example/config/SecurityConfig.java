@@ -96,6 +96,7 @@ public class SecurityConfig {
                                 "/api/auth/resetpassword",
                                 "/api/plans/**",
                                 "/api/addons/**",
+                                "/api/weather",
                                 "/uploads/**",
                                 "/login/**"
                         ).permitAll()
