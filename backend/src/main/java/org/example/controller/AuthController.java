@@ -13,9 +13,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.example.dto.*;
+import org.example.service.AuditService;
 import org.example.service.AuthService;
 import org.example.service.CustomerRegistrationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 import org.example.dto.CustomerProfileDTO;
@@ -39,13 +41,17 @@ public class AuthController {
     private final AuthService authService;
 
     private final AuthenticationManager authenticationManager;
+    private final AuditService auditService;
+
 
     public AuthController(CustomerRegistrationService registrationService,
                           AuthService authService,
-                          AuthenticationManager authenticationManager) {
+                          AuthenticationManager authenticationManager,
+                          AuditService auditService) {
         this.registrationService = registrationService;
         this.authService = authService;
         this.authenticationManager = authenticationManager;
+        this.auditService = auditService;
     }
 
 
@@ -53,6 +59,10 @@ public class AuthController {
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO req) {
         try {
             LoginResponseDTO user = registrationService.register(req);
+
+            String username = user.getUsername();
+            auditService.log("User", "Register", username, username);
+
             return ResponseEntity.ok(user);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
@@ -96,29 +106,45 @@ public class AuthController {
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);
 
-        // Force creation of session + store context
-        HttpSession session = request.getSession(true);
-
-        System.out.println("Login OK. Session ID = " + session.getId());
-        System.out.println("Response committed? " + response.isCommitted());
-
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        HttpSessionSecurityContextRepository repo = new HttpSessionSecurityContextRepository();
+        repo.saveContext(context, request, response);
 
         LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
+
+        String username = user.getUsername();
+        auditService.log("User", "Login", username, username);
         return ResponseEntity.ok(user);
     }
+
 
 
     @PostMapping("/forgetpassword")
     public ResponseEntity<?> forgetPassword(@RequestBody ForgetPasswordRequestDTO req) {
         authService.forgetPassword(req.getIdentifier());
         // Always return OK (don’t leak whether account exists)
+
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/resetpassword")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequestDTO req) {
         authService.resetPassword(req.getToken(), req.getNewPassword());
+
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication authentication,
+                                    HttpServletRequest request,
+                                    HttpServletResponse response) {
+
+        if (authentication != null) {
+            String username = authentication.getName();
+            auditService.log("User", "Logout", username, username);
+
+            new SecurityContextLogoutHandler().logout(request, response, authentication);
+        }
+
         return ResponseEntity.ok().build();
     }
 }

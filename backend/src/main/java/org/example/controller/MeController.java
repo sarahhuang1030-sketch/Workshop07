@@ -25,6 +25,7 @@ import org.example.model.CustomerAddress;
 import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.example.service.AgentCustomerService;
+import org.example.service.AuditService;
 
 import org.example.service.AvatarStorageService;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,7 @@ public class MeController {
     private final EmployeeRepository employeeRepo;
     private final MeRepository meRepository;
     private final AvatarStorageService avatarStorageService;
+    private final AuditService auditService;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -54,7 +56,8 @@ public class MeController {
                         CustomerRepository customerRepo,
                         EmployeeRepository employeeRepo,
                         MeRepository meRepository,
-                        AvatarStorageService avatarStorageService) {
+                        AvatarStorageService avatarStorageService,
+                        AuditService auditService) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -62,6 +65,7 @@ public class MeController {
         this.employeeRepo = employeeRepo;
         this.meRepository = meRepository;
         this.avatarStorageService = avatarStorageService;
+        this.auditService=auditService;
     }
 
     // -------------------- GET /api/me --------------------
@@ -70,6 +74,12 @@ public class MeController {
                                 Authentication auth,
                                 @AuthenticationPrincipal OAuth2User oauthUser) {
         try {
+
+//            System.out.println("principal = " + principal);
+//            System.out.println("auth = " + auth);
+//            System.out.println("auth class = " + (auth != null ? auth.getClass().getName() : "null"));
+//            System.out.println("auth authenticated = " + (auth != null && auth.isAuthenticated()));
+
             if (principal == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -171,11 +181,15 @@ public class MeController {
                 String provider = oauthTok != null ? oauthTok.getAuthorizedClientRegistrationId().toLowerCase() : null;
                 try {
                     avatarStorageService.importOAuthAvatarForUser(ua, oauthPictureUrl, provider);
+
+                    // reload so latest avatarUrl is returned
+                    ua = userAccountRepo.findById(ua.getUserId()).orElse(ua);
+
                 } catch (IOException e) {
                     e.printStackTrace();
-                    // do not fail /api/me just because avatar import failed
                 }
             }
+
 
             // Build response
             Map<String, Object> out = new LinkedHashMap<>();
@@ -355,7 +369,11 @@ public class MeController {
                 str(attrs.get("last_name"))
         );
 
-        return agentCustomerService.registerAsCustomer(key, provider, externalId, firstName, lastName, req);
+        Object result = agentCustomerService.registerAsCustomer(key, provider, externalId, firstName, lastName, req);
+
+        auditService.log("User", "RegisterAsCustomer", key, key);
+
+        return result;
     }
 
     // -------------------- POST /api/me/address (first time) --------------------
@@ -394,6 +412,9 @@ public class MeController {
         addr.setCountry(req.country);
 
         customerAddressRepo.save(addr);
+
+        auditService.log("Address", "Create", key, key);
+
         return ResponseEntity.ok("Address saved");
     }
 
@@ -436,6 +457,8 @@ public class MeController {
         addr.setCountry(req.country);
 
         customerAddressRepo.save(addr);
+
+        auditService.log("Address", "Update", key, key);
 //        return ResponseEntity.ok("Address updated");
         Map<String, String> response = new HashMap<>();
         response.put("message", "Address updated");
@@ -473,6 +496,8 @@ public class MeController {
             customerAddressRepo.deleteAllByCustomerId(customerId);
             customerRepo.deleteById(customerId);
 
+            auditService.log("Profile", "DeleteCustomerProfile", key, key);
+
             new SecurityContextLogoutHandler().logout(request, response, auth);
             return ResponseEntity.ok("Customer profile deleted (employee login kept)");
         }
@@ -481,6 +506,8 @@ public class MeController {
         userAccountRepo.delete(ua);
         userAccountRepo.flush();
         customerRepo.deleteById(customerId);
+
+        auditService.log("Account", "Delete", key, key);
 
         new SecurityContextLogoutHandler().logout(request, response, auth);
         return ResponseEntity.ok("Account deleted");
@@ -518,6 +545,7 @@ public class MeController {
                 customerRepo.save(c);
             });
         }
+        auditService.log("Profile", "Update", key, key);
 
         // Return something useful (optional)
         Map<String, Object> out = new LinkedHashMap<>();

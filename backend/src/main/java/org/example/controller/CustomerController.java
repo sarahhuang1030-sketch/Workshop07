@@ -15,6 +15,7 @@ import org.example.repository.UserAccountRepository;
 import org.example.model.CustomerAddress;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.example.service.AuditService;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -22,11 +23,15 @@ public class CustomerController {
 
     private final UserAccountRepository userAccountRepo;
     private final CustomerAddressRepository addressRepo;
+    private final AuditService auditService;
 
-    public CustomerController(UserAccountRepository userAccountRepo, CustomerAddressRepository addressRepo) {
+    public CustomerController(UserAccountRepository userAccountRepo,
+                              CustomerAddressRepository addressRepo,
+                              AuditService auditService) {
 
         this.userAccountRepo = userAccountRepo;
         this.addressRepo = addressRepo;
+        this.auditService = auditService;
 
     }
 
@@ -113,9 +118,6 @@ public class CustomerController {
         billing.setCustomerId(cid);
         billing.setAddressType("Billing");
         billing.setStreet1(address.street1);
-        // optional if your DTO has it; if not, remove these 2 lines
-        // billing.setStreet2(address.street2);
-
         billing.setCity(address.city);
         billing.setProvince(address.province);
         billing.setPostalCode(address.postalCode);
@@ -123,6 +125,13 @@ public class CustomerController {
         billing.setIsPrimary(1);
 
         addressRepo.save(billing);
+
+        auditService.log(
+                "BillingAddress",
+                "Update",
+                "Customer " + cid + " - " + billing.getStreet1(),
+                principal.getName()
+        );
 
         return ResponseEntity.ok().build();
     }

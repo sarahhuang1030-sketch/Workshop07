@@ -45,19 +45,27 @@ import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import ManagerUsers from "./pages/manager/ManagerUsers";
 import ManagerEmployee from "./pages/manager/ManagerEmployee";
 import ManagerPlan from "./pages/manager/ManagerPlan";
+import ManagerAddon from "./pages/manager/ManagerAddon";
+import ManagerReport from "./pages/manager/ManagerReport";
+import ManagerSubscription from "./pages/manager/ManagerSubscription";
+import ManagerAudit from "./pages/manager/ManagerAudit"
 
 import RequireRole from "./components/auth/RequireRole";
 
-function mapOAuthMeToUser(meResponse) {
-    const provider = meResponse?.provider || "google";
-    const attrs = meResponse?.attributes ?? {};
+function mapMeToUser(meResponse) {
+    const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
 
     const dbCustomerId = meResponse?.customerId ?? null;
     const dbEmployeeId = meResponse?.employeeId ?? null;
     const dbFirstName = meResponse?.firstName ?? null;
     const dbLastName = meResponse?.lastName ?? null;
     const dbEmail = meResponse?.email ?? null;
-    const dbUsername = meResponse?.lookupKey ?? meResponse?.username ?? null;
+    const dbUsername =
+        meResponse?.lookupKey ??
+        meResponse?.username ??
+        meResponse?.name ??
+        null;
+
     const dbRoleRaw =
         meResponse?.uaRole ??
         meResponse?.role ??
@@ -73,12 +81,14 @@ function mapOAuthMeToUser(meResponse) {
             .replace(/\s+/g, "")
         : null;
 
-    const fullName = attrs.name || "";
+    const attrs = meResponse?.attributes ?? {};
+    const fullName = attrs.name || meResponse?.name || "";
+
     const fallbackFirst =
         attrs.given_name ||
         attrs.first_name ||
         (fullName ? fullName.split(" ")[0] : null) ||
-        "—";
+        "";
 
     const fallbackLast =
         attrs.family_name ||
@@ -87,14 +97,13 @@ function mapOAuthMeToUser(meResponse) {
         "";
 
     const fallbackEmail = attrs.email || "";
-    const fallbackUsername = attrs.email || attrs.login || fullName || `${provider} user`;
-
+    const fallbackUsername = attrs.email || attrs.login || fullName || dbUsername || "";
     const fallbackPicture =
         attrs.picture || attrs.avatar_url || attrs.picture?.data?.url || null;
 
     return {
-        authType: "oauth",
-        provider,
+        authType: isOAuth ? "oauth" : "local",
+        provider: isOAuth ? meResponse?.provider || null : null,
         customerId: dbCustomerId,
         employeeId: dbEmployeeId,
         role: dbRole,
@@ -179,7 +188,7 @@ export default function App() {
                 }
 
                 const me = await res.json();
-                const mapped = mapOAuthMeToUser(me);
+                const mapped = mapMeToUser(me);
 
                 setUser(mapped);
                 localStorage.setItem("tc_user", JSON.stringify(mapped));
@@ -206,13 +215,7 @@ export default function App() {
         refreshMe();
     }, [refreshMe]);
 
-    useEffect(() => {
-        if (location.pathname !== "/profile") return;
-        if (user) return;
-        if (isLoggingOut) return;
 
-        refreshMe();
-    }, [location.pathname, user, isLoggingOut, refreshMe]);
 
     useEffect(() => {
         if (!user) return;
@@ -231,7 +234,7 @@ export default function App() {
         setIsLoggingOut(true);
 
         try {
-            await fetch("/logout", { method: "POST", credentials: "include" });
+            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
         } catch {
         } finally {
             setUser(null);
@@ -399,6 +402,38 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["manager"]}>
                             <ManagerPlan />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/addons"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerAddon />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/reports"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerReport />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/subscriptions"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerSubscription />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/audit"
+                    element={
+                        <RequireRole user={user} allow={["manager"]}>
+                            <ManagerAudit />
                         </RequireRole>
                     }
                 />

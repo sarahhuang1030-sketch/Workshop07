@@ -375,6 +375,8 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.example.service.AuditService;
+
 @RestController
 @RequestMapping("/api/billing")
 public class BillingController {
@@ -384,17 +386,20 @@ public class BillingController {
     private final CustomerAddressRepository customerAddressRepo;
     private final EmployeeRepository employeeRepo;
     private final PaymentAccountRepository paymentAccountRepo;
+    private final AuditService auditService;
 
     public BillingController(UserAccountRepository userAccountRepo,
                              CustomerRepository customerRepo,
                              CustomerAddressRepository customerAddressRepo,
                              EmployeeRepository employeeRepo,
-                             PaymentAccountRepository paymentAccountRepo) {
+                             PaymentAccountRepository paymentAccountRepo,
+                             AuditService auditService) {
         this.userAccountRepo = userAccountRepo;
         this.customerRepo = customerRepo;
         this.customerAddressRepo = customerAddressRepo;
         this.employeeRepo = employeeRepo;
         this.paymentAccountRepo = paymentAccountRepo;
+        this.auditService = auditService;
     }
 
     // ------------------- Address Update DTO -------------------
@@ -569,6 +574,13 @@ public class BillingController {
         // Display for frontend: **** **** **** 1234
         responseDto.setDisplayCard(account.getMethod() + " ••••" + (account.getLast4() != null ? account.getLast4() : ""));
 
+        auditService.log(
+                "PaymentMethod",
+                "Update",
+                "Customer " + customerId + " ••••" + (account.getLast4() != null ? account.getLast4() : ""),
+                key
+        );
+
         return ResponseEntity.ok(responseDto);
     }
 
@@ -649,6 +661,13 @@ public class BillingController {
             out.put("firstName", c.getFirstName());
             out.put("lastName", c.getLastName());
         }
+
+        auditService.log(
+                "BillingAddress",
+                "Update",
+                "Customer " + customerId + " - " + addr.getStreet1(),
+                key
+        );
 
         return ResponseEntity.ok(out);
     }
