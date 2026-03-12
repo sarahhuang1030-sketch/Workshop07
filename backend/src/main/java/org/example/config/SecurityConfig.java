@@ -8,6 +8,7 @@
 package org.example.config;
 
 import org.example.repository.UserAccountRepository;
+import org.example.security.OAuth2LoginSuccessHandler;
 import org.example.service.CustomOAuth2UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -66,7 +67,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            DaoAuthenticationProvider provider,
                                            CustomOAuth2UserService customOAuth2UserService,
-                                           JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+                                           JwtAuthenticationFilter jwtAuthenticationFilter,
+                                           OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) throws Exception {
 
         RequestMatcher apiMatcher = new AntPathRequestMatcher("/api/**");
         LinkedHashMap<RequestMatcher, org.springframework.security.web.AuthenticationEntryPoint> entryPoints = new LinkedHashMap<>();
@@ -113,7 +115,9 @@ public class SecurityConfig {
                 )
                 .oauth2Login(o -> o
                         .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
-                        .defaultSuccessUrl(frontendOrigin + "/oauth-success", true)
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler((request, response, exception) ->
+                                response.sendRedirect(frontendOrigin + "/login?oauthError=true"))
                 );
 //                .logout(logout -> logout
 //                        .logoutUrl("/logout")

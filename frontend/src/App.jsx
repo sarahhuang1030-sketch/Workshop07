@@ -118,9 +118,18 @@ function mapMeToUser(meResponse) {
 }
 
 function OAuthSuccessHandler({ finishOAuthLogin }) {
+    const location = useLocation();
+
     useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const token = params.get("token");
+
+        if (token) {
+            localStorage.setItem("token", token);
+        }
+
         finishOAuthLogin?.();
-    }, [finishOAuthLogin]);
+    }, [finishOAuthLogin, location.search]);
 
     return null;
 }
