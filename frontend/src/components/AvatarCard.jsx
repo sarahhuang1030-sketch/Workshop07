@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card, Button, Form, Badge } from "react-bootstrap";
+import { apiFetch } from "../services/api";
 
 const DEFAULT_AVATAR = "/uploads/avatars/default.jpg";
 
@@ -86,9 +87,8 @@ export function AvatarCard({
             const formData = new FormData();
             formData.append("avatar", avatarFile);
 
-            const res = await fetch("/api/me/avatar", {
+            const res = await apiFetch("/api/me/avatar", {
                 method: "PUT",
-                credentials: "include",
                 body: formData,
             });
 
@@ -117,9 +117,8 @@ export function AvatarCard({
     -------------------------- */
     async function deleteAvatarFromBackend() {
         try {
-            const res = await fetch("/api/me/avatar", {
+            const res = await apiFetch("/api/me/avatar", {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!res.ok) {

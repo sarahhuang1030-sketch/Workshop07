@@ -9,6 +9,7 @@ Modified on: March 2026
 
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert, Row, Col, Spinner } from "react-bootstrap";
+import { apiFetch } from "../services/api";
 
 export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, needsPhone = true }) {
     const [draft, setDraft] = useState(null);       // local draft for form
@@ -26,7 +27,7 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, n
             setDraft(null);
 
             try {
-                const res = await fetch("/api/billing/address", { credentials: "include" });
+                const res = await apiFetch("/api/billing/address");
 
                 if (res.status === 401) {
                     // Redirect to login if unauthorized
@@ -122,10 +123,10 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, n
 
         try {
             // 1) Save personal info
-            const resProfile = await fetch("/api/me/profile", {
+            const resProfile = await apiFetch("/api/me/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
+
                 body: JSON.stringify({
                     firstName: draft.firstName,
                     lastName: draft.lastName,
@@ -135,10 +136,9 @@ export function BillingModal({ show, profile, onClose, onSaveProfile, onSaved, n
             if (!resProfile.ok) throw new Error("Failed to update profile");
 
             // 2) Save address (update)
-            const res = await fetch("/api/billing/address", {
+            const res = await apiFetch("/api/billing/address", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
                 body: JSON.stringify(draft),
             });
 

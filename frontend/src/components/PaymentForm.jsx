@@ -10,6 +10,7 @@ import Cards from "react-credit-cards-2";
 import "react-credit-cards-2/dist/es/styles-compiled.css";
 
 import { Card, Form, Button, Row, Col, Spinner } from "react-bootstrap";
+import { apiFetch } from "../services/api";
 
 export default function PaymentForm() {
 
@@ -35,9 +36,7 @@ export default function PaymentForm() {
 
         const loadBilling = async () => {
 
-            const res = await fetch("/api/billing/payment", {
-                credentials: "include"
-            });
+            const res = await apiFetch("/api/billing/payment");
 
             if (res.ok) {
                 const data = await res.json();
@@ -65,7 +64,7 @@ export default function PaymentForm() {
          */
         if (useDefault && defaultCard) {
 
-            await fetch("/api/payment/charge", {
+            await apiFetch("/api/payment/charge", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -102,10 +101,9 @@ export default function PaymentForm() {
          */
         if (saveCard) {
 
-            await fetch("/api/billing/payment", {
+            await apiFetch("/api/billing/payment", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
                 body: JSON.stringify({
                     method: card.brand,
                     holderName: holderName,
@@ -121,7 +119,7 @@ export default function PaymentForm() {
         /*
          Charge payment
          */
-        await fetch("/api/payment/charge", {
+        await apiFetch("/api/payment/charge", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

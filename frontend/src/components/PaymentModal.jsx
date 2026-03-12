@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Form, Alert, Row, Col } from "react-bootstrap";
+import { apiFetch } from "../services/api";
 
 export function PaymentModal({
                                  show,
@@ -80,10 +81,9 @@ export function PaymentModal({
             };
 
             // ---- PUT to backend ----
-            const res = await fetch("/api/billing/payment", {
+            const res = await apiFetch("/api/billing/payment", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
                 body: JSON.stringify(payload),
             });
 
