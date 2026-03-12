@@ -1,20 +1,24 @@
-/**
- Description: This DTO class is used for handling login responses.
- It contains the relevant information about the user who has logged in.
- Created by: Sarah
- Created on: February 2026
- **/
-
 package org.example.dto;
 
 public class LoginResponseDTO {
+
+    private String token;   // JWT token
+
     private Integer customerId;   // null if not a customer
     private Integer employeeId;   // null if not an employee
     private String firstName;
     private String username;
     private String role;
 
-    public LoginResponseDTO(Integer customerId, Integer employeeId, String firstName, String username, String role) {
+    public LoginResponseDTO(
+            String token,
+            Integer customerId,
+            Integer employeeId,
+            String firstName,
+            String username,
+            String role
+    ) {
+        this.token = token;
         this.customerId = customerId;
         this.employeeId = employeeId;
         this.firstName = firstName;
@@ -22,6 +26,7 @@ public class LoginResponseDTO {
         this.role = role;
     }
 
+    public String getToken() { return token; }
     public Integer getCustomerId() { return customerId; }
     public Integer getEmployeeId() { return employeeId; }
     public String getFirstName() { return firstName; }

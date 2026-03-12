@@ -6,6 +6,7 @@ import org.example.model.CustomerAddress;
 import org.example.model.UserAccount;
 import org.example.repository.CustomerAddressRepository;
 import org.example.repository.CustomerRepository;
+import org.example.repository.PasswordResetTokenRepository;
 import org.example.repository.UserAccountRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,16 +20,18 @@ public class CustomerRegistrationService {
     private final CustomerRepository customerRepo;
     private final CustomerAddressRepository addressRepo;
     private final UserAccountRepository userAccountRepo;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     //private final PasswordEncoder passwordEncoder;
 
     public CustomerRegistrationService(CustomerRepository customerRepo,
                                        CustomerAddressRepository addressRepo,
                                        UserAccountRepository userAccountRepo,
-                                       PasswordEncoder passwordEncoder) {
+                                       PasswordEncoder passwordEncoder, PasswordResetTokenRepository passwordResetTokenRepository) {
         this.customerRepo = customerRepo;
         this.addressRepo = addressRepo;
         this.userAccountRepo = userAccountRepo;
       //  this.passwordEncoder = passwordEncoder;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
     @Transactional
@@ -121,6 +124,7 @@ public class CustomerRegistrationService {
         userAccountRepo.save(ua);
 
         return new LoginResponseDTO(
+                null,
                 saved.getCustomerId(),  // customerId
                 null,                   // employeeId (customers are not employees)
                 saved.getFirstName(),   // firstName

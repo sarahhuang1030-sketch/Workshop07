@@ -28,9 +28,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.DelegatingAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
-
+import org.example.security.JwtAuthenticationFilter;
 import java.util.LinkedHashMap;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -48,6 +49,8 @@ public class SecurityConfig {
 //        return new BCryptPasswordEncoder();
 //    }
 
+
+
     //raw password
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -62,7 +65,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            DaoAuthenticationProvider provider,
-                                           CustomOAuth2UserService customOAuth2UserService) throws Exception {
+                                           CustomOAuth2UserService customOAuth2UserService,
+                                           JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 
         RequestMatcher apiMatcher = new AntPathRequestMatcher("/api/**");
         LinkedHashMap<RequestMatcher, org.springframework.security.web.AuthenticationEntryPoint> entryPoints = new LinkedHashMap<>();
@@ -76,8 +80,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(withDefaults())
                 .httpBasic(b -> b.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(provider)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(delegatingEntryPoint)
                         .accessDeniedHandler((req, res, e) -> res.sendError(403, "Forbidden"))
@@ -109,14 +114,13 @@ public class SecurityConfig {
                 .oauth2Login(o -> o
                         .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
                         .defaultSuccessUrl(frontendOrigin + "/oauth-success", true)
-                )
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
-                        .invalidateHttpSession(true)
-                        .clearAuthentication(true)
-                        .deleteCookies("JSESSIONID")
                 );
+//                .logout(logout -> logout
+//                        .logoutUrl("/logout")
+//                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
+//                        .invalidateHttpSession(true)
+//                        .clearAuthentication(true)
+//                );
 
         return http.build();
     }

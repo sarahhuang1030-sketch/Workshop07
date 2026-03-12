@@ -38,12 +38,14 @@ export default function LoginPage({ refreshMe }) {
         e.preventDefault();
         setError("");
         setLoading(true);
+        localStorage.removeItem("token");
+
 
         try {
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
+
                 body: JSON.stringify({ username, password }),
             });
 
@@ -53,10 +55,18 @@ export default function LoginPage({ refreshMe }) {
                 return;
             }
 
+
+            const data = await res.json();
+
+            // save JWT first
+            localStorage.setItem("token", data.token);
+
+            // optional: save login response too
+            localStorage.setItem("tc_user", JSON.stringify(data));
+
             const mapped = await refreshMeWithRetry();
             if (!mapped) {
-                setError("Login succeeded, but session user could not be loaded (still 401).");
-                return;
+                setError("Login succeeded, but user profile could not be loaded.");                return;
             }
 
             navigate("/profile", { replace: true });

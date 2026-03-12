@@ -74,6 +74,7 @@ public class AuthService {
                     .orElseThrow(() -> new IllegalArgumentException("Customer record not found"));
 
             return new LoginResponseDTO(
+                    null,
                     customer.getCustomerId(),
                     null,
                     customer.getFirstName(),
@@ -88,6 +89,7 @@ public class AuthService {
                     .orElseThrow(() -> new IllegalArgumentException("Employee record not found"));
 
             return new LoginResponseDTO(
+                    null,
                     null,
                     emp.getEmployeeId(), // adjust if already Long
                     emp.getFirstName(),

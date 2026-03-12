@@ -14,6 +14,7 @@ import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstr
 import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal } from "../components";
+import { apiFetch } from "../services/api";
 
 const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
@@ -64,8 +65,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     // ---- Loaders ----
     const loadAddress = useCallback(async () => {
         try {
-            const res = await fetch("/api/billing/address", { credentials: "include" });
-            if (res.status === 404 || res.status === 204 || res.status === 409) {
+            const res = await apiFetch("/api/billing/address");            if (res.status === 404 || res.status === 204 || res.status === 409) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address: {} } }));
                 return;
             }
@@ -80,7 +80,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
     const loadPaymentMethod = useCallback(async () => {
         try {
-            const res = await fetch("/api/billing/payment", { credentials: "include" });
+            const res = await apiFetch("/api/billing/payment");
             if (res.status === 404 || res.status === 204 || res.status === 409) {
                 setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
                 return;
@@ -161,7 +161,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const deleteAvatar = async () => {
         setError("");
         try {
-            const res = await fetch("/api/me/avatar", { method: "DELETE", credentials: "include" });
+            const res = await apiFetch("/api/me/avatar", { method: "DELETE" });
             if (!res.ok) throw new Error("Avatar delete failed");
             const mapped = await refreshMe?.();
             setProfile((prev) => ({
@@ -182,7 +182,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const deleteProfile = async () => {
         setError("");
         try {
-            const res = await fetch("/api/me", { method: "DELETE", credentials: "include" });
+            const res = await apiFetch("/api/me", { method: "DELETE" });
             if (!res.ok) throw new Error("Delete failed");
             onLogout?.();
             navigate("/", { replace: true });

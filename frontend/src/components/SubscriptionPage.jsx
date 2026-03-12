@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Badge, Spinner, Alert, Button } from "react-bootstrap";
 import { Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../services/api";
 
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
@@ -36,7 +37,7 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
 
         async function loadProfile() {
             try {
-                const res = await fetch("/api/me/subscription", { credentials: "include" });
+                const res = await apiFetch("/api/me/subscription");
 
                 if (res.status === 401) {
                     if (isMounted) {

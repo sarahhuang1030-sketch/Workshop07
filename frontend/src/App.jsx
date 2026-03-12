@@ -51,6 +51,7 @@ import ManagerSubscription from "./pages/manager/ManagerSubscription";
 import ManagerAudit from "./pages/manager/ManagerAudit"
 
 import RequireRole from "./components/auth/RequireRole";
+import { apiFetch } from "./services/api";
 
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
@@ -151,11 +152,12 @@ export default function App() {
 
         const request = (async () => {
             try {
-                const res = await fetch("/api/me", { credentials: "include" });
+                const res = await apiFetch("/api/me");
 
                 if (res.status === 401) {
                     setUser(null);
                     localStorage.removeItem("tc_user");
+                    localStorage.removeItem("token");
                     return null;
                 }
 
@@ -199,6 +201,7 @@ export default function App() {
                 return mapped;
             } catch {
                 setUser(null);
+                localStorage.removeItem("tc_user");
                 return null;
             } finally {
                 refreshInFlightRef.current = null;
@@ -234,13 +237,14 @@ export default function App() {
         setIsLoggingOut(true);
 
         try {
-            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+            await apiFetch("/api/auth/logout", { method: "POST" });
         } catch {
         } finally {
             setUser(null);
             setNeedsRegistration(null);
             sessionStorage.removeItem("tc_needs_registration");
             localStorage.removeItem("tc_user");
+            localStorage.removeItem("token");
             navigate("/", { replace: true });
             setTimeout(() => setIsLoggingOut(false), 300);
         }
