@@ -13,6 +13,7 @@ import org.example.service.CustomOAuth2UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -37,6 +38,8 @@ import java.util.LinkedHashMap;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+//this is just to test the backend on azure
+@Profile("!azuretest")
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {
