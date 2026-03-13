@@ -50,7 +50,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: .
+          path: ./artifact
+
+      - name: Show downloaded files
+        run: ls -R ./artifact
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -65,4 +68,4 @@ jobs:
         with:
           app-name: 'Teleconnect'
           slot-name: 'Production'
-          package: .
+          package: ./artifact
