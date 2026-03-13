@@ -60,9 +60,9 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DDD3DF87B5D7460687CE8854F25BB153 }}
 
       - name: Deploy to Azure Web App
+        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'Teleconnect'
+          slot-name: 'Production'
           package: .
-
-
