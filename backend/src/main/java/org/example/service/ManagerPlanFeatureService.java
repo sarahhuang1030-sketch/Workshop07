@@ -23,6 +23,7 @@ public class ManagerPlanFeatureService {
         return repository.findByPlanId(planId);
     }
 
+
     public ManagerPlanFeatureDTO create(SavePlanFeatureRequestDTO request) {
         int newId = repository.create(request);
         return repository.findById(newId);
@@ -46,5 +47,6 @@ public class ManagerPlanFeatureService {
     public List<FeatureTemplateDTO> getFeatureTemplates() {
         return repository.findFeatureTemplates();
     }
+    public List<ManagerPlanFeatureDTO> getAll(){return repository.findAll();}
 
 }

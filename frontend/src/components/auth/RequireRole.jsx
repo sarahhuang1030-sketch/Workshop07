@@ -1,25 +1,23 @@
-/**
- Description: Requires a user to have a specific role to access the wrapped component.
+import { Navigate } from "react-router-dom";
+import { Spinner } from "react-bootstrap";
 
- Created by: Sarah
- Created on: February 2026
- **/
-
-import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
-import { roleKeyFromUser } from "../../config/roleUi";
-
-export default function RequireRole({ user, allow, children }) {
-    const location = useLocation();
+export default function RequireRole({ user, allow = [], authReady, children }) {
+    if (!authReady) {
+        return (
+            <div className="container py-5 text-center">
+                <Spinner animation="border" />
+            </div>
+        );
+    }
 
     if (!user) {
-        sessionStorage.setItem("post_login_redirect", location.pathname);
         return <Navigate to="/login" replace />;
     }
 
-    const roleKey = roleKeyFromUser(user);
+    const role = String(user.role || "").toLowerCase();
+    const allowed = allow.map((r) => String(r).toLowerCase());
 
-    if (Array.isArray(allow) && allow.length > 0 && !allow.includes(roleKey)) {
+    if (!allowed.includes(role)) {
         return <Navigate to="/" replace />;
     }
 

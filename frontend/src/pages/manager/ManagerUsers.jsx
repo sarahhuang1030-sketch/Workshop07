@@ -30,6 +30,7 @@ const emptyForm = {
     addressType: "Billing",
     isPrimary: 1,
 };
+import { apiFetch } from "../../services/api";
 
 export default function ManagerUsers({ darkMode = false }) {
     const [customers, setCustomers] = useState([]);
@@ -42,15 +43,14 @@ export default function ManagerUsers({ darkMode = false }) {
     const [form, setForm] = useState(emptyForm);
 
     const navigate = useNavigate();
+    const [search, setSearch] = useState("");
 
     const loadCustomers = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const res = await fetch("/api/manager/customers", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/manager/customers");
 
             if (!res.ok) {
                 throw new Error(`Failed to load customers: ${res.status}`);
@@ -67,9 +67,7 @@ export default function ManagerUsers({ darkMode = false }) {
     };
 
     const loadCustomerAddress = async (customerId) => {
-        const res = await fetch(`/api/manager/customers/${customerId}/address`, {
-            credentials: "include",
-        });
+        const res = await apiFetch(`/api/manager/customers/${customerId}/address`);
 
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`Failed to load address: ${res.status}`);
@@ -160,9 +158,9 @@ export default function ManagerUsers({ darkMode = false }) {
                 status: form.status,
             };
 
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method,
-                credentials: "include",
+
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -187,9 +185,8 @@ export default function ManagerUsers({ darkMode = false }) {
                 isPrimary: 1,
             };
 
-            const addressRes = await fetch(`/api/manager/customers/${customerId}/address`, {
+            const addressRes = await apiFetch(`/api/manager/customers/${customerId}/address`, {
                 method: "PUT",
-                credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -219,9 +216,8 @@ export default function ManagerUsers({ darkMode = false }) {
         try {
             setError("");
 
-            const res = await fetch(`/api/manager/customers/${customerId}`, {
+            const res = await apiFetch(`/api/manager/customers/${customerId}`, {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!res.ok) {
@@ -237,6 +233,21 @@ export default function ManagerUsers({ darkMode = false }) {
 
     const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark";
 
+    const filteredCustomers = customers.filter((cust) => {
+        const keyword = search.toLowerCase();
+
+        return (
+            String(cust.customerId ?? "").toLowerCase().includes(keyword) ||
+            String(cust.customerType ?? "").toLowerCase().includes(keyword) ||
+            String(cust.firstName ?? "").toLowerCase().includes(keyword) ||
+            String(cust.lastName ?? "").toLowerCase().includes(keyword) ||
+            String(cust.businessName ?? "").toLowerCase().includes(keyword) ||
+            String(cust.email ?? "").toLowerCase().includes(keyword) ||
+            String(cust.homePhone ?? "").toLowerCase().includes(keyword) ||
+            String(cust.status ?? "").toLowerCase().includes(keyword)
+        );
+    });
+
     return (
         <Container className="py-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -248,17 +259,24 @@ export default function ManagerUsers({ darkMode = false }) {
                 </div>
 
                 <div className="d-flex gap-2">
-                    <Button
-                        variant="outline-secondary"
-                        onClick={() => navigate("/manager")}
-                        style={{ borderRadius: 12 }}
-                    >
-                        Go Back
-                    </Button>
-
+                    <Form.Control
+                        className={"w-auto"}
+                        type="text"
+                        placeholder="Search customer..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{ minWidth: "240px" }}
+                    />
                     <Button onClick={openCreate} style={{ borderRadius: 12 }}>
                         Add Customer
                     </Button>
+                    <Button
+                    variant="outline-secondary"
+                    onClick={() => navigate("/manager")}
+                    style={{ borderRadius: 12 }}
+                >
+                    Go Back
+                </Button>
                 </div>
             </div>
 
@@ -285,14 +303,14 @@ export default function ManagerUsers({ darkMode = false }) {
                             </tr>
                             </thead>
                             <tbody>
-                            {customers.length === 0 ? (
+                            {filteredCustomers.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="text-center py-4">
                                         No customers found.
                                     </td>
                                 </tr>
                             ) : (
-                                customers.map((customer) => (
+                                filteredCustomers.map((customer) => (
                                     <tr key={customer.customerId}>
                                         <td>{customer.customerId}</td>
                                         <td>{customer.customerType || "—"}</td>

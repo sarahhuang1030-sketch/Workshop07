@@ -123,4 +123,21 @@ public class ManagerPlanFeatureRepository {
                 )
         );
     }
+
+    public List<ManagerPlanFeatureDTO> findAll() {
+        String sql = """
+            SELECT FeatureId, PlanId, FeatureName, FeatureValue, Unit, SortOrder
+            FROM PlanFeatures
+        """;
+
+        return jdbc.query(sql, (rs, i) -> new ManagerPlanFeatureDTO(
+                rs.getInt("FeatureId"),
+                rs.getInt("PlanId"),
+                rs.getString("FeatureName"),
+                rs.getString("FeatureValue"),
+                rs.getString("Unit"),
+                rs.getInt("SortOrder")
+        ));
+    }
+
 }

@@ -44,7 +44,10 @@ function planGradClass(planName) {
     if (n.includes("power")) return "tc-grad-orange";
     return "tc-grad-cyan";
 }
+
+
 function getPlanImage(planName, serviceType) {
+
     const name = (planName || "").toLowerCase().trim();
 
     if (serviceType === "Mobile") {
@@ -53,6 +56,7 @@ function getPlanImage(planName, serviceType) {
         if (name.includes("unlimited mobile 50")) return "/plans/50.jpg";
         if (name.includes("plus 65")) return "/plans/65.jpg";
         if (name.includes("premium 85")) return "/plans/85.jpg";
+
     }
 
     if (serviceType === "Internet") {
@@ -63,8 +67,10 @@ function getPlanImage(planName, serviceType) {
         if (name.includes("gigabit 1000")) return "/plans/home1000.jpg";
     }
 
+
     return "/plans/default.jpg";
 }
+
 export default function PlansPage() {
     const { addPlan } = useCart();
     const { darkMode } = useTheme();
@@ -180,12 +186,14 @@ export default function PlansPage() {
                     <h3 className="mb-3">Plans</h3>
                     <Row className="g-3 mb-4">
                         {sortedPlans.map((p) => {
+                            console.log("plan:", p.name, "page serviceType:", serviceType);
                             const Icon = p.icon;
                             return (
                                 <Col key={p.id} md={4}>
                                     <Card>
                                         <div style={{ height: 200, overflow: "hidden" }}>
                                             <img
+
                                                 src={getPlanImage(p.name, serviceType)}
                                                 alt={p.name}
                                                 style={{

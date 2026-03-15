@@ -46,7 +46,14 @@ public class PlanController {
                 if ("Perk".equalsIgnoreCase(f.featureName())) {
                     perks.add(f.featureValue());
                 } else {
-                    structured.add(new PlanFeatureDTO(f.featureName(), f.featureValue(), f.unit()));
+                    structured.add(new PlanFeatureDTO(
+                            f.featureId(),
+                            f.planId(),
+                            f.featureName(),
+                            f.featureValue(),
+                            f.unit(),
+                            f.sortOrder()
+                    ));
                 }
             }
 

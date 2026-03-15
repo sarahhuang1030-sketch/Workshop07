@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, Row, Col, Spinner, Alert, Table } from "react-bootstrap";
+import { apiFetch } from "../../services/api";
 
 const API_BASE = "/api/manager/reports/summary";
 
@@ -16,7 +17,7 @@ export default function ManagerReport({ darkMode = false }) {
             setLoading(true);
             setError("");
 
-            const res = await fetch(API_BASE, { credentials: "include" });
+            const res = await apiFetch(API_BASE);
             if (!res.ok) throw new Error("Failed to load report summary");
 
             const data = await res.json();

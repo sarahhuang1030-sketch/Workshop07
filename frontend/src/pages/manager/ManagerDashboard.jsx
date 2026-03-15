@@ -12,38 +12,53 @@ import {
     ArrowRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../services/api";
 
-function Stat({ title, value, hint, icon: Icon, darkMode }) {
+function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
     const cardBase = darkMode ? "bg-dark border-secondary text-light" : "bg-white text-dark";
     const muted = darkMode ? "text-light-50" : "text-muted";
 
     return (
         <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
-            <Card.Body className="p-4 d-flex justify-content-between">
-                <div>
-                    <div className={`${muted} fw-semibold`} style={{ fontSize: ".95rem" }}>
-                        {title}
-                    </div>
-                    <div className="fw-bold" style={{ fontSize: "1.7rem" }}>
-                        {value}
-                    </div>
-                    {hint && (
-                        <div className={muted} style={{ fontSize: ".9rem" }}>
-                            {hint}
-                        </div>
-                    )}
-                </div>
+            <Card.Body className="p-4">
+                <div className="d-flex justify-content-between align-items-start">
 
-                <div
-                    style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 16,
-                        background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                    }}
-                    className="d-flex align-items-center justify-content-center"
-                >
-                    <Icon size={24} />
+                    {/* LEFT SIDE */}
+                    <div>
+                        <div className={`${muted} fw-semibold`} style={{ fontSize: ".95rem" }}>
+                            {title}
+                        </div>
+
+                        <div className="fw-bold" style={{ fontSize: "1.7rem" }}>
+                            {value}
+                        </div>
+
+                        {hint && (
+                            <div className={muted} style={{ fontSize: ".9rem" }}>
+                                {hint}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT SIDE (ICON + BUTTON) */}
+                    <div className="d-flex flex-column align-items-end gap-2">
+                        <div
+                            style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 16,
+                                background: darkMode
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(0,0,0,0.05)",
+                            }}
+                            className="d-flex align-items-center justify-content-center"
+                        >
+                            <Icon size={24} />
+                        </div>
+
+                        {children}
+                    </div>
+
                 </div>
             </Card.Body>
         </Card>
@@ -135,9 +150,8 @@ export default function ManagerDashboard({ darkMode = false }) {
                 setLoading(true);
                 setError("");
 
-                const response = await fetch("/api/manager/summary", {
+                const response = await apiFetch("/api/manager/summary", {
                     method: "GET",
-                    credentials: "include",
                     headers: {
                         Accept: "application/json",
                     },
@@ -241,7 +255,16 @@ export default function ManagerDashboard({ darkMode = false }) {
                         value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
                         hint="Currently active"
                         icon={Repeat}
-                    />
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/manager/subscriptions")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
                 </Col>
                 <Col xs={12} md={6} lg={3}>
 
@@ -270,45 +293,56 @@ export default function ManagerDashboard({ darkMode = false }) {
 
             {/* Management Cards */}
             <Row className="g-3 mt-2">
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
+                {/*<Col xs={12} md={6} lg={4}>*/}
+                {/*    <ManageCard*/}
+                {/*        darkMode={darkMode}*/}
+                {/*        title="Manage Subscriptions"*/}
+                {/*        desc="Change plan, add/remove add-ons, suspend/cancel/reactivate."*/}
+                {/*        icon={Repeat}*/}
+                {/*        badge="Lifecycle"*/}
+                {/*        to="/manager/subscriptions"*/}
+                {/*        onGo={go}*/}
+                {/*    />*/}
+                {/*</Col>*/}
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
                         darkMode={darkMode}
-                        title="Manage Subscriptions"
-                        desc="Change plan, add/remove add-ons, suspend/cancel/reactivate."
+                        title="Total Add-ons"
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
+                        hint="Currently active"
                         icon={Repeat}
-                        badge="Lifecycle"
-                        to="/manager/subscriptions"
-                        onGo={go}
-                    />
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/manager/addons")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
                 </Col>
 
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
                         darkMode={darkMode}
-                        title="Manage Add-ons"
-                        desc="Create/edit add-ons and control availability."
-                        icon={Puzzle}
-                        badge="Catalog"
-                        to="/manager/addons"
-                        onGo={go}
-                    />
+                        title="Total Plan Features"
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
+                        hint="Currently active"
+                        icon={Repeat}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/manager/planfeatures")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
                 </Col>
 
-                <Col xs={12} md={6} lg={4}>
-                    <ManageCard
-                        darkMode={darkMode}
-                        title="Reports"
-                        desc="Revenue by plan, churn, growth, past-due trends."
-                        icon={FileBarChart2}
-                        badge="KPIs"
-                        to="/manager/reports"
-                        onGo={go}
-                    />
-                </Col>
-            </Row>
-
-            {/* Reports row */}
-            <Row className="g-3 mt-2">
                 <Col xs={12} md={6}>
                     <ManageCard
                         darkMode={darkMode}
@@ -320,7 +354,46 @@ export default function ManagerDashboard({ darkMode = false }) {
                         onGo={go}
                     />
                 </Col>
+
+                {/*<Col xs={12} md={6} lg={4}>*/}
+                {/*    <ManageCard*/}
+                {/*        darkMode={darkMode}*/}
+                {/*        title="Manage Add-ons"*/}
+                {/*        desc="Create/edit add-ons and control availability."*/}
+                {/*        icon={Puzzle}*/}
+                {/*        badge="Catalog"*/}
+                {/*        to="/manager/addons"*/}
+                {/*        onGo={go}*/}
+                {/*    />*/}
+                {/*</Col>*/}
+
+                {/*<Col xs={12} md={6} lg={4}>*/}
+                {/*    <ManageCard*/}
+                {/*        darkMode={darkMode}*/}
+                {/*        title="Reports"*/}
+                {/*        desc="Revenue by plan, churn, growth, past-due trends."*/}
+                {/*        icon={FileBarChart2}*/}
+                {/*        badge="KPIs"*/}
+                {/*        to="/manager/reports"*/}
+                {/*        onGo={go}*/}
+                {/*    />*/}
+                {/*</Col>*/}
             </Row>
+
+            {/* Reports row */}
+            {/*<Row className="g-3 mt-2">*/}
+            {/*    <Col xs={12} md={6}>*/}
+            {/*        <ManageCard*/}
+            {/*            darkMode={darkMode}*/}
+            {/*            title="Audit Log"*/}
+            {/*            desc="Track who changed plans, subscriptions, roles, and more."*/}
+            {/*            icon={ListChecks}*/}
+            {/*            badge="Security"*/}
+            {/*            to="/manager/audit"*/}
+            {/*            onGo={go}*/}
+            {/*        />*/}
+            {/*    </Col>*/}
+            {/*</Row>*/}
         </Container>
     );
 }

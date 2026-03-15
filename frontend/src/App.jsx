@@ -48,7 +48,8 @@ import ManagerPlan from "./pages/manager/ManagerPlan";
 import ManagerAddon from "./pages/manager/ManagerAddon";
 import ManagerReport from "./pages/manager/ManagerReport";
 import ManagerSubscription from "./pages/manager/ManagerSubscription";
-import ManagerAudit from "./pages/manager/ManagerAudit"
+import ManagerAudit from "./pages/manager/ManagerAudit";
+import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature"
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
@@ -142,7 +143,7 @@ export default function App() {
 
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-
+    const [authReady, setAuthReady] = useState(false);
     const [needsRegistration, setNeedsRegistration] = useState(() => {
         try {
             const raw = sessionStorage.getItem("tc_needs_registration");
@@ -224,18 +225,22 @@ export default function App() {
     useEffect(() => {
         if (didHydrateRef.current) return;
         didHydrateRef.current = true;
-        refreshMe();
+
+        (async () => {
+            await refreshMe();
+            setAuthReady(true);
+        })();
     }, [refreshMe]);
 
 
-
-    useEffect(() => {
-        if (!user) return;
-
-        if (location.pathname === "/login" || location.pathname === "/register") {
-            navigate("/profile", { replace: true });
-        }
-    }, [user, location.pathname, navigate]);
+    //
+    // useEffect(() => {
+    //     if (!user) return;
+    //
+    //     if (location.pathname === "/login") {
+    //         navigate("/profile", { replace: true });
+    //     }
+    // }, [user]);
 
     const finishOAuthLogin = useCallback(async () => {
         await refreshMe();
@@ -389,7 +394,7 @@ export default function App() {
                 <Route
                     path="/manager"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerDashboard />
                         </RequireRole>
                     }
@@ -397,7 +402,7 @@ export default function App() {
                 <Route
                     path="/manager/users"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerUsers />
                         </RequireRole>
                     }
@@ -405,7 +410,7 @@ export default function App() {
                 <Route
                     path="/manager/employee"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerEmployee />
                         </RequireRole>
                     }
@@ -413,7 +418,7 @@ export default function App() {
                 <Route
                     path="/manager/plan"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerPlan />
                         </RequireRole>
                     }
@@ -421,7 +426,7 @@ export default function App() {
                 <Route
                     path="/manager/addons"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerAddon />
                         </RequireRole>
                     }
@@ -429,7 +434,7 @@ export default function App() {
                 <Route
                     path="/manager/reports"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerReport />
                         </RequireRole>
                     }
@@ -437,7 +442,7 @@ export default function App() {
                 <Route
                     path="/manager/subscriptions"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerSubscription />
                         </RequireRole>
                     }
@@ -445,10 +450,18 @@ export default function App() {
                 <Route
                     path="/manager/audit"
                     element={
-                        <RequireRole user={user} allow={["manager"]}>
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerAudit />
                         </RequireRole>
                     }
+                />
+                <Route
+                    path="/manager/planfeatures"
+                    element={
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                            <ManagerPlanFeature  />
+                        </RequireRole>
+                        }
                 />
 
                 <Route

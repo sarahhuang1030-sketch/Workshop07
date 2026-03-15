@@ -12,6 +12,7 @@ import {
     Spinner,
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../services/api";
 
 const emptyForm = {
     serviceTypeId: "",
@@ -39,6 +40,7 @@ export default function ManagePlan({ darkMode = false }) {
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState(emptyForm);
+    const [search, setSearch] = useState("");
 
     const navigate = useNavigate();
     const [availableAddOns, setAvailableAddOns] = useState([]);
@@ -51,9 +53,7 @@ export default function ManagePlan({ darkMode = false }) {
             setLoading(true);
             setError("");
 
-            const res = await fetch("/api/manager/plans", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/manager/plans");
 
             if (!res.ok) {
                 throw new Error(`Failed to load plans: ${res.status}`);
@@ -71,9 +71,7 @@ export default function ManagePlan({ darkMode = false }) {
 
     const loadAvailableAddOns = async () => {
         try {
-            const res = await fetch("/api/addons", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/addons");
 
             if (!res.ok) {
                 throw new Error(`Failed to load add-ons: ${res.status}`);
@@ -89,9 +87,7 @@ export default function ManagePlan({ darkMode = false }) {
 
     const loadFeatureTemplates = async () => {
         try {
-            const res = await fetch("/api/manager/plans/features/templates", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/manager/plans/features/templates");
 
             if (!res.ok) {
                 throw new Error(`Failed to load feature templates: ${res.status}`);
@@ -106,9 +102,7 @@ export default function ManagePlan({ darkMode = false }) {
     };
 
     const loadPlanFeatures = async (planId) => {
-        const res = await fetch(`/api/manager/plans/${planId}/features`, {
-            credentials: "include",
-        });
+        const res = await apiFetch(`/api/manager/plans/${planId}/features`);
 
         if (!res.ok) {
             throw new Error(`Failed to load plan features: ${res.status}`);
@@ -118,9 +112,7 @@ export default function ManagePlan({ darkMode = false }) {
     };
 
     const loadPlanAddOns = async (planId) => {
-        const res = await fetch(`/api/manager/plans/${planId}/addons`, {
-            credentials: "include",
-        });
+        const res = await apiFetch(`/api/manager/plans/${planId}/addons`);
 
         if (!res.ok) {
             throw new Error(`Failed to load plan add-ons: ${res.status}`);
@@ -266,9 +258,9 @@ export default function ManagePlan({ darkMode = false }) {
                 isActive: form.isActive === "" ? null : Number(form.isActive),
             };
 
-            const planRes = await fetch(planUrl, {
+            const planRes = await apiFetch(planUrl, {
                 method: planMethod,
-                credentials: "include",
+
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -292,9 +284,8 @@ export default function ManagePlan({ darkMode = false }) {
                         sortOrder: feature.sortOrder ?? 0,
                     };
 
-                    const featureRes = await fetch(`/api/manager/plans/${planId}/features`, {
+                    const featureRes = await apiFetch(`/api/manager/plans/${planId}/features`, {
                         method: "POST",
-                        credentials: "include",
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -307,9 +298,9 @@ export default function ManagePlan({ darkMode = false }) {
                 }
 
                 for (const addOnId of form.addOnIds) {
-                    const addOnRes = await fetch(`/api/manager/plans/${planId}/addons`, {
+                    const addOnRes = await apiFetch(`/api/manager/plans/${planId}/addons`, {
                         method: "POST",
-                        credentials: "include",
+
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -328,11 +319,11 @@ export default function ManagePlan({ darkMode = false }) {
                 const existingFeatures = await loadPlanFeatures(planId);
 
                 for (const feature of existingFeatures) {
-                    const deleteFeatureRes = await fetch(
+                    const deleteFeatureRes = await apiFetch(
                         `/api/manager/plans/${planId}/features/${feature.featureId}`,
                         {
                             method: "DELETE",
-                            credentials: "include",
+
                         }
                     );
 
@@ -350,9 +341,8 @@ export default function ManagePlan({ darkMode = false }) {
                         sortOrder: feature.sortOrder ?? 0,
                     };
 
-                    const featureRes = await fetch(`/api/manager/plans/${planId}/features`, {
+                    const featureRes = await apiFetch(`/api/manager/plans/${planId}/features`, {
                         method: "POST",
-                        credentials: "include",
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -368,11 +358,11 @@ export default function ManagePlan({ darkMode = false }) {
                 const existingAddOns = await loadPlanAddOns(planId);
 
                 for (const addOn of existingAddOns) {
-                    const deleteAddOnRes = await fetch(
+                    const deleteAddOnRes = await apiFetch(
                         `/api/manager/plans/${planId}/addons/${addOn.addOnId}`,
                         {
                             method: "DELETE",
-                            credentials: "include",
+
                         }
                     );
 
@@ -383,9 +373,8 @@ export default function ManagePlan({ darkMode = false }) {
 
                 // 4) Recreate selected add-ons
                 for (const addOnId of form.addOnIds) {
-                    const addOnRes = await fetch(`/api/manager/plans/${planId}/addons`, {
+                    const addOnRes = await apiFetch(`/api/manager/plans/${planId}/addons`, {
                         method: "POST",
-                        credentials: "include",
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -418,9 +407,9 @@ export default function ManagePlan({ darkMode = false }) {
         try {
             setError("");
 
-            const res = await fetch(`/api/manager/plans/${planId}`, {
+            const res = await apiFetch(`/api/manager/plans/${planId}`, {
                 method: "DELETE",
-                credentials: "include",
+
             });
 
             if (!res.ok) {
@@ -436,6 +425,20 @@ export default function ManagePlan({ darkMode = false }) {
 
     const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark";
 
+    const filteredPlans = plans.filter((plans) => {
+        const keyword = search.toLowerCase();
+
+        return (
+            String(plans.planId ?? "").toLowerCase().includes(keyword) ||
+            String(plans.planName ?? "").toLowerCase().includes(keyword) ||
+            String(plans.serviceTypeId ?? "").toLowerCase().includes(keyword) ||
+            String(plans.monthlyPrice ?? "").toLowerCase().includes(keyword) ||
+            String(plans.contractTermMonths ?? "").toLowerCase().includes(keyword) ||
+            String(plans.description ?? "").toLowerCase().includes(keyword) ||
+            String(plans.isActive ?? "").toLowerCase().includes(keyword)
+        );
+    });
+
     return (
         <Container className="py-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -447,17 +450,25 @@ export default function ManagePlan({ darkMode = false }) {
                 </div>
 
                 <div className="d-flex gap-2">
-                    <Button
-                        variant="outline-secondary"
-                        onClick={() => navigate("/manager")}
-                        style={{ borderRadius: 12 }}
-                    >
-                        Go Back
-                    </Button>
+                    <Form.Control
+                        className={"w-auto"}
+                        type="text"
+                        placeholder="Search plans..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{ minWidth: "240px" }}
+                    />
 
                     <Button onClick={openCreate} style={{ borderRadius: 12 }}>
                         Add Plan
                     </Button>
+                    <Button
+                    variant="outline-secondary"
+                    onClick={() => navigate("/manager")}
+                    style={{ borderRadius: 12 }}
+                >
+                    Go Back
+                </Button>
                 </div>
             </div>
 
@@ -485,14 +496,14 @@ export default function ManagePlan({ darkMode = false }) {
                             </tr>
                             </thead>
                             <tbody>
-                            {plans.length === 0 ? (
+                            {filteredPlans.length === 0 ? (
                                 <tr>
                                     <td colSpan="9" className="text-center py-4">
                                         No plans found.
                                     </td>
                                 </tr>
                             ) : (
-                                plans.map((plan) => (
+                                filteredPlans.map((plan) => (
                                     <tr key={plan.planId}>
                                         <td>{plan.planId}</td>
                                         <td>{plan.planName}</td>

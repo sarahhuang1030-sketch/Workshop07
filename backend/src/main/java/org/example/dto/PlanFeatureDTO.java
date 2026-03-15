@@ -1,9 +1,10 @@
 package org.example.dto;
 
 public record PlanFeatureDTO (
-
+        Integer featureId,
+        Integer planId,
         String featureName,
         String featureValue,
-        String unit
-
+        String unit,
+         Integer sortOrder
 ){}

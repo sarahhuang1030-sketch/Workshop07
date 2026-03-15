@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Card,
     Form,
     Table,
-    Row,
-    Col,
     Badge,
     Spinner,
     Alert,
     Button,
     Modal,
+    Container,
 } from "react-bootstrap";
+import { apiFetch } from "../../services/api";
 
 const API_BASE = "/api/manager/subscriptions";
 
 export default function ManagerSubscription({ darkMode = false }) {
+    const navigate = useNavigate();
+
     const [subscriptions, setSubscriptions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -43,7 +46,7 @@ export default function ManagerSubscription({ darkMode = false }) {
             setLoading(true);
             setError("");
 
-            const res = await fetch(API_BASE, { credentials: "include" });
+            const res = await apiFetch(API_BASE);
             if (!res.ok) throw new Error("Failed to load subscriptions");
 
             const data = await res.json();
@@ -63,9 +66,17 @@ export default function ManagerSubscription({ darkMode = false }) {
         return subscriptions.filter((sub) => {
             const matchesStatus =
                 statusFilter === "All" ||
-                String(sub.status).toLowerCase() === statusFilter.toLowerCase();
+                String(sub.status || "").toLowerCase() === statusFilter.toLowerCase();
 
             const q = search.trim().toLowerCase();
+
+
+            const addonsText = Array.isArray(sub.addons)
+                ? sub.addons
+                    .map((a) => `${a.addOnName || ""} ${a.status || ""}`)
+                    .join(" ")
+                : "";
+
             const matchesSearch =
                 !q ||
                 [
@@ -74,6 +85,10 @@ export default function ManagerSubscription({ darkMode = false }) {
                     sub.planId,
                     sub.status,
                     sub.notes,
+                    sub.startDate,
+                    sub.endDate,
+                    sub.billingCycleDay,
+                    addonsText,
                 ]
                     .filter(Boolean)
                     .some((v) => String(v).toLowerCase().includes(q));
@@ -141,14 +156,15 @@ export default function ManagerSubscription({ darkMode = false }) {
                 startDate: formData.startDate || null,
                 endDate: formData.endDate || null,
                 status: formData.status,
-                billingCycleDay: formData.billingCycleDay ? Number(formData.billingCycleDay) : null,
+                billingCycleDay: formData.billingCycleDay
+                    ? Number(formData.billingCycleDay)
+                    : null,
                 notes: formData.notes || null,
             };
 
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
                 body: JSON.stringify(payload),
             });
 
@@ -167,10 +183,9 @@ export default function ManagerSubscription({ darkMode = false }) {
         try {
             setError("");
 
-            const res = await fetch(`${API_BASE}/${subscriptionId}/status`, {
+            const res = await apiFetch(`${API_BASE}/${subscriptionId}/status`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
                 body: JSON.stringify({ status }),
             });
 
@@ -192,9 +207,8 @@ export default function ManagerSubscription({ darkMode = false }) {
         try {
             setError("");
 
-            const res = await fetch(`${API_BASE}/${sub.subscriptionId}`, {
+            const res = await apiFetch(`${API_BASE}/${sub.subscriptionId}`, {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!res.ok) throw new Error("Failed to delete subscription");
@@ -206,170 +220,179 @@ export default function ManagerSubscription({ darkMode = false }) {
     }
 
     return (
-        <div className="container py-4">
-            <Card className={`shadow-sm ${cardClass}`}>
+        <Container className="py-4">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 className="mb-1">Manage Subscriptions</h2>
+                    <div className={darkMode ? "text-light-50" : "text-muted"}>
+                        Manage subscription records.
+                    </div>
+                </div>
+
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <Form.Control
+                        placeholder="Search subscription, customer, plan..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{ width: 320 }}
+                    />
+
+                    <Form.Select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ width: 180 }}
+                    >
+                        <option value="All">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Suspended">Suspended</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </Form.Select>
+
+                    <Button onClick={openCreateModal}>Add New</Button>
+
+                    <Button
+                        variant="outline-secondary"
+                        onClick={() => navigate("/manager")}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Go Back
+                    </Button>
+                </div>
+            </div>
+
+            {error && <Alert variant="danger">{error}</Alert>}
+
+            <Card className={cardClass} style={{ borderRadius: 18 }}>
                 <Card.Body>
-                    <Row className="align-items-center mb-3">
-                        <Col md={5}>
-                            <h2 className="mb-1">Manager Subscriptions</h2>
-                            <p className="mb-0 text-muted">Manage subscription records.</p>
-                        </Col>
-                        <Col md={7}>
-                            <Row className="g-2">
-                                <Col md={5}>
-                                    <Form.Control
-                                        placeholder="Search subscription, customer, plan..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
-                                </Col>
-                                <Col md={4}>
-                                    <Form.Select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                    >
-                                        <option value="All">All Statuses</option>
-                                        <option value="Active">Active</option>
-                                        <option value="Suspended">Suspended</option>
-                                        <option value="Cancelled">Cancelled</option>
-                                    </Form.Select>
-                                </Col>
-                                <Col md={3}>
-                                    <Button className="w-100" onClick={openCreateModal}>
-                                        Add New
-                                    </Button>
-                                </Col>
-                            </Row>
-                        </Col>
-                    </Row>
-
-                    {error && <Alert variant="danger">{error}</Alert>}
-
                     {loading ? (
                         <div className="text-center py-4">
                             <Spinner animation="border" />
                         </div>
                     ) : (
-                        <div className="table-responsive">
-                            <Table striped bordered hover className={tableClass}>
-                                <thead>
-                                <tr>
-                                    <th>Subscription ID</th>
-                                    <th>Customer ID</th>
-                                    <th>Plan ID</th>
-                                    <th>Start Date</th>
-                                    <th>End Date</th>
-                                    <th>Status</th>
-                                    <th>Billing Day</th>
-                                    <th>Notes</th>
-                                    <th>Add-ons</th>
-                                    <th>Actions</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {filteredSubscriptions.length > 0 ? (
-                                    filteredSubscriptions.map((sub) => (
-                                        <tr key={sub.subscriptionId}>
-                                            <td>{sub.subscriptionId}</td>
-                                            <td>{sub.customerId}</td>
-                                            <td>{sub.planId}</td>
-                                            <td>{sub.startDate || "—"}</td>
-                                            <td>{sub.endDate || "—"}</td>
-                                            <td>
-                                                <Badge
-                                                    bg={
-                                                        sub.status === "Active"
-                                                            ? "success"
-                                                            : sub.status === "Suspended"
-                                                                ? "warning"
-                                                                : sub.status === "Cancelled"
-                                                                    ? "danger"
-                                                                    : "secondary"
-                                                    }
+                        <Table responsive hover className={`align-middle mb-0 ${tableClass}`}>
+                            <thead>
+                            <tr>
+                                <th>Subscription ID</th>
+                                <th>Customer ID</th>
+                                <th>Plan ID</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Status</th>
+                                <th>Billing Day</th>
+                                <th>Notes</th>
+                                <th>Add-ons</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {filteredSubscriptions.length > 0 ? (
+                                filteredSubscriptions.map((sub) => (
+                                    <tr key={sub.subscriptionId}>
+                                        <td>{sub.subscriptionId}</td>
+                                        <td>{sub.customerId}</td>
+                                        <td>{sub.planId}</td>
+                                        <td>{sub.startDate || "—"}</td>
+                                        <td>{sub.endDate || "—"}</td>
+                                        <td>
+                                            <Badge
+                                                bg={
+                                                    sub.status === "Active"
+                                                        ? "success"
+                                                        : sub.status === "Suspended"
+                                                            ? "warning"
+                                                            : sub.status === "Cancelled"
+                                                                ? "danger"
+                                                                : "secondary"
+                                                }
+                                            >
+                                                {sub.status || "Unknown"}
+                                            </Badge>
+                                        </td>
+                                        <td>{sub.billingCycleDay ?? "—"}</td>
+                                        <td>{sub.notes || "—"}</td>
+                                        <td>
+                                            {Array.isArray(sub.addons) && sub.addons.length > 0 ? (
+                                                sub.addons.map((a) => (
+                                                    <div key={a.subscriptionAddOnId}>
+                                                        {a.addOnName || `AddOn #${a.addOnId}`} ({a.status})
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="d-flex gap-2 flex-wrap">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline-primary"
+                                                    onClick={() => openEditModal(sub)}
                                                 >
-                                                    {sub.status || "Unknown"}
-                                                </Badge>
-                                            </td>
-                                            <td>{sub.billingCycleDay ?? "—"}</td>
-                                            <td>{sub.notes || "—"}</td>
-                                            <td>
-                                                {Array.isArray(sub.addons) && sub.addons.length > 0 ? (
-                                                    sub.addons.map((a) => (
-                                                        <div key={a.subscriptionAddOnId}>
-                                                            {a.addOnName || `AddOn #${a.addOnId}`} ({a.status})
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    "—"
+                                                    Edit
+                                                </Button>
+
+                                                {sub.status === "Active" && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline-warning"
+                                                        onClick={() =>
+                                                            updateStatus(
+                                                                sub.subscriptionId,
+                                                                "Suspended"
+                                                            )
+                                                        }
+                                                    >
+                                                        Suspend
+                                                    </Button>
                                                 )}
-                                            </td>
-                                            <td>
-                                                <div className="d-flex gap-2 flex-wrap">
+
+                                                {sub.status === "Suspended" && (
                                                     <Button
                                                         size="sm"
-                                                        variant="outline-primary"
-                                                        onClick={() => openEditModal(sub)}
+                                                        variant="outline-success"
+                                                        onClick={() =>
+                                                            updateStatus(sub.subscriptionId, "Active")
+                                                        }
                                                     >
-                                                        Edit
+                                                        Reactivate
                                                     </Button>
+                                                )}
 
-                                                    {sub.status === "Active" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline-warning"
-                                                            onClick={() =>
-                                                                updateStatus(sub.subscriptionId, "Suspended")
-                                                            }
-                                                        >
-                                                            Suspend
-                                                        </Button>
-                                                    )}
-
-                                                    {sub.status === "Suspended" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline-success"
-                                                            onClick={() =>
-                                                                updateStatus(sub.subscriptionId, "Active")
-                                                            }
-                                                        >
-                                                            Reactivate
-                                                        </Button>
-                                                    )}
-
-                                                    {sub.status !== "Cancelled" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline-danger"
-                                                            onClick={() =>
-                                                                updateStatus(sub.subscriptionId, "Cancelled")
-                                                            }
-                                                        >
-                                                            Cancel
-                                                        </Button>
-                                                    )}
-
+                                                {sub.status !== "Cancelled" && (
                                                     <Button
                                                         size="sm"
-                                                        variant="outline-dark"
-                                                        onClick={() => handleDelete(sub)}
+                                                        variant="outline-danger"
+                                                        onClick={() =>
+                                                            updateStatus(
+                                                                sub.subscriptionId,
+                                                                "Cancelled"
+                                                            )
+                                                        }
                                                     >
-                                                        Delete
+                                                        Cancel
                                                     </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="10" className="text-center">
-                                            No subscriptions found.
+                                                )}
+
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline-dark"
+                                                    onClick={() => handleDelete(sub)}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
-                                )}
-                                </tbody>
-                            </Table>
-                        </div>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="10" className="text-center">
+                                        No subscriptions found.
+                                    </td>
+                                </tr>
+                            )}
+                            </tbody>
+                        </Table>
                     )}
                 </Card.Body>
             </Card>
@@ -471,6 +494,6 @@ export default function ManagerSubscription({ darkMode = false }) {
                     </Modal.Footer>
                 </Form>
             </Modal>
-        </div>
+        </Container>
     );
 }

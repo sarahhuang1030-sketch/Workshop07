@@ -15,6 +15,7 @@ const emptyForm = {
     active: 1,
     managerId: "",
 };
+import { apiFetch } from "../../services/api";
 
 export default function ManageEmployee({ darkMode = false }) {
     const [employees, setEmployees] = useState([]);
@@ -25,15 +26,15 @@ export default function ManageEmployee({ darkMode = false }) {
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState(emptyForm);
+    const [search, setSearch] = useState("");
+
 
     const loadEmployees = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const res = await fetch("/api/manager/employees", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/manager/employees");
 
             if (!res.ok) {
                 throw new Error(`Failed to load employees: ${res.status}`);
@@ -104,9 +105,8 @@ export default function ManageEmployee({ darkMode = false }) {
 
             const method = editingId ? "PUT" : "POST";
 
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method,
-                credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -134,9 +134,8 @@ export default function ManageEmployee({ darkMode = false }) {
         try {
             setError("");
 
-            const res = await fetch(`/api/manager/employees/${employeeId}`, {
+            const res = await apiFetch(`/api/manager/employees/${employeeId}`, {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!res.ok) {
@@ -149,6 +148,20 @@ export default function ManageEmployee({ darkMode = false }) {
             setError("Unable to delete employee.");
         }
     };
+
+    const filteredEmployees = employees.filter((emp) => {
+        const keyword = search.toLowerCase();
+
+        return (
+            String(emp.employeeId ?? "").toLowerCase().includes(keyword) ||
+            String(emp.firstName ?? "").toLowerCase().includes(keyword) ||
+            String(emp.lastName ?? "").toLowerCase().includes(keyword) ||
+            String(emp.email ?? "").toLowerCase().includes(keyword) ||
+            String(emp.phone ?? "").toLowerCase().includes(keyword) ||
+            String(emp.role ?? "").toLowerCase().includes(keyword) ||
+            String(emp.status ?? "").toLowerCase().includes(keyword)
+        );
+    });
 
     const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark";
 
@@ -163,6 +176,14 @@ export default function ManageEmployee({ darkMode = false }) {
                 </div>
 
                 <div className="d-flex gap-2">
+                    <Form.Control
+                        className={"w-auto"}
+                        type="text"
+                        placeholder="Search employees..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{ minWidth: "240px" }}
+                    />
                     <Button onClick={openCreate} style={{ borderRadius: 12 }}>
                         Add Employee
                     </Button>
@@ -201,19 +222,19 @@ export default function ManageEmployee({ darkMode = false }) {
                                 <th>Location</th>
 
                                 <th>Manager ID</th>
-                                <th>Active</th>
+                                {/*<th>Active</th>*/}
                                 <th style={{ width: 180 }}>Actions</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {employees.length === 0 ? (
+                            {filteredEmployees.length === 0 ? (
                                 <tr>
                                     <td colSpan="13" className="text-center py-4">
                                         No employees found.
                                     </td>
                                 </tr>
                             ) : (
-                                employees.map((emp) => (
+                                filteredEmployees.map((emp) => (
                                     <tr key={emp.employeeId}>
                                         <td>{emp.employeeId}</td>
                                         <td>{emp.firstName} {emp.lastName}</td>
@@ -226,7 +247,7 @@ export default function ManageEmployee({ darkMode = false }) {
                                         <td>{emp.primaryLocationId ?? "—"}</td>
 
                                         <td>{emp.managerId ?? "—"}</td>
-                                        <td>{emp.active === 1 ? "Yes" : "No"}</td>
+                                        {/*<td>{emp.active === 1 ? "Yes" : "No"}</td>*/}
                                         <td>
                                             <div className="d-flex gap-2">
                                                 <Button

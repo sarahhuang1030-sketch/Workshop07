@@ -10,6 +10,7 @@ import {
     Badge,
 } from "react-bootstrap";
 import { RefreshCw, Search, Eye } from "lucide-react";
+import { apiFetch } from "../../services/api";
 
 export default function AuditPage({ darkMode = false }) {
     const [logs, setLogs] = useState([]);
@@ -31,9 +32,7 @@ export default function AuditPage({ darkMode = false }) {
 
             setError("");
 
-            const res = await fetch("/api/manager/audit", {
-                credentials: "include",
-            });
+            const res = await apiFetch("/api/manager/audit");
 
             if (!res.ok) {
                 throw new Error(`Failed to load audit logs (${res.status})`);
