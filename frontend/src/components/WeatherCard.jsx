@@ -7,6 +7,7 @@ export default function WeatherCard() {
     const { darkMode } = useTheme();
     const [weather, setWeather] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [guestMode, setGuestMode] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -26,17 +27,19 @@ export default function WeatherCard() {
                         ) {
                             return prev;
                         }
-
                         return data;
                     });
+
+                    setGuestMode(Boolean(data?.guestMode));
                 }
             } catch {
-                if (!cancelled && !weather) {
+                if (!cancelled) {
                     setWeather({
                         city: "Calgary",
                         tempC: 0,
                         description: "weather unavailable",
                     });
+                    setGuestMode(false);
                 }
             } finally {
                 if (!cancelled) {
@@ -47,13 +50,37 @@ export default function WeatherCard() {
 
         loadWeather();
 
-        const interval = setInterval(loadWeather, 15000);
-
         return () => {
             cancelled = true;
-            clearInterval(interval);
         };
     }, []);
+
+    useEffect(() => {
+        if (!guestMode) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const res = await fetch("/api/weather", { credentials: "include" });
+                const data = await res.json();
+
+                setWeather((prev) => {
+                    if (
+                        prev &&
+                        prev.city === data.city &&
+                        prev.tempC === data.tempC &&
+                        prev.description === data.description
+                    ) {
+                        return prev;
+                    }
+                    return data;
+                });
+            } catch {
+                // do nothing on guest refresh failure
+            }
+        }, 15000);
+
+        return () => clearInterval(intervalId);
+    }, [guestMode]);
 
     const pillStyle = {
         display: "inline-flex",

@@ -3,16 +3,19 @@ package org.example.entity;
 import jakarta.persistence.*;
 
 @Entity
+@Table(name = "customers") // Added so Hibernate maps this entity to the correct table
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-   //Sarah modified for reset password link
+    //Sarah modified for reset password link
     @Column(name = "CustomerId")
     private Integer CustomerId;
 
-
+    @Column(name = "FirstName") // Added so it maps to the actual column in customers table
     private String name;
+
+    @Column(name = "Email") // Added mapping to real column
     private String email;
 
     public User() {
@@ -33,6 +36,5 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-
 
 }

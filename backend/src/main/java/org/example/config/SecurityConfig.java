@@ -85,7 +85,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(withDefaults())
                 .httpBasic(b -> b.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authenticationProvider(provider)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
@@ -101,6 +101,7 @@ public class SecurityConfig {
                                 "/oauth2/**",
 
                                 "/api/auth/login",
+                                "/api/auth/logout",
                                 "/api/auth/register",
                                 "/api/auth/forgetpassword",
                                 "/api/auth/resetpassword",
@@ -121,13 +122,13 @@ public class SecurityConfig {
                         .successHandler(oAuth2LoginSuccessHandler)
                         .failureHandler((request, response, exception) ->
                                 response.sendRedirect(frontendOrigin + "/login?oauthError=true"))
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/api/auth/logout")
+                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
                 );
-//                .logout(logout -> logout
-//                        .logoutUrl("/logout")
-//                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
-//                        .invalidateHttpSession(true)
-//                        .clearAuthentication(true)
-//                );
 
         return http.build();
     }

@@ -98,28 +98,35 @@ CREATE TABLE customeraddresses (
 );
 
 CREATE TABLE addons (
-    AddOnId INT NOT NULL AUTO_INCREMENT,
-    ServiceTypeId INT DEFAULT NULL,
-    AddOnName VARCHAR(100) NOT NULL,
-    MonthlyPrice DOUBLE DEFAULT NULL,
-    Description VARCHAR(255) DEFAULT NULL,
-    IsActive TINYINT(1) DEFAULT 1,
-    PRIMARY KEY (AddOnId),
-    KEY ServiceTypeId (ServiceTypeId),
-    CONSTRAINT addons_ibfk_1 FOREIGN KEY (ServiceTypeId) REFERENCES servicetypes (ServiceTypeId)
+                        AddOnId INT NOT NULL AUTO_INCREMENT,
+                        ServiceTypeId INT DEFAULT NULL,
+                        AddOnName VARCHAR(100) NOT NULL,
+                        MonthlyPrice DOUBLE DEFAULT NULL,
+                        Description VARCHAR(255) DEFAULT NULL,
+                        IsActive TINYINT(1) DEFAULT 1,
+                        IconKey VARCHAR(50) DEFAULT NULL,
+                        ThemeKey VARCHAR(50) DEFAULT NULL,
+                        PRIMARY KEY (AddOnId),
+                        KEY ServiceTypeId (ServiceTypeId),
+                        CONSTRAINT addons_ibfk_1 FOREIGN KEY (ServiceTypeId) REFERENCES servicetypes (ServiceTypeId)
 );
 
 CREATE TABLE plans (
-    PlanId INT NOT NULL AUTO_INCREMENT,
-    ServiceTypeId INT NOT NULL,
-    PlanName VARCHAR(100) NOT NULL,
-    MonthlyPrice DECIMAL(10,2) NOT NULL,
-    ContractTermMonths INT DEFAULT NULL,
-    Description VARCHAR(255) DEFAULT NULL,
-    IsActive TINYINT(1) DEFAULT 1,
-    PRIMARY KEY (PlanId),
-    KEY ServiceTypeId (ServiceTypeId),
-    CONSTRAINT plans_ibfk_1 FOREIGN KEY (ServiceTypeId) REFERENCES servicetypes (ServiceTypeId)
+                       PlanId INT NOT NULL AUTO_INCREMENT,
+                       ServiceTypeId INT NOT NULL,
+                       PlanName VARCHAR(100) NOT NULL,
+                       MonthlyPrice DECIMAL(10,2) NOT NULL,
+                       ContractTermMonths INT DEFAULT NULL,
+                       Description VARCHAR(255) DEFAULT NULL,
+                       IsActive TINYINT(1) DEFAULT 1,
+                       Tagline VARCHAR(100) DEFAULT NULL,
+                       Badge VARCHAR(50) DEFAULT NULL,
+                       IconKey VARCHAR(50) DEFAULT NULL,
+                       ThemeKey VARCHAR(50) DEFAULT NULL,
+                       DataLabel VARCHAR(50) DEFAULT NULL,
+                       PRIMARY KEY (PlanId),
+                       KEY ServiceTypeId (ServiceTypeId),
+                       CONSTRAINT plans_ibfk_1 FOREIGN KEY (ServiceTypeId) REFERENCES servicetypes (ServiceTypeId)
 );
 
 CREATE TABLE subscriptions (
@@ -162,14 +169,15 @@ CREATE TABLE planaddons (
 );
 
 CREATE TABLE planfeatures (
-    FeatureId INT NOT NULL AUTO_INCREMENT,
-    PlanId INT NOT NULL,
-    FeatureName VARCHAR(100) NOT NULL,
-    FeatureValue VARCHAR(100) DEFAULT NULL,
-    Unit VARCHAR(20) DEFAULT NULL,
-    PRIMARY KEY (FeatureId),
-    KEY PlanId (PlanId),
-    CONSTRAINT planfeatures_ibfk_1 FOREIGN KEY (PlanId) REFERENCES plans (PlanId)
+                              FeatureId INT NOT NULL AUTO_INCREMENT,
+                              PlanId INT NOT NULL,
+                              FeatureName VARCHAR(100) NOT NULL,
+                              FeatureValue VARCHAR(100) DEFAULT NULL,
+                              Unit VARCHAR(20) DEFAULT NULL,
+                              SortOrder INT DEFAULT 0,
+                              PRIMARY KEY (FeatureId),
+                              KEY PlanId (PlanId),
+                              CONSTRAINT planfeatures_ibfk_1 FOREIGN KEY (PlanId) REFERENCES plans (PlanId)
 );
 
 CREATE TABLE paymentaccounts (

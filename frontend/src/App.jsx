@@ -303,7 +303,7 @@ export default function App() {
                 <Route
                     path="/customer"
                     element={
-                        <RequireRole user={user} allow={["customer"]}>
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
                             <CustomerDashboard />
                         </RequireRole>
                     }
@@ -311,7 +311,7 @@ export default function App() {
                 <Route
                     path="/customer/plan"
                     element={
-                        <RequireRole user={user} allow={["customer"]}>
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
                             <CustomerPlan />
                         </RequireRole>
                     }
@@ -319,7 +319,7 @@ export default function App() {
                 <Route
                     path="/customer/billing"
                     element={
-                        <RequireRole user={user} allow={["customer"]}>
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
                             <CustomerBilling />
                         </RequireRole>
                     }
@@ -327,7 +327,7 @@ export default function App() {
                 <Route
                     path="/customer/support"
                     element={
-                        <RequireRole user={user} allow={["customer"]}>
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
                             <CustomerSupport />
                         </RequireRole>
                     }
@@ -336,7 +336,7 @@ export default function App() {
                 <Route
                     path="/sales"
                     element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesDashboard />
                         </RequireRole>
                     }
@@ -344,7 +344,7 @@ export default function App() {
                 <Route
                     path="/sales/customers"
                     element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesCustomers />
                         </RequireRole>
                     }
@@ -352,7 +352,7 @@ export default function App() {
                 <Route
                     path="/sales/quotes/new"
                     element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesCreateQuote />
                         </RequireRole>
                     }
@@ -360,7 +360,7 @@ export default function App() {
                 <Route
                     path="/sales/activations"
                     element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]}>
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesActivations />
                         </RequireRole>
                     }
@@ -369,7 +369,7 @@ export default function App() {
                 <Route
                     path="/service"
                     element={
-                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]} authReady={authReady}>
                             <ServiceDashboard />
                         </RequireRole>
                     }
@@ -377,7 +377,7 @@ export default function App() {
                 <Route
                     path="/service/work-orders"
                     element={
-                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]} authReady={authReady}>
                             <ServiceWorkOrders />
                         </RequireRole>
                     }
@@ -385,7 +385,7 @@ export default function App() {
                 <Route
                     path="/service/tickets"
                     element={
-                        <RequireRole user={user} allow={["servicetechnician", "manager"]}>
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]} authReady={authReady}>
                             <ServiceTickets />
                         </RequireRole>
                     }

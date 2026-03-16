@@ -33,6 +33,8 @@ public class WeatherController {
 
     @GetMapping("/api/weather")
     public ResponseEntity<?> getWeather(Principal principal) {
+        boolean guestMode = (principal == null);
+
         String city = resolveCity(principal);
 
         if (city == null || city.isBlank()) {
@@ -51,7 +53,8 @@ public class WeatherController {
 
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("city", city);
-            out.put("source", principal != null ? "user-or-fallback" : "guest");
+            out.put("guestMode", guestMode);
+            out.put("source", guestMode ? "guest" : "user");
 
             if (response != null) {
                 Map<?, ?> main = (Map<?, ?>) response.get("main");
@@ -65,7 +68,7 @@ public class WeatherController {
                     out.put("windSpeed", wind.get("speed"));
                 }
 
-                var weatherList = (List<?>) response.get("weather");
+                List<?> weatherList = (List<?>) response.get("weather");
                 if (weatherList != null && !weatherList.isEmpty()) {
                     Map<?, ?> weather = (Map<?, ?>) weatherList.get(0);
                     out.put("description", weather.get("description"));
@@ -78,7 +81,9 @@ public class WeatherController {
                     "city", city,
                     "tempC", 0,
                     "description", "weather unavailable",
-                    "windSpeed", 0
+                    "windSpeed", 0,
+                    "guestMode", guestMode,
+                    "source", guestMode ? "guest" : "user"
             ));
         }
     }
@@ -100,6 +105,9 @@ public class WeatherController {
                     return address.getCity();
                 }
             }
+
+            // logged-in fallback: do NOT rotate
+            return "Calgary";
         }
 
         List<String> guestCities = List.of("Calgary", "Toronto", "Vancouver");
