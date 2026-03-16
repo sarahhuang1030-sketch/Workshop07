@@ -10,7 +10,15 @@ public class ManagerReportSummaryDTO {
     private BigDecimal estimatedMonthlyRevenue;
     private long totalAddons;
     private long activeAddons;
+    private long totalPlanFeatures;
 
+    public long getTotalPlanFeatures() {
+        return totalPlanFeatures;
+    }
+
+    public void setTotalPlanFeatures(long totalPlanFeatures) {
+        this.totalPlanFeatures = totalPlanFeatures;
+    }
     public long getTotalCustomers() {
         return totalCustomers;
     }

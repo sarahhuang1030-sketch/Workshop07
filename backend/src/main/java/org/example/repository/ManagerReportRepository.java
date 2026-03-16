@@ -18,6 +18,11 @@ public class ManagerReportRepository {
     public ManagerReportSummaryDTO getSummary() {
         ManagerReportSummaryDTO dto = new ManagerReportSummaryDTO();
 
+        Long totalPlanFeatures = jdbc.queryForObject("""
+            SELECT COUNT(*)
+            FROM planfeatures
+            """, Long.class);
+
         Long totalCustomers = jdbc.queryForObject("""
                 SELECT COUNT(*)
                 FROM Customers
@@ -83,7 +88,10 @@ public class ManagerReportRepository {
         dto.setEstimatedMonthlyRevenue(BigDecimal.valueOf(estimatedMonthlyRevenue != null ? estimatedMonthlyRevenue : 0.0));
         dto.setTotalAddons(totalAddons != null ? totalAddons : 0);
         dto.setActiveAddons(activeAddons != null ? activeAddons : 0);
+        dto.setTotalPlanFeatures(totalPlanFeatures != null ? totalPlanFeatures : 0);
 
         return dto;
     }
+
+
 }

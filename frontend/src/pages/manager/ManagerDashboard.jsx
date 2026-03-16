@@ -137,6 +137,8 @@ export default function ManagerDashboard({ darkMode = false }) {
         activeSubs: 0,
         monthlyRevenue: 0,
         pastDue: 0,
+        addOns: 0,
+        planFeatures: 0,
     });
 
     const [loading, setLoading] = useState(true);
@@ -169,6 +171,8 @@ export default function ManagerDashboard({ darkMode = false }) {
                         activeSubs: data.activeSubs ?? 0,
                         monthlyRevenue: data.monthlyRevenue ?? 0,
                         pastDue: data.pastDue ?? 0,
+                        addOns: data.addOns ?? 0,
+                        planFeatures: data.planFeatures ?? 0,
                     });
                 }
             } catch (err) {
@@ -309,7 +313,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                     <Stat
                         darkMode={darkMode}
                         title="Total Add-ons"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.addOns}
                         hint="Currently active"
                         icon={Repeat}
                     >
@@ -328,7 +332,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                     <Stat
                         darkMode={darkMode}
                         title="Total Plan Features"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.planFeatures}
                         hint="Currently active"
                         icon={Repeat}
                     >

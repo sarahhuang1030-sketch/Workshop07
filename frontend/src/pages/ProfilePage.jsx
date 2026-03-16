@@ -262,9 +262,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     }
 
     // if (!userProp) return <Navigate to="/login" replace />;
-    if (!loading && !userProp) {
-        return <Navigate to="/login" replace />;
-    }
+    // if (!loading && !userProp) {
+    //     return <Navigate to="/login" replace />;
+    // }
 
     const hasAccount = !!userProp.customerId || !!userProp.employeeId;
     if (!hasAccount) return <Navigate to="/login" replace />;

@@ -53,6 +53,7 @@ import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature"
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
+import RequireAuth from "./components/auth/RequireAuth";
 
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
@@ -141,7 +142,15 @@ export default function App() {
     const didHydrateRef = useRef(false);
     const refreshInFlightRef = useRef(null);
 
-    const [user, setUser] = useState(null);
+    // const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        try {
+            const raw = localStorage.getItem("tc_user");
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    });
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [authReady, setAuthReady] = useState(false);
     const [needsRegistration, setNeedsRegistration] = useState(() => {
@@ -272,6 +281,7 @@ export default function App() {
                 <Route
                     path="/profile"
                     element={
+                        <RequireAuth user={user} authReady={authReady}>
                         <ProfilePage
                             user={user}
                             onLogout={logout}
@@ -279,6 +289,7 @@ export default function App() {
                             setNeedsRegistration={setNeedsRegistration}
                             refreshMe={refreshMe}
                         />
+                        </RequireAuth>
                     }
                 />
 

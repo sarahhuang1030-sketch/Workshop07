@@ -48,4 +48,12 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
         ) AS revenue_by_subscription
         """, nativeQuery = true)
     BigDecimal calculateMonthlyRevenue();
+
+
+@Query(value = "SELECT COUNT(*) FROM addons", nativeQuery = true)
+long countAddOns();
+
+@Query(value = "SELECT COUNT(*) FROM planfeatures", nativeQuery = true)
+long countPlanFeatures();
+
 }

@@ -23,6 +23,8 @@ public class ManagerService {
         long pastDueInvoices = managerRepository.countPastDueInvoices();
         long suspendedSubs = managerRepository.countSuspendedSubscriptions();
         BigDecimal monthlyRevenue = managerRepository.calculateMonthlyRevenue();
+        long addOns = managerRepository.countAddOns();
+        long planFeatures = managerRepository.countPlanFeatures();
 
         if (monthlyRevenue == null) {
             monthlyRevenue = BigDecimal.ZERO;
@@ -34,7 +36,9 @@ public class ManagerService {
                 (int) customers,
                 (int) activeSubs,
                 monthlyRevenue,
-                combinedPastDueAndSuspended
+                combinedPastDueAndSuspended,
+                addOns,
+                planFeatures
         );
     }
 }

@@ -3,18 +3,31 @@ package org.example.dto;
 import java.math.BigDecimal;
 
 public class ManagerSummaryDTO {
+
     private int customers;
     private int activeSubs;
     private BigDecimal monthlyRevenue;
     private int pastDue;
 
+    private long addOns;
+    private long planFeatures;
+
     public ManagerSummaryDTO() {}
 
-    public ManagerSummaryDTO(int customers, int activeSubs, BigDecimal monthlyRevenue, int pastDue) {
+    public ManagerSummaryDTO(
+            int customers,
+            int activeSubs,
+            BigDecimal monthlyRevenue,
+            int pastDue,
+            long addOns,
+            long planFeatures
+    ) {
         this.customers = customers;
         this.activeSubs = activeSubs;
         this.monthlyRevenue = monthlyRevenue;
         this.pastDue = pastDue;
+        this.addOns = addOns;
+        this.planFeatures = planFeatures;
     }
 
     public int getCustomers() {
@@ -47,5 +60,21 @@ public class ManagerSummaryDTO {
 
     public void setPastDue(int pastDue) {
         this.pastDue = pastDue;
+    }
+
+    public long getAddOns() {
+        return addOns;
+    }
+
+    public void setAddOns(long addOns) {
+        this.addOns = addOns;
+    }
+
+    public long getPlanFeatures() {
+        return planFeatures;
+    }
+
+    public void setPlanFeatures(long planFeatures) {
+        this.planFeatures = planFeatures;
     }
 }
