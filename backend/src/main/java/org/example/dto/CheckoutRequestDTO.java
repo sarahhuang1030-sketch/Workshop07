@@ -1,20 +1,21 @@
 package org.example.dto;
 
-import org.example.entity.InvoiceItems;
-
 import java.util.List;
 
 public class CheckoutRequestDTO {
 
+    private Integer paymentAccountId;
     private Double subtotal;
     private Double tax;
     private Double total;
-    private Integer paymentAccountId;
     private String promoCode;
     private String billingCycle;
+    private String paymentIntentId;
+    private List<CheckoutItemDTO> items;  // List of item DTOs
 
-    // add items
-    private List<InvoiceItems> items;
+    // Getters & Setters
+    public Integer getPaymentAccountId() { return paymentAccountId; }
+    public void setPaymentAccountId(Integer paymentAccountId) { this.paymentAccountId = paymentAccountId; }
 
     public Double getSubtotal() { return subtotal; }
     public void setSubtotal(Double subtotal) { this.subtotal = subtotal; }
@@ -25,15 +26,15 @@ public class CheckoutRequestDTO {
     public Double getTotal() { return total; }
     public void setTotal(Double total) { this.total = total; }
 
-    public Integer getPaymentAccountId() { return paymentAccountId; }
-    public void setPaymentAccountId(Integer paymentAccountId) { this.paymentAccountId = paymentAccountId; }
-
     public String getPromoCode() { return promoCode; }
     public void setPromoCode(String promoCode) { this.promoCode = promoCode; }
 
     public String getBillingCycle() { return billingCycle; }
     public void setBillingCycle(String billingCycle) { this.billingCycle = billingCycle; }
 
-    public List<InvoiceItems> getItems() { return items; }
-    public void setItems(List<InvoiceItems> items) { this.items = items; }
+    public String getPaymentIntentId() { return paymentIntentId; }
+    public void setPaymentIntentId(String paymentIntentId) { this.paymentIntentId = paymentIntentId; }
+
+    public List<CheckoutItemDTO> getItems() { return items; }
+    public void setItems(List<CheckoutItemDTO> items) { this.items = items; }
 }

@@ -1,135 +1,255 @@
-// CheckoutPage.jsx
+// import React, { useState, useMemo } from "react";
+// import { Container, Card, Button, Form, Alert, Spinner } from "react-bootstrap";
+// import { useStripe } from "@stripe/react-stripe-js";
+// import { useCart } from "../context/CartContext";
+// import PaymentForm from "../components/PaymentForm";
+//
+// const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975 };
+//
+// export default function CheckoutPage() {
+//
+//     const stripe = useStripe();
+//     const { plan, addOns, total, clearCart } = useCart();
+//
+//     const [paymentMethod, setPaymentMethod] = useState(null);
+//     const [submitted, setSubmitted] = useState(false);
+//     const [orderNumber, setOrderNumber] = useState("");
+//     const [loading, setLoading] = useState(false);
+//
+//     const [billingCycle, setBillingCycle] = useState("monthly");
+//     const [province, setProvince] = useState("ON");
+//
+//     const pricing = useMemo(() => {
+//         const taxRate = PROVINCE_TAX[province] || 0.13;
+//         let subtotal = total;
+//         if (billingCycle === "yearly") subtotal = subtotal * 12 * 0.9;
+//         const tax = subtotal * taxRate;
+//         return { subtotal, tax, finalTotal: subtotal + tax };
+//     }, [billingCycle, province, total]);
+//
+//     const handleCheckout = async () => {
+//         if (!stripe) return alert("Stripe is still loading.");
+//         if (!paymentMethod?.stripePaymentMethodId) return alert("Select a payment card.");
+//
+//         try {
+//             setLoading(true);
+//
+//             const res = await fetch(`/api/payment-intent?stripeCustomerId=${paymentMethod.stripeCustomerId}&paymentMethodId=${paymentMethod.stripePaymentMethodId}`, {
+//                 method: "POST",
+//                 headers: { "Content-Type": "application/json" },
+//                 body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) })
+//             });
+//
+//             const data = await res.json();
+//
+//             const result = await stripe.confirmCardPayment(data.clientSecret, { payment_method: paymentMethod.stripePaymentMethodId });
+//
+//             if (result.error) {
+//                 alert("Payment failed: " + result.error.message);
+//                 return;
+//             }
+//
+//             setOrderNumber(result.paymentIntent.id);
+//             setSubmitted(true);
+//             clearCart();
+//
+//         } catch (err) {
+//             console.error(err);
+//             alert("Checkout failed");
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+//
+//     if (submitted) return (
+//         <Container className="py-5">
+//             <Alert variant="success">
+//                 <h4>🎉 Payment Successful</h4>
+//                 <p>Thank you for your purchase.</p>
+//                 <strong>Order Number: {orderNumber}</strong>
+//             </Alert>
+//         </Container>
+//     );
+//
+//     return (
+//         <Container style={{ maxWidth: 700 }} className="py-5">
+//             <h2 className="mb-4">Checkout</h2>
+//
+//             <Card className="mb-3 p-3">
+//                 <h5>Billing Cycle</h5>
+//                 <Form.Check label="Monthly" checked={billingCycle === "monthly"} onChange={() => setBillingCycle("monthly")} />
+//                 <Form.Check label="Yearly (10% OFF)" checked={billingCycle === "yearly"} onChange={() => setBillingCycle("yearly")} />
+//             </Card>
+//
+//             <Card className="mb-3 p-3">
+//                 <h5>Province</h5>
+//                 <Form.Select value={province} onChange={e => setProvince(e.target.value)}>
+//                     {Object.keys(PROVINCE_TAX).map(p => <option key={p} value={p}>{p}</option>)}
+//                 </Form.Select>
+//             </Card>
+//
+//             <PaymentForm onPaymentSaved={setPaymentMethod} />
+//
+//             <Card className="mt-3 p-3">
+//                 <h5>Order Summary</h5>
+//                 {plan && <div><strong>Plan:</strong> {plan.name} (${plan.price}/mo)</div>}
+//                 {addOns.length > 0 && <ul>{addOns.map(a => <li key={a.addOnId}>{a.addOnName} (${a.monthlyPrice}/mo)</li>)}</ul>}
+//                 <hr />
+//                 <div>Subtotal: ${pricing.subtotal.toFixed(2)}</div>
+//                 <div>Tax: ${pricing.tax.toFixed(2)}</div>
+//                 <hr />
+//                 <div className="fw-bold">Total: ${pricing.finalTotal.toFixed(2)}</div>
+//             </Card>
+//
+//             <Button className="mt-4 w-100" size="lg" onClick={handleCheckout} disabled={loading}>
+//                 {loading ? <><Spinner animation="border" size="sm" className="me-2" />Processing Payment...</> : `Pay $${pricing.finalTotal.toFixed(2)}`}
+//             </Button>
+//         </Container>
+//     );
+// }
+
 import React, { useState, useMemo } from "react";
-import { Container, Card, Button, Form, Alert } from "react-bootstrap";
+import { Container, Card, Button, Form, Alert, Spinner } from "react-bootstrap";
+import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
-import { useNavigate } from "react-router-dom";
-import { apiFetch } from "../utils/api";
-import PaymentForm from "../components/PaymentForm.jsx";
+import PaymentForm from "../components/PaymentForm";
 
-const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975, MB: 0.12, SK: 0.11, NS: 0.15, NB: 0.15, PE: 0.15, NL: 0.15 };
+/**
+ * Province tax rates (Canada example)
+ */
+const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975 };
 
-export default function CheckoutPage({ user }) {
-    const { plan, addOns, total, clearCart } = useCart();
-    const navigate = useNavigate();
-
-    const [paymentMethodId, setPaymentMethodId] = useState(null);
-    const [billingCycle, setBillingCycle] = useState("monthly");
-    const [province, setProvince] = useState("ON");
+export default function CheckoutPage() {
+    const stripe = useStripe();
+    const { plan, addOns, total, cartItems = [], clearCart } = useCart();
+    const [paymentMethod, setPaymentMethod] = useState(null);
     const [submitted, setSubmitted] = useState(false);
     const [orderNumber, setOrderNumber] = useState("");
-    const [promoInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [billingCycle, setBillingCycle] = useState("monthly");
+    const [province, setProvince] = useState("ON");
 
+    // --- Pricing calculations ---
     const pricing = useMemo(() => {
         const taxRate = PROVINCE_TAX[province] || 0.13;
         let subtotal = total;
-        if (billingCycle === "yearly") subtotal = subtotal * 12 * 0.9;
+        if (billingCycle === "yearly") subtotal *= 12 * 0.9;
         const tax = subtotal * taxRate;
-        const finalTotal = subtotal + tax;
-        const todayDue = billingCycle === "monthly" ? 0 : finalTotal;
-        return { subtotal, taxTotal: tax, finalTotal, todayDue, taxRate };
-    }, [total, billingCycle, province]);
+        return { subtotal, tax, finalTotal: subtotal + tax };
+    }, [billingCycle, province, total]);
 
-    if (!plan && !submitted) return (
-        <Container className="py-5">
-            <Alert variant="warning">Your cart is empty.</Alert>
-        </Container>
-    );
+    // --- Handle checkout ---
+    const handleCheckout = async () => {
+        if (!stripe) return alert("Stripe is still loading.");
+        if (!paymentMethod?.stripePaymentMethodId) return alert("Select a valid payment card.");
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
         try {
-            if (!user || !paymentMethodId) {
-                alert("⚠️ The user or payment account has not set up！");
-                return;
+            setLoading(true);
+
+            // 1️⃣ Create PaymentIntent on backend
+            const intentRes = await fetch(`/api/payment-intent?stripeCustomerId=${paymentMethod.stripeCustomerId}&paymentMethodId=${paymentMethod.stripePaymentMethodId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) })
+            });
+
+            if (!intentRes.ok) throw new Error("Failed to create payment intent");
+            const intentData = await intentRes.json();
+
+            // 2️⃣ Confirm payment
+            const result = await stripe.confirmCardPayment(intentData.clientSecret, { payment_method: paymentMethod.stripePaymentMethodId });
+            if (result.error) return alert("Payment failed: " + result.error.message);
+
+            // 3️⃣ Create invoice on backend
+            const checkoutRes = await fetch("/api/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    paymentAccountId: paymentMethod.id,
+                    subtotal: pricing.subtotal,
+                    tax: pricing.tax,
+                    total: pricing.finalTotal,
+                    promoCode: null,
+                    billingCycle,
+                    paymentIntentId: result.paymentIntent.id,
+                    items: (cartItems || []).map(ci => ({
+                        description: ci.name || "N/A",
+                        quantity: ci.quantity != null ? ci.quantity : 1,
+                        unitPrice: ci.price != null ? ci.price : 0,
+                        lineTotal: (ci.quantity != null && ci.price != null) ? ci.quantity * ci.price : (ci.price != null ? ci.price : 0),
+                        discountAmount: 0
+                    }))
+                })
+            });
+
+            if (!checkoutRes.ok) {
+                const errorData = await checkoutRes.json();
+                throw new Error(errorData.details || "Failed to create invoice");
             }
+            const invoiceData = await checkoutRes.json();
 
-            const payload = {
-                customerId: user.customerId,
-                paymentAccountId: paymentMethodId,
-                billingCycle,
-                subtotal: pricing.subtotal,
-                tax: pricing.taxTotal,
-                total: pricing.finalTotal,
-                promoCode: promoInput || null
-            };
-
-            const res = await apiFetch("/api/checkout", { method: "POST", body: JSON.stringify(payload) });
-            if (!res.ok) throw new Error(await res.text());
-
-            const result = await res.json();
-            setOrderNumber(result.invoiceNumber);
+            setOrderNumber(invoiceData.invoiceNumber || result.paymentIntent.id);
             setSubmitted(true);
             clearCart();
         } catch (err) {
-            console.error("Checkout detailed error:", err);
-            alert("Checkout failed. View console for details.");
+            console.error("Checkout error:", err);
+            alert("Checkout failed: " + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
+    if (submitted) {
+        return (
+            <Container className="py-5">
+                <Alert variant="success">
+                    <h4>🎉 Payment Successful</h4>
+                    <p>Thank you for your purchase.</p>
+                    <strong>Order Number: {orderNumber}</strong>
+                </Alert>
+            </Container>
+        );
+    }
+
     return (
-        <Container className="py-5" style={{ maxWidth: 700 }}>
-            <h1 className="fw-black mb-4">Checkout</h1>
+        <Container style={{ maxWidth: 700 }} className="py-5">
+            <h2 className="mb-4">Checkout</h2>
 
-            {submitted ? (
-                <div>
-                    <Alert variant="success">
-                        <h5>🎉 Payment Successful!</h5>
-                        <div>Your subscription is now active.</div>
-                        <hr />
-                        <div><strong>Order Number:</strong> {orderNumber}</div>
-                    </Alert>
-                    <Button className="mt-3" onClick={() => navigate("/billing")}>View Invoice</Button>
-                    <Button className="mt-3 ms-2" variant="secondary" onClick={() => navigate("/plans")}>Back to Plans</Button>
-                </div>
-            ) : (
-                <Form onSubmit={handleSubmit}>
-                    <Card className="mb-4">
-                        <Card.Body>
-                            <h5 className="fw-bold mb-3">Billing Cycle</h5>
-                            <Form.Check type="radio" label="Monthly" checked={billingCycle === "monthly"} onChange={() => setBillingCycle("monthly")} />
-                            <Form.Check type="radio" label="Yearly (10% OFF)" checked={billingCycle === "yearly"} onChange={() => setBillingCycle("yearly")} />
-                        </Card.Body>
-                    </Card>
+            {/* Billing cycle */}
+            <Card className="mb-3 p-3">
+                <h5>Billing Cycle</h5>
+                <Form.Check label="Monthly" checked={billingCycle === "monthly"} onChange={() => setBillingCycle("monthly")} />
+                <Form.Check label="Yearly (10% OFF)" checked={billingCycle === "yearly"} onChange={() => setBillingCycle("yearly")} />
+            </Card>
 
-                    <Card className="mb-4">
-                        <Card.Body>
-                            <PaymentForm onPaymentSaved={setPaymentMethodId} />
-                        </Card.Body>
-                    </Card>
+            {/* Province */}
+            <Card className="mb-3 p-3">
+                <h5>Province</h5>
+                <Form.Select value={province} onChange={(e) => setProvince(e.target.value)}>
+                    {Object.keys(PROVINCE_TAX).map(p => <option key={p} value={p}>{p}</option>)}
+                </Form.Select>
+            </Card>
 
-                    <Card className="mb-4">
-                        <Card.Body>
-                            <h5 className="fw-bold mb-3">Province</h5>
-                            <Form.Select value={province} onChange={(e) => setProvince(e.target.value)}>
-                                {Object.keys(PROVINCE_TAX).map((p) => <option key={p} value={p}>{p}</option>)}
-                            </Form.Select>
-                        </Card.Body>
-                    </Card>
+            {/* Payment */}
+            <PaymentForm onPaymentSaved={setPaymentMethod} />
 
-                    <Card className="mb-4">
-                        <Card.Body>
-                            <h5 className="fw-bold mb-3">Order Summary</h5>
-                            <div><strong>Plan:</strong> {plan.name} (${plan.price}/mo)</div>
-                            {addOns.length > 0 && (
-                                <div className="mt-2">
-                                    <strong>Add-ons:</strong>
-                                    <ul className="mb-0">{addOns.map(a => <li key={a.addOnId}>{a.addOnName} (${a.monthlyPrice}/mo)</li>)}</ul>
-                                </div>
-                            )}
-                            <hr />
-                            <div>Subtotal: ${pricing.subtotal.toFixed(2)}</div>
-                            <div>Tax ({(pricing.taxRate*100).toFixed(2)}%): ${pricing.taxTotal.toFixed(2)}</div>
-                            <hr />
-                            <div className="fw-bold">Total: ${pricing.finalTotal.toFixed(2)}</div>
-                            <div className="mt-2 text-primary fw-bold">Today Due: ${pricing.todayDue.toFixed(2)}</div>
-                        </Card.Body>
-                    </Card>
+            {/* Order summary */}
+            <Card className="mt-3 p-3">
+                <h5>Order Summary</h5>
+                {plan && <div><strong>Plan:</strong> {plan.name} (${plan.price}/mo)</div>}
+                {addOns.length > 0 && (
+                    <ul>{addOns.map(a => <li key={a.addOnId}>{a.addOnName} (${a.monthlyPrice}/mo)</li>)}</ul>
+                )}
+                <hr />
+                <div>Subtotal: ${pricing.subtotal.toFixed(2)}</div>
+                <div>Tax: ${pricing.tax.toFixed(2)}</div>
+                <hr />
+                <div className="fw-bold">Total: ${pricing.finalTotal.toFixed(2)}</div>
+            </Card>
 
-                    <Button size="lg" type="submit" className="w-100 fw-bold">
-                        Pay ${pricing.todayDue.toFixed(2)}
-                    </Button>
-                </Form>
-            )}
+            <Button className="mt-4 w-100" size="lg" onClick={handleCheckout} disabled={loading}>
+                {loading ? <><Spinner animation="border" size="sm" className="me-2" />Processing Payment...</> : `Pay $${pricing.finalTotal.toFixed(2)}`}
+            </Button>
         </Container>
     );
 }

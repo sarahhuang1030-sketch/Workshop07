@@ -5,16 +5,16 @@ import java.math.BigDecimal;
 
 @Entity
 //@Table(name = "InvoiceItems")
+@Table(name = "invoiceitems")
 public class InvoiceItems {
 
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Integer invoiceItemId;
 
-        // Many invoice items belong to one invoice
         @ManyToOne
-        @JoinColumn(name = "InvoiceId") // database column
-        private Invoices invoices; // property name used in mappedBy
+        @JoinColumn(name = "InvoiceId")
+        private Invoices invoice;
 
         @Column(length = 255)
         private String description;
@@ -32,8 +32,8 @@ public class InvoiceItems {
         public Integer getInvoiceItemId() { return invoiceItemId; }
         public void setInvoiceItemId(Integer invoiceItemId) { this.invoiceItemId = invoiceItemId; }
 
-        public Invoices getInvoice() { return invoices; }
-        public void setInvoice(Invoices invoices) { this.invoices = invoices; }
+        public Invoices getInvoice() { return invoice; }
+        public void setInvoice(Invoices invoice) { this.invoice = invoice; }
 
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }

@@ -6,6 +6,7 @@ import java.util.List;
 
 @Entity
 //@Table(name = "Invoices")
+@Table(name = "invoices")
 public class Invoices {
 
     @Id
@@ -31,13 +32,16 @@ public class Invoices {
     @Column(length = 30)
     private String status;
 
+    @Column(length = 255)
+    private String stripePaymentIntentId;
+
     // Many invoices can be paid by one account
     @ManyToOne
     @JoinColumn(name = "PaidByAccountId", referencedColumnName = "accountId")
     private PaymentAccounts paidByAccount;
 
     // One invoice can have many invoice items
-    @OneToMany(mappedBy = "invoices", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<InvoiceItems> items;
 
     // ===== Getters and Setters =====
@@ -77,4 +81,8 @@ public class Invoices {
 
     public List<InvoiceItems> getItems() { return items; }
     public void setItems(List<InvoiceItems> items) { this.items = items; }
+
+    public String getStripePaymentIntentId() {return stripePaymentIntentId; }
+    public void setStripePaymentIntentId(String stripePaymentIntentId) { this.stripePaymentIntentId = stripePaymentIntentId; }
+
 }

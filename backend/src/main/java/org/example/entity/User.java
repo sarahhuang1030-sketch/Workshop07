@@ -3,7 +3,7 @@ package org.example.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "customers") // Added so Hibernate maps this entity to the correct table
+@Table(name = "customers")
 public class User {
 
     @Id

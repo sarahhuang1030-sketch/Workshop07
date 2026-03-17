@@ -194,6 +194,14 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                                 {/*        Started: {String(profile.plan.startedAt)}*/}
                                 {/*    </div>*/}
                                 {/*)}*/}
+                                <Button
+                                    variant="primary"
+                                    className="mt-3 fw-bold"
+                                    style={{ borderRadius: 14 }}
+                                    onClick={() => navigate("/customer/payment")}
+                                >
+                                    Subscribe Now
+                                </Button>
 
                                 <Button
                                     variant={darkMode ? "outline-light" : "outline-secondary"}

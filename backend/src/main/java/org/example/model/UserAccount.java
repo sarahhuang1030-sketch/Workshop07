@@ -1,18 +1,10 @@
-/**
- Description: UserAccount entity class representing the UserAccounts table in the database.
-
- Created by: Sarah
- Created on: February 2026
- **/
-
 package org.example.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Entity
-@Table(name = "UserAccounts")
+@Table(name = "useraccounts")
 public class UserAccount {
 
     @Id
@@ -24,7 +16,7 @@ public class UserAccount {
     private Integer customerId;
 
     @Column(name = "EmployeeId")
-    private Integer employeeId; // null for customer
+    private Integer employeeId; // null for customers
 
     @Column(name = "Username", nullable = false)
     private String username;
@@ -44,11 +36,16 @@ public class UserAccount {
     @Column(name = "AvatarUrl")
     private String avatarUrl;
 
+    @Column(name = "stripe_customer_id")
+    private String stripeCustomerId;
+
     @PrePersist
     public void prePersist() {
         if (role == null) role = "Customer";
         if (isLocked == null) isLocked = 0;
     }
+
+    // ------------------- Getters & Setters -------------------
 
     public Integer getUserId() { return userId; }
 
@@ -76,4 +73,6 @@ public class UserAccount {
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 
+    public String getStripeCustomerId() { return stripeCustomerId; }
+    public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
 }

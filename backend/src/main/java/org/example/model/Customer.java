@@ -11,7 +11,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Customers")
+@Table(name = "customers")
 public class Customer {
 
     @Id
