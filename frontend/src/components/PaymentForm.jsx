@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Button, Form } from "react-bootstrap";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-
+import { apiFetch } from "../services/api";
 /**
  * PaymentForm component
  * Props:
@@ -23,15 +23,15 @@ export default function PaymentForm({ onPaymentSaved }) {
     useEffect(() => {
         const loadCards = async () => {
             try {
-                const userRes = await fetch("/api/billing/payment", { credentials: "include" });
+                const userRes = await apiFetch("/api/billing/payment");
                 if (!userRes.ok) return setCards([]);
                 const userData = await userRes.json();
                 const stripeCustomerId = userData?.stripeCustomerId;
                 if (!stripeCustomerId) return setCards([]);
 
-                const res = await fetch(`/api/billing/payment/stripe?stripeCustomerId=${stripeCustomerId}`, {
+                const res = await apiFetch(`/api/billing/payment/stripe?stripeCustomerId=${stripeCustomerId}`, {
                     method: "GET",
-                    credentials: "include",
+
                 });
 
                 if (!res.ok) throw new Error("Failed to fetch cards");
@@ -84,17 +84,17 @@ export default function PaymentForm({ onPaymentSaved }) {
 
             // ------------------- Step 2: Get stripeCustomerId from backend -------------------
             // This ensures first-time users get a Stripe customer ID
-            const userRes = await fetch("/api/billing/payment", { credentials: "include" });
+            const userRes = await apiFetch("/api/billing/payment");
             if (!userRes.ok) throw new Error("Failed to retrieve user info");
 
             const userData = await userRes.json();
             const stripeCustomerId = userData?.stripeCustomerId || null; // backend will create one if null
 
             // ------------------- Step 3: Send payment method to backend -------------------
-            const res = await fetch("/api/billing/payment/stripe", {
+            const res = await apiFetch("/api/billing/payment/stripe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
+
                 body: JSON.stringify({
                     stripeCustomerId: stripeCustomerId, // always pass from backend
                     stripePaymentMethodId: paymentMethodId,

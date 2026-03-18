@@ -16,7 +16,7 @@ import {
 import "../style/style.css";
 import { useNavigate } from "react-router-dom";
 import HomepageDock from "../components/HomepageDock";
-
+import { apiFetch } from "../services/api";
 /* ---------- icons ---------- */
 const ICONS = { smartphone: Smartphone, video: Video, zap: Zap, users: Users, gift: Gift, signal: Signal, headphones: Headphones, heart: Heart };
 
@@ -61,9 +61,9 @@ export default function HomePage() {
             setLoading(true);
             try {
                 const [mRes, hRes, aRes] = await Promise.all([
-                    fetch("/api/plans?type=Mobile"),
-                    fetch("/api/plans?type=Internet"),
-                    fetch("/api/addons")
+                    apiFetch("/api/plans?type=Mobile"),
+                    apiFetch("/api/plans?type=Internet"),
+                    apiFetch("/api/addons")
                 ]);
 
                 if (!mRes.ok || !hRes.ok || !aRes.ok) {

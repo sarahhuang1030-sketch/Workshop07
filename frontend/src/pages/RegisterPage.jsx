@@ -11,7 +11,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Signal, Eye, EyeOff } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {validateRegisterForm, digitsOnly, formatPhoneFromDigits, formatPostalCode} from "../pages/validation/Validation.js"
-
+import { apiFetch } from "../services/api";
 
 function providerFromNeedsRegistration(needsRegistration) {
     const lk = needsRegistration?.lookupKey ? String(needsRegistration.lookupKey) : "";
@@ -273,7 +273,7 @@ export default function RegisterPage({
         const body = isMeFlow ? customerProfileBody : registerBody;
 
         try {
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: isMeFlow ? "include" : "omit",
@@ -310,10 +310,9 @@ export default function RegisterPage({
 
 // --- Normal signup: auto-login then go to profile ---
             try {
-                const loginRes = await fetch("/api/auth/login", {
+                const loginRes = await apiFetch("/api/auth/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    credentials: "include", // IMPORTANT for session cookie
                     body: JSON.stringify({
                         username: form.username.trim(),
                         password: form.password,

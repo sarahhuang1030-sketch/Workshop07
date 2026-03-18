@@ -12,7 +12,7 @@ export async function apiFetch(url, options = {}) {
         headers.Authorization = `Bearer ${token}`;
     }
 
-    return fetch(`${BASE_URL}${url}`, {
+    return apiFetch(`${BASE_URL}${url}`, {
         ...options,
         headers,
     });

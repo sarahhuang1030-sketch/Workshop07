@@ -21,6 +21,7 @@ import {
     Gift,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../services/api";
 
 const ICONS = {
     smartphone: Smartphone,
@@ -92,7 +93,7 @@ export default function PlansPage() {
                 setLoading(true);
                 setError("");
 
-                const plansRes = await fetch(
+                const plansRes = await apiFetch(
                     `/api/plans?type=${encodeURIComponent(serviceType)}`
                 );
 

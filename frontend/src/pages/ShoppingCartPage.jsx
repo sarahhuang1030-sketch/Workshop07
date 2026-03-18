@@ -13,6 +13,7 @@ import {
 import { useCart } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart, Trash2, XCircle, Plus } from "lucide-react";
+import { apiFetch } from "../services/api";
 
 export default function ShoppingCartPage() {
     const { plan, addOns, addAddOn, removeAddOn, removePlan } = useCart();
@@ -55,7 +56,7 @@ export default function ShoppingCartPage() {
                 setLoadingAddOns(true);
                 setAddOnsError("");
 
-                const res = await fetch("/api/addons");
+                const res = await apiFetch("/api/addons");
                 if (!res.ok) throw new Error(`AddOns API failed: ${res.status}`);
 
                 const json = await res.json();
