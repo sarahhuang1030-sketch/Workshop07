@@ -99,7 +99,7 @@ public class SecurityConfig {
                                 "/",
                                 "/public/**",
                                 "/oauth2/**",
-                                "/api/billing/payment/**",
+//                                "/api/billing/payment/**",
                                 "/api/auth/login",
                                 "/api/auth/logout",
                                 "/api/auth/register",
@@ -111,9 +111,13 @@ public class SecurityConfig {
                                 "/uploads/**",
                                 "/login/**"
                         ).permitAll()
+                        // REQUIRE LOGIN
+                        .requestMatchers("/api/billing/payment/**").authenticated()
+                        // Role-based
                         .requestMatchers("/api/manager/**").hasRole("MANAGER")
                         .requestMatchers("/api/sales/**").hasAnyRole("SALES_AGENT", "MANAGER")
                         .requestMatchers("/api/service/**").hasAnyRole("SERVICE_TECHNICIAN", "MANAGER")
+                        // All other APIs require authentication
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )

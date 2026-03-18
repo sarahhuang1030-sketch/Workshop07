@@ -20,29 +20,31 @@ export default function PaymentForm({ onPaymentSaved }) {
     /**
      * Load saved cards on component mount
      */
+    // PaymentForm.jsx
     useEffect(() => {
         const loadCards = async () => {
             try {
-                const userRes = await fetch("/api/billing/payment", { credentials: "include" });
-                if (!userRes.ok) return setCards([]);
-                const userData = await userRes.json();
-                const stripeCustomerId = userData?.stripeCustomerId;
-                if (!stripeCustomerId) return setCards([]);
+                const token = localStorage.getItem("token"); // JWT from login
+                if (!token) throw new Error("No token, please login");
 
-                const res = await fetch(`/api/billing/payment/stripe?stripeCustomerId=${stripeCustomerId}`, {
-                    method: "GET",
-                    credentials: "include",
+                const userRes = await fetch("/api/billing/payment", {
+                    headers: { "Authorization": `Bearer ${token}` },
                 });
 
-                if (!res.ok) throw new Error("Failed to fetch cards");
-                const data = await res.json();
-                setCards(data.cards || []);
-                if (data.cards && data.cards.length > 0) {
-                    setSelectedCard(data.cards[0]);
-                    onPaymentSaved(data.cards[0]);
+                if (!userRes.ok) throw new Error("Unauthorized");
+
+                const userData = await userRes.json();
+                const savedCard = userData?.payment;
+
+                if (savedCard) {
+                    setCards([savedCard]);
+                    setSelectedCard(savedCard);
+                } else {
+                    setCards([]);
                 }
+
             } catch (err) {
-                console.error("Failed to load cards:", err);
+                console.error(err);
                 setCards([]);
             } finally {
                 setLoading(false);
@@ -50,7 +52,7 @@ export default function PaymentForm({ onPaymentSaved }) {
         };
 
         loadCards();
-    }, [onPaymentSaved]);
+    }, []);
 
     /**
      * Handle adding a new card
