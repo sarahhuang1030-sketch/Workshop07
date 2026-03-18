@@ -114,6 +114,7 @@ import { useStripe } from "@stripe/react-stripe-js";
 
 import { useCart } from "../context/CartContext";
 import PaymentForm from "../components/PaymentForm";
+import {apiFetch} from "../services/api.js";
 
 // Province tax rates
 const PROVINCE_TAX = {
@@ -158,7 +159,7 @@ export default function CheckoutPage() {
         if (!paymentMethod) return alert("Please select a payment card.");
 
         try {
-            const intentRes = await fetch(
+            const intentRes = await apiFetch(
                 `/api/payment-intent?stripeCustomerId=${paymentMethod.stripeCustomerId}&paymentMethodId=${paymentMethod.stripePaymentMethodId}`,
                 {
                     method: "POST",
@@ -175,11 +176,11 @@ export default function CheckoutPage() {
 
             if (result.error) return alert("Payment failed: " + result.error.message);
 
-            const invoiceRes = await fetch("/api/checkout", {
+            const invoiceRes = await apiFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    paymentAccountId: paymentMethod.accountId, // ⚠️ 这里如果没有 accountId，可以改用 stripePaymentMethodId
+                    paymentAccountId: paymentMethod.accountId,
                     subtotal: pricing.subtotal,
                     tax: pricing.tax,
                     total: pricing.finalTotal,

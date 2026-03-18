@@ -87,14 +87,14 @@ export default function PaymentForm({ onPaymentSaved }) {
 
             // ------------------- Step 2: Get stripeCustomerId from backend -------------------
             // This ensures first-time users get a Stripe customer ID
-            const userRes = await fetch("/api/billing/payment", { credentials: "include" });
+            const userRes = await apiFetch("/api/billing/payment", { credentials: "include" });
             if (!userRes.ok) throw new Error("Failed to retrieve user info");
 
             const userData = await userRes.json();
             const stripeCustomerId = userData?.stripeCustomerId || null; // backend will create one if null
 
             // ------------------- Step 3: Send payment method to backend -------------------
-            const res = await fetch("/api/billing/payment/stripe", {
+            const res = await apiFetch("/api/billing/payment/stripe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
