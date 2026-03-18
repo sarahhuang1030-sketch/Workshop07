@@ -49,6 +49,9 @@ public class PaymentAccounts {
     @Column(name = "stripePaymentMethodId")
     private String stripePaymentMethodId;
 
+    @Column(name = "isDefault")
+    private Integer isDefault = 0;
+
     // --- getters & setters ---
     public Integer getAccountId() { return accountId; }
     public void setAccountId(Integer accountId) { this.accountId = accountId; }
@@ -88,4 +91,8 @@ public class PaymentAccounts {
 
     public String getStripePaymentMethodId() { return stripePaymentMethodId; }
     public void setStripePaymentMethodId(String stripePaymentMethodId) { this.stripePaymentMethodId = stripePaymentMethodId; }
+
+    public Integer getIsDefault() { return isDefault; }
+    public void setIsDefault(Integer isDefault) { this.isDefault = isDefault; }
+
 }

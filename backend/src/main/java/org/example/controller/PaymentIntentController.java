@@ -16,9 +16,6 @@ public class PaymentIntentController {
         this.stripeService = stripeService;
     }
 
-    /**
-     * Create a Stripe PaymentIntent
-     */
     @PostMapping
     public Map<String, String> createIntent(@RequestBody Map<String, Object> data,
                                             @RequestParam(required = false) String stripeCustomerId,

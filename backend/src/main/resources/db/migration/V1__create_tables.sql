@@ -195,6 +195,7 @@ CREATE TABLE paymentaccounts (
     expiryYear INT DEFAULT NULL,
     last4 VARCHAR(255) DEFAULT NULL,
     stripePaymentMethodId VARCHAR(255) DEFAULT NULL,
+    isDefault INT DEFAULT 0,
     PRIMARY KEY (AccountId),
     KEY CustomerId (CustomerId),
     CONSTRAINT paymentaccounts_ibfk_1 FOREIGN KEY (CustomerId) REFERENCES customers (CustomerId)

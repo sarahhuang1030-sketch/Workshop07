@@ -89,7 +89,7 @@ INSERT INTO planfeatures (FeatureId, PlanId, FeatureName, FeatureValue, Unit, So
                                                                                              (16, 9, 'Perk', 'Free install + equipment setup', NULL, 12);
 
 INSERT INTO paymentaccounts (AccountId, CustomerId, balance, CreatedAt, cardNumber, cvv, expiredDate, holderName, method, expiryMonth, expiryYear, last4, stripePaymentMethodId) VALUES
-    (1, 3, NULL, NULL, '4499999999999999', NULL, '2026-07-01', 'Sarah Chen', 'VISA', NULL, NULL, NULL, NULL);
+    (1, 3, NULL, NULL, '4242424242424242', NULL, '2026-07-01', 'Sarah Chen', 'VISA', NULL, NULL, NULL, NULL);
 
 INSERT INTO invoices (InvoiceId, CustomerId, InvoiceNumber, IssueDate, DueDate, subtotal, taxTotal, total, PaidByAccountId, Status, promoCode) VALUES
     (1, 1, 'INV-1001', '2024-03-01', '2024-03-15', 60, 3, 63, NULL, 'Open', NULL);

@@ -99,7 +99,7 @@ public class SecurityConfig {
                                 "/",
                                 "/public/**",
                                 "/oauth2/**",
-
+                                "/api/billing/payment/**",
                                 "/api/auth/login",
                                 "/api/auth/logout",
                                 "/api/auth/register",

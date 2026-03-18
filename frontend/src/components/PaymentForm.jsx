@@ -1,112 +1,152 @@
 import React, { useEffect, useState } from "react";
 import { Card, Button, Form } from "react-bootstrap";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { apiFetch } from "../services/api";
 
+/**
+ * PaymentForm component
+ * Props:
+ *  - onPaymentSaved: callback function when a payment method is selected or added
+ */
 export default function PaymentForm({ onPaymentSaved }) {
-
     const stripe = useStripe();
     const elements = useElements();
 
-    const [cards, setCards] = useState([]);
-    const [selectedCard, setSelectedCard] = useState(null);
-    const [holderName, setHolderName] = useState("");
+    const [cards, setCards] = useState([]); // List of saved cards
+    const [selectedCard, setSelectedCard] = useState(null); // Currently selected card
+    const [holderName, setHolderName] = useState(""); // Name for new card
+    const [loading, setLoading] = useState(true); // Loading state for cards
+    const [setAsDefault, setSetAsDefault] = useState(false);
 
-    // Load saved cards
+    /**
+     * Load saved cards on component mount
+     */
     useEffect(() => {
-
         const loadCards = async () => {
             try {
+                const userRes = await fetch("/api/billing/payment", { credentials: "include" });
+                if (!userRes.ok) return setCards([]);
+                const userData = await userRes.json();
+                const stripeCustomerId = userData?.stripeCustomerId;
+                if (!stripeCustomerId) return setCards([]);
 
-                const res = await apiFetch("/api/billing/payment");
+                const res = await fetch(`/api/billing/payment/stripe?stripeCustomerId=${stripeCustomerId}`, {
+                    method: "GET",
+                    credentials: "include",
+                });
 
-                if (!res.ok) return;
-
+                if (!res.ok) throw new Error("Failed to fetch cards");
                 const data = await res.json();
-
-                if (data.cards?.length > 0) {
-                    setCards(data.cards);
+                setCards(data.cards || []);
+                if (data.cards && data.cards.length > 0) {
                     setSelectedCard(data.cards[0]);
-                    onPaymentSaved?.(data.cards[0]);
+                    onPaymentSaved(data.cards[0]);
                 }
-
             } catch (err) {
                 console.error("Failed to load cards:", err);
+                setCards([]);
+            } finally {
+                setLoading(false);
             }
         };
 
         loadCards();
-
     }, [onPaymentSaved]);
 
-
-    // Add new card
+    /**
+     * Handle adding a new card
+     */
     const handleAddCard = async () => {
-
         if (!stripe || !elements) {
-            alert("Stripe not ready");
+            alert("Stripe is not ready yet.");
             return;
         }
 
-        const result = await stripe.createPaymentMethod({
-            type: "card",
-            card: elements.getElement(CardElement),
-            billing_details: { name: holderName }
-        });
-
-        if (result.error) {
-            alert(result.error.message);
+        if (!holderName.trim()) {
+            alert("Please enter the cardholder name.");
             return;
         }
 
         try {
-
-            const res = await apiFetch("/api/billing/payment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    stripePaymentMethodId: result.paymentMethod.id,
-                    holderName
-                })
+            // ------------------- Step 1: Create a Stripe PaymentMethod -------------------
+            const result = await stripe.createPaymentMethod({
+                type: "card",
+                card: elements.getElement(CardElement),
+                billing_details: { name: holderName },
             });
 
-            if (!res.ok) throw new Error("Save card failed");
+            if (result.error) {
+                console.error("Stripe createPaymentMethod error:", result.error.message);
+                alert(result.error.message);
+                return;
+            }
+
+            const paymentMethodId = result.paymentMethod.id;
+
+            // ------------------- Step 2: Get stripeCustomerId from backend -------------------
+            // This ensures first-time users get a Stripe customer ID
+            const userRes = await fetch("/api/billing/payment", { credentials: "include" });
+            if (!userRes.ok) throw new Error("Failed to retrieve user info");
+
+            const userData = await userRes.json();
+            const stripeCustomerId = userData?.stripeCustomerId || null; // backend will create one if null
+
+            // ------------------- Step 3: Send payment method to backend -------------------
+            const res = await fetch("/api/billing/payment/stripe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    stripeCustomerId: stripeCustomerId, // always pass from backend
+                    stripePaymentMethodId: paymentMethodId,
+                    holderName: holderName,
+                    setAsDefault: setAsDefault
+                }),
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Failed to save card: ${text}`);
+            }
 
             const savedCard = await res.json();
 
-            setCards(prev => [...prev, savedCard]);
+            // ------------------- Step 4: Update frontend state -------------------
+            const updatedCards = [...cards, savedCard];
+            setCards(updatedCards);
             setSelectedCard(savedCard);
-
-            onPaymentSaved?.(savedCard);
-
             setHolderName("");
+            onPaymentSaved(savedCard);
 
         } catch (err) {
-
-            console.error("Failed to save card:", err);
-            alert("Failed to save card");
-
+            console.error("Error adding card:", err);
+            alert("Failed to add card. See console for details.");
         }
     };
 
+    /**
+     * Handle selecting an existing card
+     */
+    const handleSelectCard = (card) => {
+        setSelectedCard(card);
+        onPaymentSaved(card);
+    };
+
+    // Show loading state
+    if (loading) return <Card className="p-3">Loading saved cards...</Card>;
 
     return (
         <Card className="p-3 mb-3">
-
-            <h5>Payment Method</h5>
+            <h5>Payment Methods</h5>
 
             {cards.length > 0 && (
                 <div className="mb-3">
-                    {cards.map(card => (
+                    {cards.map((card) => (
                         <Form.Check
                             key={card.stripePaymentMethodId}
                             type="radio"
-                            label={`${(card.method || "CARD").toUpperCase()} •••• ${card.last4 || ""}`}
+                            label={`${card.method?.toUpperCase()} •••• ${card.last4}`}
                             checked={selectedCard?.stripePaymentMethodId === card.stripePaymentMethodId}
-                            onChange={() => {
-                                setSelectedCard(card);
-                                onPaymentSaved?.(card);
-                            }}
+                            onChange={() => handleSelectCard(card)}
                         />
                     ))}
                 </div>
@@ -119,32 +159,24 @@ export default function PaymentForm({ onPaymentSaved }) {
             <Form.Control
                 placeholder="Cardholder Name"
                 value={holderName}
-                onChange={e => setHolderName(e.target.value)}
+                onChange={(e) => setHolderName(e.target.value)}
                 className="mb-2"
             />
 
             <div className="mb-3 p-2 border rounded">
-                <CardElement
-                    options={{
-                        hidePostalCode: true,
-                        style: {
-                            base: {
-                                fontSize: "16px",
-                                color: "#495057"
-                            }
-                        }
-                    }}
-                />
+                <CardElement options={{ hidePostalCode: true }} />
             </div>
 
-            <Button
-                onClick={handleAddCard}
-                className="w-100"
-                disabled={!stripe}
-            >
+            <Form.Check
+                type="checkbox"
+                label="Set as default card"
+                checked={setAsDefault}
+                onChange={() => setSetAsDefault(!setAsDefault)}
+                className="mb-3"
+            />
+            <Button onClick={handleAddCard} className="w-100">
                 Save Card
             </Button>
-
         </Card>
     );
 }
