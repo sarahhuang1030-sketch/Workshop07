@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Button, Form } from "react-bootstrap";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import {apiFetch} from "../services/api.js";
 
 /**
  * PaymentForm component
@@ -27,7 +28,7 @@ export default function PaymentForm({ onPaymentSaved }) {
                 const token = localStorage.getItem("token"); // JWT from login
                 if (!token) throw new Error("No token, please login");
 
-                const userRes = await fetch("/api/billing/payment", {
+                const userRes = await apiFetch("/api/billing/payment", {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
 
