@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Badge, Spinner } from "react-bootstrap";
 import { CloudSun } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { apiFetch } from "../services/api";
 
 export default function WeatherCard() {
     const { darkMode } = useTheme();
@@ -14,7 +15,7 @@ export default function WeatherCard() {
 
         async function loadWeather() {
             try {
-                const res = await fetch("/api/weather", { credentials: "include" });
+                const res = await apiFetch("/api/weather");
                 const data = await res.json();
 
                 if (!cancelled) {
@@ -60,7 +61,7 @@ export default function WeatherCard() {
 
         const intervalId = setInterval(async () => {
             try {
-                const res = await fetch("/api/weather", { credentials: "include" });
+                const res = await apiFetch("/api/weather");
                 const data = await res.json();
 
                 setWeather((prev) => {

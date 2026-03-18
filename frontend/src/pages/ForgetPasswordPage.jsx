@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../services/api";
 
 export default function ForgetPasswordPage() {
     const { darkMode } = useTheme();
@@ -27,7 +28,7 @@ export default function ForgetPasswordPage() {
         setMsg("");
         try {
             console.log("FORGET PASSWORD PAGE VERSION: 2026-02-07 v5");
-            const res = await fetch("/api/auth/forgetpassword", {
+            const res = await apiFetch("/api/auth/forgetpassword", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ identifier:value }),

@@ -11,6 +11,7 @@ import { Container, Card, Form, Button, Alert, InputGroup } from "react-bootstra
 import { useTheme } from "../context/ThemeContext";
 import { Eye, EyeOff } from "lucide-react";
 import {validateResetPassword } from "../pages/validation/Validation.js";
+import { apiFetch } from "../services/api";
 
 export default function ResetPasswordPage() {
     const { darkMode } = useTheme();
@@ -47,7 +48,7 @@ export default function ResetPasswordPage() {
 
         setLoading(true);
         try {
-            const res = await fetch("/api/auth/resetpassword", {
+            const res = await apiFetch("/api/auth/resetpassword", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token, newPassword: pw1 }),

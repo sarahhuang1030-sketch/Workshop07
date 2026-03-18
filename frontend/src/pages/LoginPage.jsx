@@ -10,6 +10,7 @@ import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { Eye, EyeOff } from "lucide-react";
 import { FaGoogle, FaGithub, FaFacebook } from "react-icons/fa";
+import { apiFetch } from "../services/api";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -42,7 +43,7 @@ export default function LoginPage({ refreshMe }) {
 
 
         try {
-            const res = await fetch("/api/auth/login", {
+            const res = await apiFetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
 
@@ -81,7 +82,7 @@ export default function LoginPage({ refreshMe }) {
         return async (e) => {
             e.preventDefault();
             try {
-                await fetch("/logout", { method: "POST", credentials: "include" });
+                await apiFetch("/logout", { method: "POST"});
             } catch {}
             localStorage.removeItem("tc_user");
             sessionStorage.removeItem("tc_needs_registration");
