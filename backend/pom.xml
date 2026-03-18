@@ -156,6 +156,12 @@
             <version>24.21.0</version>
         </dependency>
 
+<!--  azure backend      -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+
     </dependencies>
 
 
@@ -172,8 +178,6 @@
                 <version>3.11.0</version>
                 <configuration>
                     <release>17</release>
-                    <source>25</source>
-                    <target>25</target>
                 </configuration>
             </plugin>
         </plugins>
