@@ -5,15 +5,27 @@ export async function apiFetch(url, options = {}) {
 
     const headers = {
         ...(options.headers || {}),
-        "Content-Type": "application/json",
     };
 
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+    // Only set Content-Type for normal JSON requests
+    if (!(options.body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
     }
 
-    return apiFetch(`${BASE_URL}${url}`, {
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${BASE_URL}${url}`, {
         ...options,
         headers,
     });
+
+    // If token is expired/invalid, remove it so the app stops reusing it
+    if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+    }
+
+    return response;
 }
