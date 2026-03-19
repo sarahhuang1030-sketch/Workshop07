@@ -2,6 +2,7 @@
     import { Container, Card, Row, Col, Spinner, Alert, Badge, Button } from "react-bootstrap";
     import { useNavigate } from "react-router-dom";
     import { Package, ArrowLeft } from "lucide-react";
+    import {apiFetch} from "../../services/api.js";
 
     const formatMoney = (n) =>
         n == null || Number.isNaN(Number(n))
@@ -22,7 +23,7 @@
 
             async function load() {
                 try {
-                    const res = await fetch("/api/me/subscription/details", { credentials: "include" });
+                    const res = await apiFetch("/api/me/subscription/details");
                     if (res.status === 401) {
                         if (isMounted) {
                             setError("Unauthorized");
