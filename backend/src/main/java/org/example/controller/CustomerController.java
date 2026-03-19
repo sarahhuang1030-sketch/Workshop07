@@ -35,8 +35,6 @@ public class CustomerController {
 
     }
 
-
-
     @GetMapping("/{customerId}/profile")
     public ResponseEntity<?> getProfile(
             @PathVariable Integer customerId,
