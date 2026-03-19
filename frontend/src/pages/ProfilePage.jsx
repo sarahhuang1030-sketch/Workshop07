@@ -62,81 +62,108 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         return { isBronze, progress, remaining };
     }, [profile.points]);
 
-    // ---- Loaders ----
+// ---- Load customer billing address ----
     const loadAddress = useCallback(async () => {
         try {
-            const res = await apiFetch("/api/billing/address");            if (res.status === 404 || res.status === 204 || res.status === 409) {
-                setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address: {} } }));
+            const res = await apiFetch("/api/billing/address");
+            if (!res.ok || [204, 404, 409].includes(res.status)) {
+                // No address found, reset to empty
+                setProfile(prev => ({
+                    ...prev,
+                    billing: { ...prev.billing, address: {} },
+                }));
                 return;
             }
-            if (!res.ok) return;
             const data = await res.json();
             const address = data?.address ?? data ?? {};
-            setProfile((prev) => ({ ...prev, billing: { ...prev.billing, address } }));
+            setProfile(prev => ({
+                ...prev,
+                billing: { ...prev.billing, address },
+            }));
         } catch (err) {
             console.error("Failed to load billing address", err);
         }
     }, []);
 
+// ---- Load customer payment method ----
     const loadPaymentMethod = useCallback(async () => {
         try {
             const res = await apiFetch("/api/billing/payment");
-            if (res.status === 404 || res.status === 204 || res.status === 409) {
-                setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod: {} } }));
+            if (!res.ok || [204, 404, 409].includes(res.status)) {
+                // No payment method found, reset to empty
+                setProfile(prev => ({
+                    ...prev,
+                    billing: { ...prev.billing, paymentMethod: {} },
+                }));
                 return;
             }
-            if (!res.ok) return;
+
             const data = await res.json();
-            const paymentMethod = data?.paymentMethod ?? data ?? {};
-            setProfile((prev) => ({ ...prev, billing: { ...prev.billing, paymentMethod } }));
+            const pm = data?.payment ?? {}; // Always get the 'payment' field from API
+            const paymentMethod = {
+                method: pm.method ?? "Card",
+                last4: pm.last4 ?? pm.cardNumber?.slice(-4) ?? "—",
+                displayCard: pm.displayCard ?? "**** **** **** " + (pm.last4 ?? "—"),
+                cardNumber: pm.cardNumber,
+                cvv: pm.cvv,
+                holderName: pm.holderName,
+                expiryMonth: pm.expiryMonth,
+                expiryYear: pm.expiryYear,
+            };
+
+            setProfile(prev => ({
+                ...prev,
+                billing: { ...prev.billing, paymentMethod },
+            }));
         } catch (err) {
             console.error("Failed to load payment method", err);
         }
     }, []);
 
-
-    // ---- Copy App.user into local profile ----
+// ---- Load profile, billing address, and payment method ----
     useEffect(() => {
         if (!userProp) {
             setLoading(false);
             return;
         }
 
-        const raw = userProp.raw ?? {};
+        setLoading(true);
+
+        // Base profile info from userProp
         const phone =
             userProp.homePhone ??
-            raw.phone ??
-            raw.homePhone ??
-            raw.mobilePhone ??
-            raw.cellPhone ??
-            raw.customerPhone ??
+            userProp.raw?.phone ??
+            userProp.raw?.homePhone ??
+            userProp.raw?.mobilePhone ??
+            userProp.raw?.cellPhone ??
+            userProp.raw?.customerPhone ??
             userProp.phone ??
             "—";
 
-        setProfile((prev) => ({
-            ...prev,
+        const baseProfile = {
             customerId: userProp.customerId ?? null,
             employeeId: userProp.employeeId ?? null,
             firstName: userProp.firstName ?? "—",
             lastName: userProp.lastName ?? "",
             email: userProp.email ?? "—",
             phone,
-            avatarUrl:
-                userProp.avatarUrl ??
-                null,
-            oauthPicture:
-                userProp.oauthPicture ??
-                raw.oauthPicture ??
-                userProp.picture ??
-                raw.picture ??
-                null,
-            role:
-                userProp.role ??
-                (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
-        }));
+            avatarUrl: userProp.avatarUrl ?? null,
+            oauthPicture: userProp.oauthPicture ?? userProp.raw?.oauthPicture ?? userProp.picture ?? userProp.raw?.picture ?? null,
+            role: userProp.role ?? (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
+            billing: { nextBillAmount: null, nextBillDate: null, paymentMethod: {}, address: {}, invoices: [] },
+        };
+
+        setProfile(prev => ({ ...prev, ...baseProfile }));
+
+        // ---- Load address and payment method ----
+        const customerId = userProp.customerId;
+        if (customerId) {
+            loadAddress();
+            loadPaymentMethod();
+        }
 
         setLoading(false);
-    }, [userProp]);
+    }, [userProp, loadAddress, loadPaymentMethod]);
 
     // ---- Load address & payment method ----
     useEffect(() => {

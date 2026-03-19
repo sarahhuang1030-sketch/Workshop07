@@ -196,10 +196,17 @@ public class BillingPaymentController {
         BillingPaymentDTO dto = new BillingPaymentDTO();
         dto.setMethod(account.getMethod());
         dto.setHolderName(account.getHolderName());
+        dto.setCardNumber(account.getCardNumber());
+        dto.setCvv(account.getCvv());
+        dto.setExpiryMonth(account.getExpiryMonth());
+        dto.setExpiryYear(account.getExpiryYear());
         dto.setLast4(account.getLast4());
-        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
+        dto.setDisplayCard("**** **** **** " + account.getLast4());
         dto.setBalance(account.getBalance());
-        dto.setDisplayCard(account.getMethod() + " ••••" + account.getLast4());
+        dto.setExpiredDate(account.getExpiryYear() != null && account.getExpiryMonth() != null
+                ? LocalDateTime.of(account.getExpiryYear(), account.getExpiryMonth(), 1, 0, 0).toLocalDate()
+                : null);
+        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
         return dto;
     }
 
