@@ -13,7 +13,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal } from "../components";
+import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal, BillingAddressCard } from "../components";
 import { apiFetch } from "../services/api";
 
 const POINTS_PER_DOLLAR = 1;
@@ -447,6 +447,13 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             else setShowBillingModal(true);
                         }}
                         className="mt-4"
+                    />
+                    {/* ---- Billing Address Card ---- */}
+                    <BillingAddressCard
+                        address={profile.billing.address}
+                        darkMode={darkMode}
+                        onEdit={() => setShowBillingModal(true)}
+                        className="mt-3"
                     />
                 </Col>
             </Row>
