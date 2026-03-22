@@ -33,8 +33,7 @@ export const ROLE_UI = {
     servicetechnician: {
         dashboardPath: "/service",
         nav: [
-            { label: "Work Orders", to: "/service/work-orders" },
-            { label: "Assigned Tickets", to: "/service/tickets" },
+            { label: "Dashboard", to: "/service" },
             { label: "Profile", to: "/profile" },
         ],
     },
