@@ -63,7 +63,7 @@ public class BillingPaymentController {
 
         String paymentMethodId = (String) body.get("stripePaymentMethodId");
         String holderName = (String) body.get("holderName");
-        boolean setDefault = Boolean.TRUE.equals(body.get("setAsDefault"));
+        boolean setDefault = Boolean.TRUE.equals(body.get("setAsDefault")); // Optional
 
         if (paymentMethodId == null || holderName == null) {
             return ResponseEntity.badRequest().build();
@@ -87,21 +87,21 @@ public class BillingPaymentController {
         account.setLast4(stripeCard.getCard().getLast4());
         account.setStripePaymentMethodId(stripeCard.getId());
         account.setCreatedAt(LocalDateTime.now());
-        account.setIsDefault(setDefault ? 1 : 0);
-        account.setExpiryMonth(stripeCard.getCard().getExpMonth() != null ? stripeCard.getCard().getExpMonth().intValue() : null);
-        account.setExpiryYear(stripeCard.getCard().getExpYear() != null ? stripeCard.getCard().getExpYear().intValue() : null);
+        account.setIsDefault(0); // Default is 0, only change later if needed
+        account.setExpiryMonth(stripeCard.getCard().getExpMonth().intValue());
+        account.setExpiryYear(stripeCard.getCard().getExpYear().intValue());
 
-        // Clear previous defaults if setting this as default
+        paymentAccountRepo.save(account);
+
+        // If user wants, set this card as default
         if (setDefault) {
             List<PaymentAccounts> existing = paymentAccountRepo
                     .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
             for (PaymentAccounts c : existing) {
-                c.setIsDefault(0);
+                c.setIsDefault(c.getStripePaymentMethodId().equals(account.getStripePaymentMethodId()) ? 1 : 0);
                 paymentAccountRepo.save(c);
             }
         }
-
-        paymentAccountRepo.save(account);
 
         // Audit log
         auditService.log("PaymentMethod", "Add",
