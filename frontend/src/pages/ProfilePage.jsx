@@ -88,9 +88,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 // ---- Load customer payment method ----
     const loadPaymentMethod = useCallback(async () => {
         try {
-            const res = await apiFetch("/api/billing/payment");
-            if (!res.ok || [204, 404, 409].includes(res.status)) {
-                // No payment method found, reset to empty
+            const res = await apiFetch("/api/billing/payment/all");
+
+            if (!res.ok) {
                 setProfile(prev => ({
                     ...prev,
                     billing: { ...prev.billing, paymentMethod: {} },
@@ -99,13 +99,22 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             }
 
             const data = await res.json();
-            const pm = data?.payment ?? {}; // Always get the 'payment' field from API
+
+            if (!Array.isArray(data) || data.length === 0) {
+                setProfile(prev => ({
+                    ...prev,
+                    billing: { ...prev.billing, paymentMethod: {} },
+                }));
+                return;
+            }
+
+            // ✅ get default card OR first card
+            const pm = data.find(c => c.isDefault) || data[0];
+
             const paymentMethod = {
                 method: pm.method ?? "Card",
-                last4: pm.last4 ?? pm.cardNumber?.slice(-4) ?? "—",
-                displayCard: pm.displayCard ?? "**** **** **** " + (pm.last4 ?? "—"),
-                cardNumber: pm.cardNumber,
-                cvv: pm.cvv,
+                last4: pm.last4 ?? "—",
+                displayCard: pm.displayCard ?? `**** **** **** ${pm.last4}`,
                 holderName: pm.holderName,
                 expiryMonth: pm.expiryMonth,
                 expiryYear: pm.expiryYear,
@@ -115,6 +124,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 ...prev,
                 billing: { ...prev.billing, paymentMethod },
             }));
+
         } catch (err) {
             console.error("Failed to load payment method", err);
         }
