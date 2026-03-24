@@ -185,4 +185,22 @@ public class StripePaymentService {
                 customer.getInvoiceSettings().getDefaultPaymentMethod()
         );
     }
+
+    /**
+     * Create a new Stripe customer with username/email
+     */
+    public String createCustomer(String username) throws Exception {
+        Customer customer = Customer.create(CustomerCreateParams.builder()
+                .setName(username)
+                .build());
+        return customer.getId();
+    }
+
+    /**
+     * Detach a payment method from Stripe customer
+     */
+    public void detachPaymentMethod(String paymentMethodId) throws Exception {
+        PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
+        pm.detach();
+    }
 }

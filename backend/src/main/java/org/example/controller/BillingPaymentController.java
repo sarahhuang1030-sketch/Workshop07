@@ -1,9 +1,7 @@
 package org.example.controller;
 
-import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentMethod;
 import org.example.dto.BillingPaymentDTO;
-import org.example.dto.PaymentUpdateDTO;
 import org.example.entity.PaymentAccounts;
 import org.example.model.UserAccount;
 import org.example.repository.PaymentAccountRepository;
@@ -11,16 +9,13 @@ import org.example.repository.UserAccountRepository;
 import org.example.service.AuditService;
 import org.example.service.StripePaymentService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/billing/payment")
@@ -41,195 +36,159 @@ public class BillingPaymentController {
         this.auditService = auditService;
     }
 
-    // ======================= ADD CARD =======================
+    // ================= GET ALL CARDS =================
+    // Supports both /api/billing/payment and /api/billing/payment/all
+    @GetMapping({"", "/all"})
+    public ResponseEntity<List<BillingPaymentDTO>> getAllCards(Principal principal) {
+        UserAccount user = getUserFromPrincipal(principal);
+        if (user == null) return ResponseEntity.ok(Collections.emptyList());
+
+        List<PaymentAccounts> cards = paymentAccountRepo
+                .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+
+        List<BillingPaymentDTO> dtos = cards.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    // ================= ADD NEW CARD =================
     @PostMapping("/stripe")
     @Transactional
-    public Map<String, Object> addCard(@RequestBody Map<String, Object> body,
-                                       Principal principal,
-                                       @AuthenticationPrincipal OAuth2User oauthUser) throws Exception {
+    public ResponseEntity<BillingPaymentDTO> addCard(@RequestBody Map<String, Object> body,
+                                                     Principal principal) throws Exception {
+        UserAccount user = getUserFromPrincipal(principal);
+        if (user == null) return ResponseEntity.status(401).build();
 
-        // Ensure user is authenticated
-        if (principal == null) {
-            throw new RuntimeException("User not authenticated");
-        }
-
-        // Extract request data
         String paymentMethodId = (String) body.get("stripePaymentMethodId");
         String holderName = (String) body.get("holderName");
-        Boolean setAsDefault = body.get("setAsDefault") != null && (Boolean) body.get("setAsDefault");
+        boolean setDefault = Boolean.TRUE.equals(body.get("setAsDefault"));
 
-        if (paymentMethodId == null || paymentMethodId.isBlank()) {
-            throw new RuntimeException("PaymentMethod ID is required");
+        if (paymentMethodId == null || holderName == null) {
+            return ResponseEntity.badRequest().build();
         }
-
-        if (holderName == null || holderName.isBlank()) {
-            throw new RuntimeException("Cardholder name is required");
-        }
-
-        // Resolve current user
-        String key = resolveLoginKey(principal, null, oauthUser);
-
-        UserAccount userAccount = userAccountRepo.findByUsernameIgnoreCase(key)
-                .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Ensure Stripe customer exists
-        String stripeCustomerId = userAccount.getStripeCustomerId();
-
-        if (stripeCustomerId == null || stripeCustomerId.isBlank()) {
-            com.stripe.model.Customer customer = com.stripe.model.Customer.create(
-                    com.stripe.param.CustomerCreateParams.builder()
-                            .setName(userAccount.getUsername())
-                            .build()
-            );
-
-            stripeCustomerId = customer.getId();
-            userAccount.setStripeCustomerId(stripeCustomerId);
-            userAccountRepo.save(userAccount);
+        String stripeCustomerId = user.getStripeCustomerId();
+        if (stripeCustomerId == null) {
+            stripeCustomerId = stripeService.createCustomer(user.getUsername());
+            user.setStripeCustomerId(stripeCustomerId);
+            userAccountRepo.save(user);
         }
 
-        // Attach payment method to Stripe customer
-        PaymentMethod paymentMethod = stripeService
-                .attachPaymentMethodToCustomer(stripeCustomerId, paymentMethodId);
-
-        if (paymentMethod.getCard() == null) {
-            throw new RuntimeException("Invalid card data");
-        }
-
-        // Save card into database
-        Integer customerId = userAccount.getCustomerId();
-
-        if (customerId == null) {
-            throw new RuntimeException("CustomerId is missing");
-        }
+        // Attach card to Stripe
+        PaymentMethod stripeCard = stripeService.attachPaymentMethodToCustomer(stripeCustomerId, paymentMethodId);
 
         PaymentAccounts account = new PaymentAccounts();
-        account.setCustomerId(customerId);
+        account.setCustomerId(user.getCustomerId());
         account.setHolderName(holderName);
-        account.setMethod(paymentMethod.getCard().getBrand());
-        account.setStripePaymentMethodId(paymentMethod.getId());
-        account.setLast4(paymentMethod.getCard().getLast4());
+        account.setMethod(stripeCard.getCard().getBrand());
+        account.setLast4(stripeCard.getCard().getLast4());
+        account.setStripePaymentMethodId(stripeCard.getId());
         account.setCreatedAt(LocalDateTime.now());
+        account.setIsDefault(setDefault ? 1 : 0);
+        account.setExpiryMonth(stripeCard.getCard().getExpMonth() != null ? stripeCard.getCard().getExpMonth().intValue() : null);
+        account.setExpiryYear(stripeCard.getCard().getExpYear() != null ? stripeCard.getCard().getExpYear().intValue() : null);
 
-        // Handle default card
-        if (setAsDefault) {
-            List<PaymentAccounts> existingCards =
-                    paymentAccountRepo.findAllByCustomerIdOrderByCreatedAtDesc(customerId);
-
-            for (PaymentAccounts c : existingCards) {
+        // Clear previous defaults if setting this as default
+        if (setDefault) {
+            List<PaymentAccounts> existing = paymentAccountRepo
+                    .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+            for (PaymentAccounts c : existing) {
                 c.setIsDefault(0);
                 paymentAccountRepo.save(c);
             }
-            account.setIsDefault(1);
-        } else {
-            account.setIsDefault(0);
         }
 
         paymentAccountRepo.save(account);
 
         // Audit log
         auditService.log("PaymentMethod", "Add",
-                "Customer " + customerId + " ••••" + paymentMethod.getCard().getLast4(),
-                key);
+                "Customer " + user.getCustomerId() + " ••••" + account.getLast4(),
+                user.getUsername());
 
-        // Return response
-        Map<String, Object> result = new HashMap<>();
-        result.put("stripeCustomerId", stripeCustomerId);
-        result.put("stripePaymentMethodId", paymentMethod.getId());
-        result.put("last4", paymentMethod.getCard().getLast4());
-        result.put("method", paymentMethod.getCard().getBrand());
-        result.put("holderName", holderName);
-        result.put("isDefault", setAsDefault);
-
-        return result;
+        return ResponseEntity.ok(mapToDTO(account));
     }
 
-    // ======================= GET PAYMENT =======================
-    @GetMapping
-    public ResponseEntity<Map<String, Object>> getPayment(Principal principal,
-                                                          @AuthenticationPrincipal OAuth2User oauthUser) {
-        System.out.println("=== GET /api/billing/payment called ===");
-        System.out.println("Principal: " + principal);
-        System.out.println("OAuth2User: " + oauthUser);
+    // ================= DELETE CARD =================
+    @DeleteMapping("/{stripePaymentMethodId}")
+    @Transactional
+    public ResponseEntity<Void> deleteCard(@PathVariable String stripePaymentMethodId,
+                                           Principal principal) throws Exception {
+        UserAccount user = getUserFromPrincipal(principal);
+        if (user == null) return ResponseEntity.status(401).build();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("stripeCustomerId", null);
-        response.put("payment", null);
+        Optional<PaymentAccounts> optCard = paymentAccountRepo
+                .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId())
+                .stream()
+                .filter(c -> stripePaymentMethodId.equals(c.getStripePaymentMethodId()))
+                .findFirst();
 
-        if (principal == null) {
-            System.out.println("No principal! User not authenticated.");
-            return ResponseEntity.ok(response);
-        }
+        if (optCard.isEmpty()) return ResponseEntity.notFound().build();
 
-        String key = resolveLoginKey(principal, null, oauthUser);
-        System.out.println("Resolved login key: " + key);
+        PaymentAccounts card = optCard.get();
 
-        if (key == null || key.isBlank()) {
-            System.out.println("Login key is null/blank.");
-            return ResponseEntity.ok(response);
-        }
+        // Detach card from Stripe
+        stripeService.detachPaymentMethod(stripePaymentMethodId);
 
-        UserAccount userAccount = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        System.out.println("Found UserAccount: " + userAccount);
+        // Delete from DB
+        paymentAccountRepo.delete(card);
 
-        if (userAccount == null) return ResponseEntity.ok(response);
+        // Audit log
+        auditService.log("PaymentMethod", "Delete",
+                "Customer " + user.getCustomerId() + " ••••" + card.getLast4(),
+                user.getUsername());
 
-        response.put("stripeCustomerId", userAccount.getStripeCustomerId());
-
-        Integer customerId = userAccount.getCustomerId();
-        System.out.println("CustomerId: " + customerId);
-
-        if (customerId != null) {
-            PaymentAccounts account = paymentAccountRepo
-                    .findFirstByCustomerIdOrderByCreatedAtDesc(customerId)
-                    .orElse(null);
-            if (account != null) {
-                System.out.println("Found payment account: " + account.getLast4());
-                response.put("payment", mapToDTO(account));
+        // If deleted card was default, set first remaining card as default
+        if (card.getIsDefault() == 1) {
+            List<PaymentAccounts> remaining = paymentAccountRepo
+                    .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+            if (!remaining.isEmpty()) {
+                PaymentAccounts first = remaining.get(0);
+                first.setIsDefault(1);
+                paymentAccountRepo.save(first);
             }
         }
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok().build();
     }
 
-    // ======================= HELPER =======================
-    private BillingPaymentDTO mapToDTO(PaymentAccounts account) {
-        BillingPaymentDTO dto = new BillingPaymentDTO();
-        dto.setMethod(account.getMethod());
-        dto.setHolderName(account.getHolderName());
-        dto.setCardNumber(account.getCardNumber());
-        dto.setCvv(account.getCvv());
-        dto.setExpiryMonth(account.getExpiryMonth());
-        dto.setExpiryYear(account.getExpiryYear());
-        dto.setLast4(account.getLast4());
-        dto.setDisplayCard("**** **** **** " + account.getLast4());
-        dto.setBalance(account.getBalance());
-        dto.setExpiredDate(account.getExpiryYear() != null && account.getExpiryMonth() != null
-                ? LocalDateTime.of(account.getExpiryYear(), account.getExpiryMonth(), 1, 0, 0).toLocalDate()
-                : null);
-        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
-        return dto;
-    }
+    // ================= SET DEFAULT CARD =================
+    @PatchMapping("/default/{stripePaymentMethodId}")
+    @Transactional
+    public ResponseEntity<Void> setDefaultCard(@PathVariable String stripePaymentMethodId,
+                                               Principal principal) {
+        UserAccount user = getUserFromPrincipal(principal);
+        if (user == null) return ResponseEntity.status(401).build();
 
-    // Resolve login key (supports OAuth2 and normal login)
-    private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
-        System.out.println("=== resolveLoginKey called ===");
-        System.out.println("Principal: " + principal);
-        System.out.println("Authentication: " + auth);
-        System.out.println("OAuth2User: " + oauthUser);
+        List<PaymentAccounts> cards = paymentAccountRepo
+                .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
 
-        if (auth instanceof OAuth2AuthenticationToken oauthTok) {
-            Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
-            System.out.println("OAuth2 Attributes: " + attrs);
-
-            Object email = attrs.get("email");
-            if (email != null) return email.toString();
-
-            Object login = attrs.get("login");
-            if (login != null) return login.toString();
+        for (PaymentAccounts c : cards) {
+            c.setIsDefault(c.getStripePaymentMethodId().equals(stripePaymentMethodId) ? 1 : 0);
+            paymentAccountRepo.save(c);
         }
 
-        String name = principal.getName();
-        System.out.println("Fallback principal name: " + name);
-        return name;
+        return ResponseEntity.ok().build();
+    }
+
+    // ================= HELPER METHODS =================
+    private UserAccount getUserFromPrincipal(Principal principal) {
+        if (principal == null) return null;
+        return userAccountRepo.findByUsernameIgnoreCase(principal.getName()).orElse(null);
+    }
+
+    private BillingPaymentDTO mapToDTO(PaymentAccounts account) {
+        BillingPaymentDTO dto = new BillingPaymentDTO();
+        dto.setHolderName(account.getHolderName());
+        dto.setMethod(account.getMethod());
+        dto.setLast4(account.getLast4());
+        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
+        dto.setIsDefault(account.getIsDefault() == 1);
+        dto.setExpiryMonth(account.getExpiryMonth());
+        dto.setExpiryYear(account.getExpiryYear());
+        dto.setDisplayCard("**** **** **** " + account.getLast4());
+        return dto;
     }
 }

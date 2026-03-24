@@ -69,7 +69,12 @@ public class BillingPaymentDTO {
     private String cardNumber;
     private String cvv;
 
+    private boolean isDefault;
+
     // --- getters & setters ---
+    public boolean getIsDefault() { return isDefault; }
+    public void setIsDefault(boolean isDefault) { this.isDefault = isDefault; }
+
     public String getMethod() { return method; }
     public void setMethod(String method) { this.method = method; }
 
