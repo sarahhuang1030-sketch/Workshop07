@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Button, Row, Col } from "react-bootstrap";
 import { CreditCard, Trash2, CheckCircle } from "lucide-react";
-import PaymentForm from "./PaymentForm";
+import PaymentForm from "./PaymentCardUI.jsx";
 import { apiFetch } from "../services/api";
 
 /**

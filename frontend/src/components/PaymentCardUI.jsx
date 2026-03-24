@@ -5,15 +5,12 @@ import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiFetch } from "../services/api";
 
 /**
- * Billing & Payment Component
- * ---------------------------
- * 1. Display saved cards with card UI
- * 2. Add new card as a card-style element
- * 3. Support temporary vs saved card
- * 4. Select card for payment
- * 5. Success alert for added cards
+ * PaymentCardUI
+ * - Shows saved cards and allows adding new cards
+ * - Supports selecting a card (temporary or saved)
+ * - Calls `onCardSelect` when a card is selected
  */
-export default function PaymentCardUI() {
+export default function PaymentCardUI({ onCardSelect }) {
     const stripe = useStripe();
     const elements = useElements();
 
@@ -25,7 +22,7 @@ export default function PaymentCardUI() {
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
 
-    // Fetch saved cards
+    // Fetch saved cards from backend
     const fetchCards = async () => {
         try {
             const res = await apiFetch("/api/billing/payment/all");
@@ -42,7 +39,13 @@ export default function PaymentCardUI() {
         fetchCards();
     }, []);
 
-    // Add new card
+    // Select a card and notify parent
+    const handleSelectCard = (card) => {
+        setSelectedCardId(card.stripePaymentMethodId);
+        if (onCardSelect) onCardSelect(card); // Pass selected card to parent
+    };
+
+    // Add a new card (temporary or saved)
     const handleAddCard = async () => {
         if (!stripe || !elements) return alert("Stripe not ready");
         if (!holderName.trim()) return alert("Enter cardholder name");
@@ -58,7 +61,7 @@ export default function PaymentCardUI() {
             if (result.error) return alert(result.error.message);
 
             const paymentMethodId = result.paymentMethod.id;
-            // Always add newCard to state for UI
+
             let newCard = {
                 stripePaymentMethodId: paymentMethodId,
                 last4: result.paymentMethod.card.last4,
@@ -67,10 +70,11 @@ export default function PaymentCardUI() {
                 expiryMonth: result.paymentMethod.card.exp_month,
                 expiryYear: result.paymentMethod.card.exp_year,
                 isDefault: false,
-                isTemporary: !saveCard, // mark as temporary
+                isTemporary: !saveCard,
+                stripeCustomerId: null, // Temporary card has no customer yet
             };
 
-            // Save in DB only if checkbox selected
+            // Save card in backend only if user wants
             if (saveCard) {
                 const res = await apiFetch("/api/billing/payment/stripe", {
                     method: "POST",
@@ -81,12 +85,12 @@ export default function PaymentCardUI() {
                 newCard = await res.json();
             }
 
-            // Add new card to UI state always
             setCards([newCard, ...cards]);
 
             setAlertMessage(`Card ending in ${newCard.last4} added successfully!`);
             setTimeout(() => setAlertMessage(""), 4000);
-            setSelectedCardId(newCard.stripePaymentMethodId);
+
+            handleSelectCard(newCard); // Automatically select the new card
 
             setHolderName("");
             setSaveCard(false);
@@ -115,20 +119,23 @@ export default function PaymentCardUI() {
         try {
             await apiFetch(`/api/billing/payment/${card.stripePaymentMethodId}`, { method: "DELETE" });
             setCards(cards.filter(c => c.stripePaymentMethodId !== card.stripePaymentMethodId));
-            if (selectedCardId === card.stripePaymentMethodId) setSelectedCardId(null);
+            if (selectedCardId === card.stripePaymentMethodId) {
+                setSelectedCardId(null);
+                if (onCardSelect) onCardSelect(null);
+            }
         } catch (err) {
             console.error(err);
         }
     };
 
-    // Render card UI
+    // Render a single card
     const renderCard = (card) => {
         const isSelected = selectedCardId === card.stripePaymentMethodId;
         return (
             <Card
                 key={card.stripePaymentMethodId}
                 className="p-3 mb-3 shadow-sm"
-                onClick={() => setSelectedCardId(card.stripePaymentMethodId)}
+                onClick={() => handleSelectCard(card)}
                 style={{
                     borderRadius: 20,
                     minHeight: 150,
@@ -179,7 +186,7 @@ export default function PaymentCardUI() {
         );
     };
 
-    // Render new card form as card
+    // Render form to add new card
     const renderNewCardForm = () => (
         <Card
             className="p-3 mb-3 shadow-sm"
@@ -199,9 +206,7 @@ export default function PaymentCardUI() {
             </div>
 
             {showNewCardForm && (
-                <div
-                    onClick={(e) => e.stopPropagation()}
-                >
+                <div onClick={(e) => e.stopPropagation()}>
                     <Form.Control
                         placeholder="Cardholder Name"
                         value={holderName}
@@ -241,12 +246,6 @@ export default function PaymentCardUI() {
                     {renderNewCardForm()}
                 </Col>
             </Row>
-
-            {selectedCardId && (
-                <Alert variant="info" className="mt-3">
-                    Selected card for payment: **** {selectedCardId && (cards.find(c => c.stripePaymentMethodId === selectedCardId)?.last4 || "****")}
-                </Alert>
-            )}
         </div>
     );
 }
