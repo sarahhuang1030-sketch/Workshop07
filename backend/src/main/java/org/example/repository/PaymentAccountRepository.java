@@ -14,5 +14,5 @@ public interface PaymentAccountRepository extends JpaRepository<PaymentAccounts,
     Optional<PaymentAccounts> findFirstByCustomerIdOrderByCreatedAtDesc(Integer customerId);
     void deleteByCustomerId(Integer customerId);
     List<PaymentAccounts> findAllByCustomerIdOrderByCreatedAtDesc(Integer customerId);
-
+    Optional<PaymentAccounts> findByCustomerIdAndStripePaymentMethodId(Integer customerId, String stripePaymentMethodId);
 }
