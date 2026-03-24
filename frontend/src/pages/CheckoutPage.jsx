@@ -18,7 +18,9 @@ export default function CheckoutPage() {
     const [billingCycle, setBillingCycle] = useState("monthly");
     const [province, setProvince] = useState("ON");
 
-    // Compute subtotal, tax, and final total
+    // -----------------------------
+    // Compute subtotal, tax, final total
+    // -----------------------------
     const pricing = useMemo(() => {
         const taxRate = PROVINCE_TAX[province] || 0.13;
         const subtotal = billingCycle === "yearly" ? total * 12 * 0.9 : total;
@@ -26,56 +28,66 @@ export default function CheckoutPage() {
         return { subtotal, tax, finalTotal: subtotal + tax };
     }, [billingCycle, province, total]);
 
-    // Handle checkout
+    // -----------------------------
+    // Handle Checkout
+    // -----------------------------
     const handleCheckout = async () => {
         if (!paymentMethod) return alert("Please select a payment card.");
 
+        // Ensure the selected card has a Stripe PaymentMethod ID
+        // This works for both saved cards (with accountId) and temporary cards (no accountId)
+        if (!paymentMethod.stripePaymentMethodId) {
+            return alert("Selected card is invalid. Missing stripePaymentMethodId.");
+        }
+
         try {
-            // Build query params: include stripeCustomerId only if it exists
+            // Prepare query params for PaymentIntent creation
             const queryParams = new URLSearchParams();
             if (paymentMethod.stripeCustomerId) {
                 queryParams.append("stripeCustomerId", paymentMethod.stripeCustomerId);
             }
             queryParams.append("paymentMethodId", paymentMethod.stripePaymentMethodId);
 
-            // Create PaymentIntent
-            const intentRes = await apiFetch(
-                `/api/payment-intent?${queryParams.toString()}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) }), // amount in cents
-                }
-            );
+            // Create PaymentIntent on the backend
+            const intentRes = await apiFetch(`/api/payment-intent?${queryParams.toString()}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) }), // amount in cents
+            });
 
             const intentData = await intentRes.json();
+            if (!intentData.clientSecret) return alert("Failed to create PaymentIntent.");
 
-            if (!intentData.clientSecret) {
-                return alert("Failed to create PaymentIntent. Check server logs.");
-            }
-
-            // Confirm payment with Stripe
+            // Confirm the payment with Stripe
             const result = await stripe.confirmCardPayment(intentData.clientSecret, {
                 payment_method: paymentMethod.stripePaymentMethodId,
             });
 
-            if (result.error) {
-                return alert("Payment failed: " + result.error.message);
-            }
+            if (result.error) return alert("Payment failed: " + result.error.message);
 
-            // Call backend to create invoice
+            // Save invoice in backend
+            // For saved cards: accountId exists
+            // For temporary cards: accountId is null
             const invoiceRes = await apiFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    paymentAccountId: paymentMethod.accountId,
+                    paymentAccountId: paymentMethod.accountId || null,
                     subtotal: pricing.subtotal,
                     tax: pricing.tax,
                     total: pricing.finalTotal,
                     billingCycle,
                     paymentIntentId: result.paymentIntent.id,
                     promoCode: null,
-                    items: [],
+                    items: [
+                        { description: plan.name, quantity: 1, unitPrice: plan.price, lineTotal: plan.price },
+                        ...addOns.map(a => ({
+                            description: a.addOnName,
+                            quantity: 1,
+                            unitPrice: a.monthlyPrice,
+                            lineTotal: a.monthlyPrice
+                        }))
+                    ],
                 }),
             });
 
