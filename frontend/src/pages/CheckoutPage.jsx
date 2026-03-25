@@ -4,6 +4,7 @@ import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
 import PaymentCardUI from "../components/PaymentCardUI";
+import { useNavigate } from "react-router-dom";
 
 // Province tax rates
 const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975 };
@@ -17,6 +18,7 @@ export default function CheckoutPage() {
     const [orderNumber, setOrderNumber] = useState("");
     const [billingCycle, setBillingCycle] = useState("monthly");
     const [province, setProvince] = useState("ON");
+    const navigate = useNavigate();
 
     // -----------------------------
     // Compute subtotal, tax, final total
@@ -104,11 +106,20 @@ export default function CheckoutPage() {
 
     if (submitted) {
         return (
-            <Container className="py-5">
+            <Container className="py-5 text-center">
                 <Alert variant="success">
-                    🎉 Payment Successful<br/>
+                    🎉 Payment Successful<br />
                     Order Number: {orderNumber}
                 </Alert>
+
+                <Button
+                    variant="primary"
+                    size="lg"
+                    className="mt-3"
+                    onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
+                >
+                    View Invoice
+                </Button>
             </Container>
         );
     }

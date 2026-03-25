@@ -1,17 +1,17 @@
-// SubscriptionPage.jsx
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Badge, Spinner, Alert, Button } from "react-bootstrap";
-import { Package } from "lucide-react";
+import { Container, Row, Col, Card, Badge, Spinner, Alert, Button, Table } from "react-bootstrap";
+import { Package, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api";
+import InvoicePage from "./InvoicePage";
 
+// Utility function: format number as CAD currency
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
         ? "—"
         : Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
 
-
-//-----Default plan structure to ensure consistent rendering even if userProp is missing or incomplete-----//
+// Default plan structure to avoid crashes if user plan is missing
 const defaultPlan = {
     status: "Inactive",
     name: "—",
@@ -21,20 +21,23 @@ const defaultPlan = {
     addOns: [],
 };
 
+// SubscriptionPage component
 export default function SubscriptionPage({ user: userProp, darkMode = false }) {
-    const [loading, setLoading] = useState(!userProp);
+    const [loading, setLoading] = useState(!userProp); // Loading state for subscription
     const [error, setError] = useState("");
     const [profile, setProfile] = useState({ plan: defaultPlan });
+    const [latestInvoice, setLatestInvoice] = useState(null);
+    const [invoiceLoading, setInvoiceLoading] = useState(true);
+    const navigate = useNavigate();
 
     const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
     const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
-    const navigate = useNavigate();
 
-
-
+    // Fetch subscription info and latest invoice
     useEffect(() => {
         let isMounted = true;
 
+        // Load subscription profile
         async function loadProfile() {
             try {
                 const res = await apiFetch("/api/me/subscription");
@@ -47,18 +50,7 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                     return;
                 }
 
-                // If backend returns 204 No Content => no plan yet, not an error
-                if (res.status === 204) {
-                    if (isMounted) {
-                        setProfile(prev => ({ ...prev, plan: prev.plan ?? defaultPlan }));
-                        setError("");
-                        setLoading(false);
-                    }
-                    return;
-                }
-
-                // If backend uses 404 when no subscription exists => treat as no plan
-                if (res.status === 404) {
+                if (res.status === 204 || res.status === 404) {
                     if (isMounted) {
                         setProfile(prev => ({ ...prev, plan: defaultPlan }));
                         setError("");
@@ -68,7 +60,6 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                 }
 
                 const data = await res.json();
-
                 if (isMounted) {
                     setProfile(prev => ({
                         ...prev,
@@ -78,39 +69,46 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                 }
             } catch (err) {
                 if (isMounted) {
-                    setError("Failed to load subscription data.");
+                    setError(err.message || "Failed to load subscription data.");
                     setLoading(false);
                 }
             }
         }
 
-        // Show userProp immediately if available
-        if (userProp?.plan) {
-            setProfile(prev => ({
-                ...prev,
-                plan: userProp.plan,
-            }));
+        // Load latest invoice
+        async function loadLatestInvoice() {
+            try {
+                const res = await apiFetch("/api/invoices/latest");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted) setLatestInvoice(data);
+                }
+            } catch {
+                // Ignore errors silently for invoices
+            } finally {
+                if (isMounted) setInvoiceLoading(false);
+            }
         }
 
-        // Always fetch fresh data
-        loadProfile();
+        if (userProp?.plan) setProfile(prev => ({ ...prev, plan: userProp.plan }));
 
-        return () => {
-            isMounted = false;
-        };
+        loadProfile();
+        loadLatestInvoice();
+
+        return () => { isMounted = false; };
     }, [userProp]);
 
+    // Loading state UI
     if (loading) {
         return (
             <Container className="py-5 text-center">
                 <Spinner animation="border" />
-                <div className={`mt-2 ${mutedClass}`}>
-                    Loading subscription data…
-                </div>
+                <div className={`mt-2 ${mutedClass}`}>Loading subscription data…</div>
             </Container>
         );
     }
 
+    // Error state UI
     if (error) {
         return (
             <Container className="py-5">
@@ -119,81 +117,47 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
         );
     }
 
-    const hasPlan =
-        profile?.plan &&
-        profile.plan.status === "Active" &&
-        profile.plan.name &&
-        profile.plan.name !== "—";
+    const hasPlan = profile?.plan?.status === "Active" && profile.plan.name !== "—";
 
     return (
         <Container className="py-4 py-md-5 px-4">
+            {/* Subscription Card */}
             <Card className={cardBase} style={{ borderRadius: 22 }}>
                 <Card.Body className="p-4">
-
+                    {/* Header */}
                     <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
                         <div>
-                            <div
-                                className={`${darkMode ? "text-light" : "text-dark"}`}
-                                style={{ fontWeight: 900, fontSize: "1.25rem" }}
-                            >
+                            <div className={`${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900, fontSize: "1.25rem" }}>
                                 Your current plan
                             </div>
-                            <div className={mutedClass}>
-                                Plan and subscription details.
-                            </div>
+                            <div className={mutedClass}>Plan and subscription details.</div>
                         </div>
 
                         <Badge
                             bg={profile.plan.status === "Active" ? "success" : "secondary"}
-                            style={{
-                                borderRadius: 999,
-                                padding: "0.45rem 0.75rem",
-                                width: "fit-content",
-                            }}
+                            style={{ borderRadius: 999, padding: "0.45rem 0.75rem", width: "fit-content" }}
                         >
                             {profile.plan.status || "Inactive"}
                         </Badge>
                     </div>
 
+                    {/* Plan Info */}
                     <Row className="g-3 mt-3">
                         <Col>
-                            <div
-                                className={`p-3 ${
-                                    darkMode ? "tc-card-dark" : "bg-light"
-                                }`}
-                                style={{ borderRadius: 18 }}
-                            >
+                            <div className={`p-3 ${darkMode ? "tc-card-dark" : "bg-light"}`} style={{ borderRadius: 18 }}>
                                 <div className="d-flex align-items-center gap-2">
                                     <Package size={18} />
-                                    <div
-                                        className={`fw-bold ${
-                                            darkMode ? "text-light" : "text-dark"
-                                        }`}
-                                    >
-                                        Plan
-                                    </div>
+                                    <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>Plan</div>
                                 </div>
 
-                                <div
-                                    className={`mt-2 ${
-                                        darkMode ? "text-light" : "text-dark"
-                                    }`}
-                                    style={{ fontWeight: 900, fontSize: "1.4rem" }}
-                                >
+                                <div className={`mt-2 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900, fontSize: "1.4rem" }}>
                                     {profile.plan.name || "—"}
                                 </div>
 
                                 <div className={mutedClass}>
-                                    {profile.plan.monthlyPrice != null
-                                        ? `${formatMoney(profile.plan.monthlyPrice)}/month`
-                                        : "—"}
+                                    {profile.plan.monthlyPrice != null ? `${formatMoney(profile.plan.monthlyPrice)}/month` : "—"}
                                 </div>
 
-                                {/*{profile.plan.startedAt && (*/}
-                                {/*    <div className={`small mt-2 ${mutedClass}`}>*/}
-                                {/*        Started: {String(profile.plan.startedAt)}*/}
-                                {/*    </div>*/}
-                                {/*)}*/}
                                 <Button
                                     variant="primary"
                                     className="mt-3 fw-bold"
@@ -213,10 +177,10 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                                     View Plan Details
                                 </Button>
                             </div>
-
                         </Col>
-
                     </Row>
+
+                    {/* Alert if no active plan */}
                     {profile.plan.status !== "Active" && (
                         <Alert
                             variant={darkMode ? "secondary" : "info"}
@@ -225,6 +189,59 @@ export default function SubscriptionPage({ user: userProp, darkMode = false }) {
                         >
                             You don’t have an active plan yet. Choose a plan to get started.
                         </Alert>
+                    )}
+
+                    {/* Latest Invoice Card: full invoice displayed inline */}
+                    {!invoiceLoading && latestInvoice && (
+                        <Card className={`${darkMode ? "bg-dark text-light mt-4" : "bg-white mt-4"}`} style={{ borderRadius: 18 }}>
+                            <Card.Body>
+                                <div className="d-flex align-items-center gap-2 mb-2">
+                                    <FileText size={18} />
+                                    <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>Latest Invoice</div>
+                                </div>
+
+                                {/* Invoice Header Info */}
+                                <div>Status: {latestInvoice.status}</div>
+                                <div>Invoice #: {latestInvoice.invoiceNumber}</div>
+                                <div>Issue Date: {latestInvoice.issueDate}</div>
+                                <div>Due Date: {latestInvoice.dueDate}</div>
+
+                                {/* Invoice Items Table */}
+                                <Table striped bordered hover responsive className={darkMode ? "table-dark mt-2" : "mt-2"}>
+                                    <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th>Qty</th>
+                                        <th>Unit Price</th>
+                                        <th>Discount</th>
+                                        <th>Line Total</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {latestInvoice.items?.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td>{item.description}</td>
+                                            <td>{item.quantity}</td>
+                                            <td>{formatMoney(item.unitPrice)}</td>
+                                            <td>{formatMoney(item.discountAmount)}</td>
+                                            <td>{formatMoney(item.lineTotal)}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </Table>
+
+                                {/* Totals and Payment Info */}
+                                <div className="mt-2"><strong>Subtotal:</strong> {formatMoney(latestInvoice.subtotal)}</div>
+                                <div><strong>Tax:</strong> {formatMoney(latestInvoice.taxTotal)}</div>
+                                <div><strong>Total:</strong> {formatMoney(latestInvoice.total)}</div>
+                                <div className="mt-2">
+                                    <strong>Paid With:</strong>{" "}
+                                    {latestInvoice.paidByAccount
+                                        ? `${latestInvoice.paidByAccount.method} ••••${latestInvoice.paidByAccount.last4}`
+                                        : "Temporary Card"}
+                                </div>
+                            </Card.Body>
+                        </Card>
                     )}
                 </Card.Body>
             </Card>

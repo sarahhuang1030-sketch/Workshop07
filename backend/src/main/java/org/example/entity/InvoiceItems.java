@@ -1,10 +1,10 @@
 package org.example.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-//@Table(name = "InvoiceItems")
 @Table(name = "invoiceitems")
 public class InvoiceItems {
 
@@ -14,6 +14,7 @@ public class InvoiceItems {
 
         @ManyToOne
         @JoinColumn(name = "InvoiceId")
+        @JsonBackReference
         private Invoices invoice;
 
         @Column(length = 255)
