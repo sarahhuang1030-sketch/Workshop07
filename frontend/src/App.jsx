@@ -32,7 +32,7 @@ import CustomerDashboard from "./pages/customer/CustomerDashboard";
 // Sales
 import SalesDashboard from "./pages/sales/SalesDashboard";
 import SalesCustomers from "./pages/sales/SalesCustomers";
-import SalesCreateQuote from "./pages/sales/SalesCreateQuote";
+import SalesQuotes from "./pages/sales/SalesQuotes.jsx";
 import SalesActivations from "./pages/sales/SalesActivations";
 
 // Service
@@ -364,7 +364,7 @@ export default function App() {
                     path="/sales/quotes/new"
                     element={
                         <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesCreateQuote />
+                            <SalesQuotes />
                         </RequireRole>
                     }
                 />
