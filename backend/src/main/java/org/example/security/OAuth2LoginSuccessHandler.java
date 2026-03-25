@@ -57,6 +57,30 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         OAuth2User oauthUser = oauthTok.getPrincipal();
         Map<String, Object> attrs = oauthUser.getAttributes();
 
+        String picture = null;
+
+// Google
+        if (attrs.get("picture") instanceof String p && !p.isBlank()) {
+            picture = p;
+        }
+
+// GitHub
+        if ((picture == null || picture.isBlank())
+                && attrs.get("avatar_url") instanceof String gh && !gh.isBlank()) {
+            picture = gh;
+        }
+
+// Facebook nested picture.data.url
+        if ((picture == null || picture.isBlank()) && attrs.get("picture") instanceof Map<?, ?> picMap) {
+            Object dataObj = picMap.get("data");
+            if (dataObj instanceof Map<?, ?> dataMap) {
+                Object urlObj = dataMap.get("url");
+                if (urlObj instanceof String fb && !fb.isBlank()) {
+                    picture = fb;
+                }
+            }
+        }
+
         String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
 
         String externalId = firstNonBlank(
@@ -115,7 +139,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 c.setStatus("Active");
                 c.setCreatedAt(LocalDateTime.now());
                 c.setPasswordHash("OAUTH:" + provider);
-
                 customer = customerRepo.save(c);
             }
 
@@ -127,10 +150,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             newUa.setIsLocked(0);
             newUa.setPasswordHash("OAUTH:" + provider);
             newUa.setLastLoginAt(LocalDateTime.now());
+            newUa.setAvatarUrl(picture);
 
             ua = userAccountRepo.save(newUa);
         } else {
             ua.setLastLoginAt(LocalDateTime.now());
+            if ((ua.getAvatarUrl() == null || ua.getAvatarUrl().isBlank())
+                    && picture != null && !picture.isBlank()) {
+                ua.setAvatarUrl(picture);
+            }
             userAccountRepo.save(ua);
         }
 
