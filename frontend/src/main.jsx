@@ -9,6 +9,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "./index.css";
 import "./style/style.css";
 
+
 import { ThemeProvider } from "./context/ThemeContext";
 import { CartProvider } from "./context/CartContext";
 
