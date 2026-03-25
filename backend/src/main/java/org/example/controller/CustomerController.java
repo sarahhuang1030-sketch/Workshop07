@@ -4,6 +4,7 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 
+import jakarta.transaction.Transactional;
 import org.example.dto.CustomerProfileDTO;
 import org.example.model.Customer;
 import org.example.model.UserAccount;
@@ -14,6 +15,7 @@ import org.example.repository.CustomerAddressRepository;
 import org.example.service.AuditService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.example.dto.CreateCustomerRequest;
 
 /**
  * CustomerController.java
@@ -90,12 +92,44 @@ public class CustomerController {
 
     // ================== ADMIN: CREATE CUSTOMER ==================
     @PostMapping
-    public ResponseEntity<?> createCustomer(@RequestBody Customer c) {
-        if (customerRepo.existsByEmail(c.getEmail())) {
+    @Transactional
+    public ResponseEntity<?> createCustomer(@RequestBody CreateCustomerRequest req) {
+
+        // -------- Validate --------
+        if (customerRepo.existsByEmail(req.email)) {
             return ResponseEntity.badRequest().body("Email already exists");
         }
+
+        if (req.customerType == null || req.customerType.isBlank()) {
+            return ResponseEntity.badRequest().body("Customer type required");
+        }
+
+        // -------- 1. Save Customer --------
+        Customer c = new Customer();
+        c.setFirstName(req.firstName);
+        c.setLastName(req.lastName);
+        c.setEmail(req.email);
+        c.setHomePhone(req.homePhone);
+        c.setCustomerType(req.customerType);
+
         Customer saved = customerRepo.save(c);
 
+        // -------- 2. Save Billing Address --------
+        CustomerAddress addr = new CustomerAddress();
+        addr.setCustomerId(saved.getCustomerId());
+        addr.setAddressType("Billing");
+        addr.setIsPrimary(1);
+
+        addr.setStreet1(req.street1);
+        addr.setStreet2(req.street2);
+        addr.setCity(req.city);
+        addr.setProvince(req.province);
+        addr.setPostalCode(req.postalCode);
+        addr.setCountry(req.country);
+
+        addressRepo.save(addr);
+
+        // -------- Audit --------
         auditService.log(
                 "Customer",
                 "Create",
@@ -108,16 +142,39 @@ public class CustomerController {
 
     // ================== ADMIN: UPDATE CUSTOMER ==================
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCustomer(@PathVariable Integer id, @RequestBody Customer updated) {
+    @Transactional
+    public ResponseEntity<?> updateCustomer(@PathVariable Integer id,
+                                            @RequestBody CreateCustomerRequest req) {
+
         Customer c = customerRepo.findById(id).orElse(null);
         if (c == null) return ResponseEntity.notFound().build();
 
-        c.setFirstName(updated.getFirstName());
-        c.setLastName(updated.getLastName());
-        c.setEmail(updated.getEmail());
-        c.setHomePhone(updated.getHomePhone());
+        // -------- Update Customer --------
+        c.setFirstName(req.firstName);
+        c.setLastName(req.lastName);
+        c.setEmail(req.email);
+        c.setHomePhone(req.homePhone);
+        c.setCustomerType(req.customerType);
 
         customerRepo.save(c);
+
+        // -------- Upsert Billing Address --------
+        CustomerAddress addr = addressRepo
+                .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(id, "Billing")
+                .orElse(new CustomerAddress());
+
+        addr.setCustomerId(id);
+        addr.setAddressType("Billing");
+        addr.setIsPrimary(1);
+
+        addr.setStreet1(req.street1);
+        addr.setStreet2(req.street2);
+        addr.setCity(req.city);
+        addr.setProvince(req.province);
+        addr.setPostalCode(req.postalCode);
+        addr.setCountry(req.country);
+
+        addressRepo.save(addr);
 
         auditService.log(
                 "Customer",
@@ -149,14 +206,38 @@ public class CustomerController {
     // ================== CUSTOMER SELF-SERVICE: GET PROFILE ==================
     @GetMapping("/me/profile")
     public ResponseEntity<?> getMyProfile(Principal principal) {
+
+        // -------- 1. Auth check --------
         if (principal == null) return ResponseEntity.status(401).build();
 
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(principal.getName()).orElse(null);
-        if (ua == null || ua.getCustomerId() == null) return ResponseEntity.status(403).build();
+        // -------- 2. Get UserAccount --------
+        UserAccount ua = userAccountRepo
+                .findByUsernameIgnoreCase(principal.getName())
+                .orElse(null);
 
-        CustomerProfileDTO dto = new CustomerProfileDTO(ua.getCustomerId(), ua.getEmployeeId(), ua.getRole());
+        if (ua == null || ua.getCustomerId() == null) {
+            return ResponseEntity.status(403).build();
+        }
 
-        CustomerAddress billing = addressRepo.findByCustomerIdAndAddressType(ua.getCustomerId(), "Billing").orElse(null);
+        // -------- 3. Create DTO --------
+        CustomerProfileDTO dto = new CustomerProfileDTO(
+                ua.getCustomerId(),
+                ua.getEmployeeId(),
+                ua.getRole()
+        );
+
+        // -------- 4. Load Customer (FIXED) --------
+        Customer customer = customerRepo.findById(ua.getCustomerId()).orElse(null);
+
+        if (customer != null) {
+            dto.customerType = customer.getCustomerType();
+        }
+
+        // -------- 5. Load Billing Address --------
+        CustomerAddress billing = addressRepo
+                .findByCustomerIdAndAddressType(ua.getCustomerId(), "Billing")
+                .orElse(null);
+
         if (billing != null) {
             CustomerProfileDTO.AddressDTO addr = new CustomerProfileDTO.AddressDTO();
             addr.street1 = billing.getStreet1();

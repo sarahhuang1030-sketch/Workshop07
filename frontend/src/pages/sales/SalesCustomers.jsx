@@ -1,37 +1,48 @@
 import React, { useEffect, useState } from "react";
-import { Container, Table, Form, Button, Spinner, Modal, Row, Col, Alert } from "react-bootstrap";
+import { Container, Card, Table, Form, Button, Spinner, Modal, Row, Col, Alert } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-/**
- * SalesCustomers component
- * - List all customers
- * - Search/filter
- * - View/Edit via modal
- * - Delete customer
- */
+// Empty draft template for new customer
+const emptyDraft = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    homePhone: "",
+    street1: "",
+    street2: "",
+    city: "",
+    province: "",
+    postalCode: "",
+    country: "",
+    customerType: "",
+};
+
 export default function SalesCustomers() {
+    const navigate = useNavigate();
+
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-
-    // Modal state
     const [showModal, setShowModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [draft, setDraft] = useState(null);
+    const [draft, setDraft] = useState(emptyDraft);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    // Load customers on mount
+    // Load all customers on mount
     useEffect(() => {
         loadCustomers();
     }, []);
 
-    async function loadCustomers() {
+    // Fetch customers from API
+    const loadCustomers = async () => {
         setLoading(true);
+        setError("");
         try {
-            const response = await apiFetch("/api/customers/all");
-            const data = await response.json();
-            console.log("customers", data);
+            const res = await apiFetch("/api/customers/all");
+            if (!res.ok) throw new Error(`Failed to load customers: ${res.status}`);
+            const data = await res.json();
             setCustomers(
                 data.map(c => ({
                     customerId: c.customerId ?? c.CustomerId,
@@ -39,23 +50,32 @@ export default function SalesCustomers() {
                     lastName: c.lastName ?? c.LastName,
                     email: c.email ?? c.Email,
                     homePhone: c.homePhone ?? c.HomePhone,
+                    customerType: c.customerType ?? "",
                 }))
             );
         } catch (e) {
-            console.error("Failed to load customers", e);
+            console.error(e);
+            setError("Unable to load customers.");
         } finally {
             setLoading(false);
         }
-    }
+    };
 
-    // Open modal to view/edit customer
+    // Open modal for creating a new customer
+    const openCreate = () => {
+        setSelectedCustomer(null);
+        setDraft(emptyDraft);
+        setShowModal(true);
+        setError("");
+    };
+
+    // Open modal for viewing/editing an existing customer
     const openModal = async (customerId) => {
+        setSaving(false);
         try {
-            const response = await apiFetch(`/api/customers/${customerId}/detail`);
-            if (!response.ok) throw new Error("Failed to load customer info");
-
-            const data = await response.json();
-            console.log("customer data:", data);
+            const res = await apiFetch(`/api/customers/${customerId}/detail`);
+            if (!res.ok) throw new Error("Failed to load customer details");
+            const data = await res.json();
 
             setSelectedCustomer({ customerId });
             setDraft({
@@ -69,29 +89,39 @@ export default function SalesCustomers() {
                 province: data.province ?? "",
                 postalCode: data.postalCode ?? "",
                 country: data.country ?? "",
+                customerType: data.customerType ?? "",
             });
-
             setShowModal(true);
-            setError("");
         } catch (e) {
             console.error(e);
-            alert("Failed to load customer details");
+            setError("Failed to load customer details.");
         }
     };
 
-    // Save draft to backend
+    const closeModal = () => {
+        if (saving) return;
+        setShowModal(false);
+        setDraft(emptyDraft);
+        setSelectedCustomer(null);
+    };
+
+    // Save customer (create or update)
     const handleSave = async () => {
-        if (!draft || !selectedCustomer) return;
+        if (!draft) return;
         setSaving(true);
         setError("");
 
         try {
-            const res = await apiFetch("/api/billing/address", {
-                method: "PUT",
+            const url = selectedCustomer
+                ? `/api/customers/${selectedCustomer.customerId}`
+                : "/api/customers";
+
+            const method = selectedCustomer ? "PUT" : "POST";
+
+            const res = await apiFetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...draft,
-                }),
+                body: JSON.stringify(draft),
             });
 
             if (!res.ok) throw new Error("Failed to save customer info");
@@ -99,7 +129,8 @@ export default function SalesCustomers() {
             setShowModal(false);
             await loadCustomers();
         } catch (e) {
-            setError(e.message || "Failed to save");
+            console.error(e);
+            setError(e.message || "Failed to save customer info.");
         } finally {
             setSaving(false);
         }
@@ -113,132 +144,217 @@ export default function SalesCustomers() {
             await loadCustomers();
         } catch (e) {
             console.error(e);
-            alert("Failed to delete customer: " + e.message);
+            setError("Failed to delete customer.");
         }
     };
 
+    // Filter customers based on search
     const filtered = customers.filter(c =>
         `${c.firstName} ${c.lastName} ${c.email}`.toLowerCase().includes(search.toLowerCase())
     );
 
     return (
         <Container className="py-4">
-            <h3>Customers</h3>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 className="mb-1">Customers</h2>
+                    <div className="text-muted">View, edit, and manage customer information.</div>
+                </div>
 
-            <Form.Control
-                placeholder="Search customer..."
-                className="mb-3"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-            />
+                <div className="d-flex gap-2 align-items-center">
+                    <Form.Control
+                        className="w-auto"
+                        type="text"
+                        placeholder="Search customer..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{ minWidth: "240px" }}
+                    />
+                    <Button onClick={openCreate} style={{ borderRadius: 12 }}>Add Customer</Button>
+                    <Button
+                        variant="outline-secondary"
+                        onClick={() => navigate(-1)}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Go Back
+                    </Button>
+                </div>
+            </div>
 
-            {loading ? (
-                <Spinner animation="border" />
-            ) : (
-                <Table striped hover>
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {filtered.map(c => (
-                        <tr key={c.customerId}>
-                            <td>{c.customerId}</td>
-                            <td>{c.firstName} {c.lastName}</td>
-                            <td>{c.email}</td>
-                            <td>{c.homePhone}</td>
-                            <td className="d-flex gap-2">
-                                <Button size="sm" onClick={() => openModal(c.customerId)}>View / Edit</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDelete(c.customerId)}>Delete</Button>
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </Table>
-            )}
+            {error && <Alert variant="danger">{error}</Alert>}
 
-            {/* ---------------- Modal ---------------- */}
-            <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-                <Modal.Header closeButton>
-                    <Modal.Title>Edit Customer</Modal.Title>
+            <Card className="bg-white text-dark" style={{ borderRadius: 18 }}>
+                <Card.Body>
+                    {loading ? (
+                        <div className="py-4 text-center"><Spinner animation="border" /></div>
+                    ) : (
+                        <Table responsive hover className="align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Type</th>
+                                <th style={{ width: 180 }}>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="text-center py-4">No customers found.</td>
+                                </tr>
+                            ) : (
+                                filtered.map(c => (
+                                    <tr key={c.customerId}>
+                                        <td>{c.customerId}</td>
+                                        <td>{c.firstName} {c.lastName}</td>
+                                        <td>{c.email}</td>
+                                        <td>{c.homePhone || "—"}</td>
+                                        <td>{c.customerType || "—"}</td>
+                                        <td className="d-flex gap-2">
+                                            <Button size="sm" variant="outline-primary" onClick={() => openModal(c.customerId)}>View / Edit</Button>
+                                            <Button size="sm" variant="outline-danger" onClick={() => handleDelete(c.customerId)}>Delete</Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                            </tbody>
+                        </Table>
+                    )}
+                </Card.Body>
+            </Card>
+
+            {/* Modal for Add / Edit Customer */}
+            <Modal show={showModal} onHide={closeModal} size="lg" centered>
+                <Modal.Header closeButton={!saving}>
+                    <Modal.Title>{selectedCustomer ? "Edit Customer" : "Add Customer"}</Modal.Title>
                 </Modal.Header>
 
                 <Modal.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
+
                     {!draft ? (
-                        <div className="text-center py-3">
-                            <Spinner animation="border" />
-                        </div>
+                        <div className="text-center py-3"><Spinner animation="border" /></div>
                     ) : (
                         <>
-                            <Row>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                            <Row className="g-3">
+                                <Col md={6}>
+                                    <Form.Group>
                                         <Form.Label>First Name</Form.Label>
-                                        <Form.Control value={draft.firstName} onChange={e => setDraft(d => ({ ...d, firstName: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.firstName}
+                                            onChange={e => setDraft(d => ({ ...d, firstName: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={6}>
+                                    <Form.Group>
                                         <Form.Label>Last Name</Form.Label>
-                                        <Form.Control value={draft.lastName} onChange={e => setDraft(d => ({ ...d, lastName: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.lastName}
+                                            onChange={e => setDraft(d => ({ ...d, lastName: e.target.value }))}
+                                            required
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>Email</Form.Label>
+                                        <Form.Control
+                                            value={draft.email}
+                                            onChange={e => setDraft(d => ({ ...d, email: e.target.value }))}
+                                            required
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>Phone</Form.Label>
+                                        <Form.Control
+                                            value={draft.homePhone}
+                                            onChange={e => setDraft(d => ({ ...d, homePhone: e.target.value }))}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>Customer Type</Form.Label>
+                                        <Form.Select
+                                            value={draft.customerType}
+                                            onChange={e => setDraft(d => ({ ...d, customerType: e.target.value }))}
+                                            required
+                                        >
+                                            <option value="">Select Type</option>
+                                            <option value="Individual">Individual</option>
+                                            <option value="Business">Business</option>
+
+                                        </Form.Select>
                                     </Form.Group>
                                 </Col>
                             </Row>
-                            <Form.Group className="mb-2">
-                                <Form.Label>Email</Form.Label>
-                                <Form.Control value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} />
-                            </Form.Group>
-                            <Form.Group className="mb-2">
-                                <Form.Label>Phone</Form.Label>
-                                <Form.Control value={draft.homePhone} onChange={e => setDraft(d => ({ ...d, homePhone: e.target.value }))} />
-                            </Form.Group>
+
                             <hr />
                             <h6>Billing Address</h6>
-                            <Row>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                            <Row className="g-3">
+                                <Col md={6}>
+                                    <Form.Group>
                                         <Form.Label>Street 1</Form.Label>
-                                        <Form.Control value={draft.street1} onChange={e => setDraft(d => ({ ...d, street1: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.street1}
+                                            onChange={e => setDraft(d => ({ ...d, street1: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={6}>
+                                    <Form.Group>
                                         <Form.Label>Street 2</Form.Label>
-                                        <Form.Control value={draft.street2} onChange={e => setDraft(d => ({ ...d, street2: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.street2}
+                                            onChange={e => setDraft(d => ({ ...d, street2: e.target.value }))}
+                                        />
                                     </Form.Group>
                                 </Col>
-                            </Row>
-                            <Row>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={4}>
+                                    <Form.Group>
                                         <Form.Label>City</Form.Label>
-                                        <Form.Control value={draft.city} onChange={e => setDraft(d => ({ ...d, city: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.city}
+                                            onChange={e => setDraft(d => ({ ...d, city: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={4}>
+                                    <Form.Group>
                                         <Form.Label>Province</Form.Label>
-                                        <Form.Control value={draft.province} onChange={e => setDraft(d => ({ ...d, province: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.province}
+                                            onChange={e => setDraft(d => ({ ...d, province: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
-                            </Row>
-                            <Row>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={4}>
+                                    <Form.Group>
                                         <Form.Label>Postal Code</Form.Label>
-                                        <Form.Control value={draft.postalCode} onChange={e => setDraft(d => ({ ...d, postalCode: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.postalCode}
+                                            onChange={e => setDraft(d => ({ ...d, postalCode: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
-                                <Col>
-                                    <Form.Group className="mb-2">
+                                <Col md={4}>
+                                    <Form.Group>
                                         <Form.Label>Country</Form.Label>
-                                        <Form.Control value={draft.country} onChange={e => setDraft(d => ({ ...d, country: e.target.value }))} />
+                                        <Form.Control
+                                            value={draft.country}
+                                            onChange={e => setDraft(d => ({ ...d, country: e.target.value }))}
+                                            required
+                                        />
                                     </Form.Group>
                                 </Col>
                             </Row>
@@ -247,9 +363,19 @@ export default function SalesCustomers() {
                 </Modal.Body>
 
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSave} disabled={saving || !draft?.firstName || !draft?.lastName || !draft?.street1}>
-                        {saving ? "Saving..." : "Save"}
+                    <Button variant="secondary" onClick={closeModal} disabled={saving}>Cancel</Button>
+                    <Button
+                        variant="primary"
+                        onClick={handleSave}
+                        disabled={
+                            saving ||
+                            !draft?.firstName ||
+                            !draft?.lastName ||
+                            !draft?.street1 ||
+                            !draft?.customerType
+                        }
+                    >
+                        {saving ? "Saving..." : selectedCustomer ? "Update" : "Create"}
                     </Button>
                 </Modal.Footer>
             </Modal>

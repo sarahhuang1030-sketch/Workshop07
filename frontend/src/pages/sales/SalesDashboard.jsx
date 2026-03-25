@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
-import { Users, FileText, Clock, CreditCard, ArrowRight } from "lucide-react";
+import { Users, FileText, Clock, CreditCard, ArrowRight, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
@@ -21,12 +21,7 @@ function Stat({ title, value, hint, icon: Icon, children }) {
                         {Icon && (
                             <div
                                 className="d-flex align-items-center justify-content-center"
-                                style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 12,
-                                    background: "rgba(0,0,0,0.05)",
-                                }}
+                                style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(0,0,0,0.05)" }}
                             >
                                 <Icon size={22} />
                             </div>
@@ -49,12 +44,7 @@ function ManageCard({ title, desc, icon: Icon, to, onGo }) {
                         {Icon && (
                             <div
                                 className="d-flex align-items-center justify-content-center"
-                                style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 12,
-                                    background: "rgba(0,0,0,0.05)",
-                                }}
+                                style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(0,0,0,0.05)" }}
                             >
                                 <Icon size={22} />
                             </div>
@@ -83,47 +73,69 @@ export default function SalesDashboard() {
     const nav = useNavigate();
     const go = (to) => nav(to);
 
+    // Dashboard summary state
     const [summary, setSummary] = useState({
         customers: null,
         invoices: null,
         pendingQuotes: null,
-        revenue: null,
+        revenue: null,          // Total revenue (closed deals)
+        monthlyRevenue: null,   // Monthly revenue, calculated
     });
 
     // ================= Load Dashboard Summary =================
     useEffect(() => {
         async function loadSummary() {
             try {
-                // Fetch customers
+                // --- Fetch all customers ---
                 const custRes = await apiFetch("/api/customers/all");
                 const custData = await custRes.json();
                 const customersArray = Array.isArray(custData) ? custData : custData.customers ?? [];
 
-                // Fetch quotes
+                // --- Fetch all quotes ---
                 const quotesRes = await apiFetch("/api/quotes");
                 const quotesData = await quotesRes.json();
                 const quotesArray = Array.isArray(quotesData) ? quotesData : quotesData.quotes ?? [];
 
-                // Fetch invoices
-                const invoicesRes = await apiFetch("/api/invoices/all")
+                // --- Fetch all invoices ---
+                const invoicesRes = await apiFetch("/api/invoices/all");
                 const invoicesData = await invoicesRes.json();
                 const invoicesArray = Array.isArray(invoicesData) ? invoicesData : invoicesData.invoices ?? [];
 
-                // Update summary state
+                // --- Calculate Monthly Revenue ---
+                // Only sum invoices marked as "PAID" or "ACTIVE" for current month
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                const monthlyRevenue = invoicesArray
+                    .filter(inv => {
+                        const invDate = new Date(inv.date); // Assuming `date` field exists
+                        return (
+                            inv.status === "PAID" &&
+                            invDate.getMonth() === currentMonth &&
+                            invDate.getFullYear() === currentYear
+                        );
+                    })
+                    .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+
+                // --- Update state ---
                 setSummary({
                     customers: customersArray.length,
                     invoices: invoicesArray.length,
                     pendingQuotes: quotesArray.filter(q => q.status === "PENDING").length,
-                    revenue: null, // Can be added if backend provides monthly revenue
+                    revenue: invoicesArray.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0), // total revenue
+                    monthlyRevenue,
                 });
+
             } catch (e) {
                 console.error("Failed to load dashboard summary", e);
-                // Fallback to 0 instead of spinner forever
+                // Fallback values
                 setSummary({
                     customers: 0,
                     invoices: 0,
                     pendingQuotes: 0,
                     revenue: 0,
+                    monthlyRevenue: 0,
                 });
             }
         }
@@ -131,6 +143,7 @@ export default function SalesDashboard() {
         loadSummary();
     }, []);
 
+    // ================= Render Dashboard =================
     return (
         <Container className="py-4">
             {/* Header */}
@@ -157,14 +170,27 @@ export default function SalesDashboard() {
                     </Stat>
                 </Col>
                 <Col md={3}>
-                    <Stat title="Revenue (Month)" value={summary.revenue ? `$${summary.revenue}` : null} hint="Closed deals" icon={CreditCard} />
+                    <Stat
+                        title="Revenue (All Time)"
+                        value={summary.revenue ? `$${summary.revenue.toLocaleString()}` : null}
+                        hint="Total closed deals"
+                        icon={CreditCard}
+                    />
+                </Col>
+                <Col md={3}>
+                    <Stat
+                        title="Monthly Revenue"
+                        value={summary.monthlyRevenue ? `$${summary.monthlyRevenue.toLocaleString()}` : null}
+                        hint="Current month only"
+                        icon={Package}
+                    />
                 </Col>
             </Row>
 
             {/* Management Cards */}
             <Row className="g-3 mt-3">
                 <Col md={6} lg={4}>
-                    <ManageCard title="Billing History" desc="Transaction and payment history." icon={FileText} to="/sales/history" onGo={go} />
+                    <ManageCard title="Unpaid Billing" desc="Transaction and payment history." icon={FileText} to="/sales/history" onGo={go} />
                 </Col>
                 <Col md={6} lg={4}>
                     <ManageCard title="Quotes & Deals" desc="Create quotes and convert to sales." icon={FileText} to="/sales/quotes" onGo={go} />
