@@ -34,6 +34,8 @@ import SalesDashboard from "./pages/sales/SalesDashboard";
 import SalesCustomers from "./pages/sales/SalesCustomers";
 import SalesQuotes from "./pages/sales/SalesQuotes.jsx";
 import SalesActivations from "./pages/sales/SalesActivations";
+import SalesBilling from "./pages/sales/SalesBilling";
+
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -349,6 +351,14 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesDashboard />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/sales/history"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
+                            <SalesBilling />
                         </RequireRole>
                     }
                 />

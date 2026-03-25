@@ -3,7 +3,7 @@ import { Container, Card, Button, Spinner, Table, Collapse, Alert } from "react-
 import { FileText } from "lucide-react";
 import { apiFetch } from "../../services/api";
 
-// Format number as CAD currency
+// Utility: format number as CAD currency
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
         ? "—"
@@ -14,29 +14,23 @@ export default function SalesBilling({ darkMode = false }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [openInvoiceId, setOpenInvoiceId] = useState(null); // track expanded invoice
-    const [role, setRole] = useState(null); // store current user role
 
     useEffect(() => {
         let isMounted = true;
 
         async function loadInvoices() {
             try {
-                // 1️⃣ Fetch current user info to get role
-                const userRes = await apiFetch("/api/users/me"); // endpoint returns { username, role, ... }
-                if (!userRes.ok) throw new Error(`Failed to fetch user info: ${userRes.status}`);
-                const userData = await userRes.json();
-                if (isMounted) setRole(userData.role);
-
-                // 2️⃣ Decide invoice API based on role
-                const invoiceEndpoint =
-                    userData.role && userData.role.toUpperCase() === "CUSTOMER"
-                        ? "/api/invoices/me/all"
-                        : "/api/invoices/all";
-
-                const res = await apiFetch(invoiceEndpoint);
+                // Fetch invoices from backend
+                const res = await apiFetch("/api/invoices/all");
                 if (!res.ok) throw new Error(`Failed to fetch invoices: ${res.status}`);
+
                 const data = await res.json();
-                if (isMounted) setInvoices(data);
+                console.log("Fetched invoices:", data); // DEBUG: check backend response
+
+                // Safety: ensure invoices is always an array
+                const invoicesArray = Array.isArray(data) ? data : data.invoices ?? [];
+
+                if (isMounted) setInvoices(invoicesArray);
             } catch (err) {
                 console.error(err);
                 if (isMounted) setError(err.message || "Failed to load invoices");
@@ -46,11 +40,11 @@ export default function SalesBilling({ darkMode = false }) {
         }
 
         loadInvoices();
-        return () => {
-            isMounted = false;
-        };
+
+        return () => { isMounted = false; };
     }, []);
 
+    // ---------------- Render Loading ----------------
     if (loading)
         return (
             <Container className="py-5 text-center">
@@ -61,6 +55,7 @@ export default function SalesBilling({ darkMode = false }) {
             </Container>
         );
 
+    // ---------------- Render Error ----------------
     if (error)
         return (
             <Container className="py-5">
@@ -68,6 +63,7 @@ export default function SalesBilling({ darkMode = false }) {
             </Container>
         );
 
+    // ---------------- Render Empty ----------------
     if (!invoices.length)
         return (
             <Container className="py-5 text-center">
@@ -75,6 +71,7 @@ export default function SalesBilling({ darkMode = false }) {
             </Container>
         );
 
+    // ---------------- Render Invoices ----------------
     return (
         <Container className="py-5">
             <h2>Billing History</h2>
@@ -121,15 +118,23 @@ export default function SalesBilling({ darkMode = false }) {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {inv.items?.map((item, idx) => (
-                                        <tr key={idx}>
-                                            <td>{item.description}</td>
-                                            <td>{item.quantity}</td>
-                                            <td>{formatMoney(item.unitPrice)}</td>
-                                            <td>{formatMoney(item.discountAmount)}</td>
-                                            <td>{formatMoney(item.lineTotal)}</td>
+                                    {Array.isArray(inv.items) && inv.items.length ? (
+                                        inv.items.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td>{item.description}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>{formatMoney(item.unitPrice)}</td>
+                                                <td>{formatMoney(item.discountAmount)}</td>
+                                                <td>{formatMoney(item.lineTotal)}</td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5} className="text-center">
+                                                No items in this invoice
+                                            </td>
                                         </tr>
-                                    ))}
+                                    )}
                                     </tbody>
                                 </Table>
 

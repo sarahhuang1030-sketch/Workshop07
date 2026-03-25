@@ -14,7 +14,6 @@
     "@stripe/stripe-js": "^8.9.0",
     "axios": "^1.13.5",
     "bootstrap": "^5.3.8",
-    "express": "^5.2.1",
     "lucide-react": "^0.563.0",
     "multer": "^2.0.2",
     "react": "^19.2.0",

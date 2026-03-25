@@ -57,15 +57,16 @@ public class InvoiceService {
         }
 
         // Map invoice line items
-        dto.items = invoice.getItems().stream().map(item -> {
-            InvoiceDTO.InvoiceItemDTO i = new InvoiceDTO.InvoiceItemDTO();
-            i.description = item.getDescription();
-            i.quantity = item.getQuantity();
-            i.unitPrice = item.getUnitPrice();
-            i.discountAmount = item.getDiscountAmount();
-            i.lineTotal = item.getLineTotal();
-            return i;
-        }).toList();
+        dto.items = invoice.getItems() == null ? List.of() :
+                invoice.getItems().stream().map(item -> {
+                    InvoiceDTO.InvoiceItemDTO i = new InvoiceDTO.InvoiceItemDTO();
+                    i.description = item.getDescription();
+                    i.quantity = item.getQuantity();
+                    i.unitPrice = item.getUnitPrice();
+                    i.discountAmount = item.getDiscountAmount();
+                    i.lineTotal = item.getLineTotal();
+                    return i;
+                }).toList();
 
         return dto;
     }

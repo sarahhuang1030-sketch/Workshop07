@@ -105,7 +105,7 @@ export default function SalesDashboard() {
                 const quotesArray = Array.isArray(quotesData) ? quotesData : quotesData.quotes ?? [];
 
                 // Fetch invoices
-                const invoicesRes = await apiFetch("/api/invoices");
+                const invoicesRes = await apiFetch("/api/invoices/all")
                 const invoicesData = await invoicesRes.json();
                 const invoicesArray = Array.isArray(invoicesData) ? invoicesData : invoicesData.invoices ?? [];
 

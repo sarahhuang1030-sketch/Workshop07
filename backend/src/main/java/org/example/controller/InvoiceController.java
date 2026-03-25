@@ -80,4 +80,38 @@ public class InvoiceController {
         if (invoice == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(invoiceService.convertToDTO(invoice));
     }
+
+    // =========================
+    // Get invoices (AUTO by role)
+    // =========================
+    @GetMapping("/all")
+    public ResponseEntity<List<InvoiceDTO>> getInvoices(Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated())
+            return ResponseEntity.status(401).build();
+
+        UserAccount ua = userAccountRepo
+                .findByUsernameIgnoreCase(authentication.getName())
+                .orElse(null);
+
+        if (ua == null)
+            return ResponseEntity.status(404).build();
+
+        List<Invoices> invoices;
+
+        if (ua.getRole() != null && !ua.getRole().equalsIgnoreCase("CUSTOMER")) {
+            invoices = invoiceService.findAllInvoices();
+        } else {
+            if (ua.getCustomerId() == null)
+                return ResponseEntity.status(403).build();
+
+            invoices = invoiceService.findAllByCustomerId(ua.getCustomerId());
+        }
+
+        List<InvoiceDTO> dtos = invoices.stream()
+                .map(invoiceService::convertToDTO)
+                .toList();
+
+        return ResponseEntity.ok(dtos);
+    }
 }
