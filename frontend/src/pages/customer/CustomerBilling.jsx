@@ -20,7 +20,7 @@ export default function CustomerBilling({ darkMode = false }) {
 
         async function loadInvoice() {
             try {
-                const res = await apiFetch("/api/invoices/latest"); // existing API
+                const res = await apiFetch("/api/invoices/latest");
                 if (!res.ok) throw new Error(`Failed to fetch invoice: ${res.status}`);
                 const data = await res.json();
                 if (isMounted) setInvoice(data);
