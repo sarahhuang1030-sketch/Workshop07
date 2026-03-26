@@ -1,33 +1,28 @@
-/**
- Description: This Controller class handles all the endpoints related to the currently authenticated user's
- profile and account management.
- Created by: Sarah
- Created on: February 2026
- **/
-
 package org.example.controller;
 
 import java.io.IOException;
 import java.security.Principal;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.List;
+import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.example.dto.CurrentPlanDTO;
+import org.example.dto.InvoiceDTO;
 import org.example.dto.RegisterAsCustomerRequestDTO;
 import org.example.dto.SaveMyAddressRequestDTO;
+import org.example.dto.UpdateMyProfileDTO;
+import org.example.entity.Invoices;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
 import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.example.service.AgentCustomerService;
 import org.example.service.AuditService;
-
 import org.example.service.AvatarStorageService;
+import org.example.service.InvoiceService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,7 +31,6 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import java.util.HashMap;
 
 @RestController
 public class MeController {
@@ -49,6 +43,7 @@ public class MeController {
     private final MeRepository meRepository;
     private final AvatarStorageService avatarStorageService;
     private final AuditService auditService;
+    private final InvoiceService invoiceService;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -57,7 +52,8 @@ public class MeController {
                         EmployeeRepository employeeRepo,
                         MeRepository meRepository,
                         AvatarStorageService avatarStorageService,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        InvoiceService invoiceService) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -65,7 +61,8 @@ public class MeController {
         this.employeeRepo = employeeRepo;
         this.meRepository = meRepository;
         this.avatarStorageService = avatarStorageService;
-        this.auditService=auditService;
+        this.auditService = auditService;
+        this.invoiceService = invoiceService;
     }
 
     // -------------------- GET /api/me --------------------
@@ -74,12 +71,6 @@ public class MeController {
                                 Authentication auth,
                                 @AuthenticationPrincipal OAuth2User oauthUser) {
         try {
-
-//            System.out.println("principal = " + principal);
-//            System.out.println("auth = " + auth);
-//            System.out.println("auth class = " + (auth != null ? auth.getClass().getName() : "null"));
-//            System.out.println("auth authenticated = " + (auth != null && auth.isAuthenticated()));
-
             if (principal == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -88,9 +79,8 @@ public class MeController {
             OAuth2AuthenticationToken oauthTok = isOauth ? (OAuth2AuthenticationToken) auth : null;
 
             Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
-
-            // OAuth => provider:externalId ; local => principal.getName()
             String key = resolveLoginKey(principal, auth, oauthUser);
+
             if (key == null || key.isBlank()) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -98,17 +88,12 @@ public class MeController {
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
 
             // Auto-register OAuth users if UA missing
-            if (ua == null) {
-                if (!isOauth || oauthTok == null) {
-                    return ResponseEntity.status(404).body("Not registered");
-                }
-
+            if (ua == null && isOauth && oauthTok != null) {
                 String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
-
                 String externalId = firstNonBlank(
-                        str(attrs.get("sub")),    // Google/Entra
-                        str(attrs.get("id")),     // Facebook sometimes
-                        str(attrs.get("login"))   // GitHub
+                        str(attrs.get("sub")),
+                        str(attrs.get("id")),
+                        str(attrs.get("login"))
                 );
                 if (externalId == null || externalId.isBlank()) {
                     return ResponseEntity.status(400).body("OAuth externalId missing");
@@ -121,44 +106,28 @@ public class MeController {
                 );
                 final String normalizedEmail = rawEmail != null ? rawEmail.trim().toLowerCase() : null;
 
-                // 1) Find or create Customer by (provider, externalId)
                 Customer customer = customerRepo
                         .findByExternalProviderAndExternalCustomerId(provider, externalId)
-                        .orElse(null);
+                        .orElseGet(() -> {
+                            String fullName = firstNonBlank(str(attrs.get("name")), str(attrs.get("login")));
+                            String firstName = firstNonBlank(str(attrs.get("given_name")), str(attrs.get("first_name")),
+                                    fullName != null ? fullName.split(" ")[0] : "—");
+                            String lastName = firstNonBlank(str(attrs.get("family_name")), str(attrs.get("last_name")),
+                                    fullName != null ? fullName.replaceFirst("^\\S+\\s*", "") : "");
 
-                if (customer == null) {
-                    String fullName = firstNonBlank(str(attrs.get("name")), str(attrs.get("login")));
+                            Customer c = new Customer();
+                            c.setCustomerType("Individual");
+                            c.setFirstName(firstName);
+                            c.setLastName(lastName);
+                            c.setEmail(normalizedEmail);
+                            c.setExternalProvider(provider);
+                            c.setExternalCustomerId(externalId);
+                            c.setStatus("Active");
+                            c.setCreatedAt(LocalDateTime.now());
+                            c.setPasswordHash("OAUTH:" + provider);
+                            return customerRepo.save(c);
+                        });
 
-                    String firstName = firstNonBlank(
-                            str(attrs.get("given_name")),
-                            str(attrs.get("first_name")),
-                            (fullName != null ? fullName.split(" ")[0] : null),
-                            "—"
-                    );
-
-                    String lastName = firstNonBlank(
-                            str(attrs.get("family_name")),
-                            str(attrs.get("last_name")),
-                            (fullName != null ? fullName.replaceFirst("^\\S+\\s*", "") : null),
-                            ""
-                    );
-
-                    Customer c = new Customer();
-                    c.setCustomerType("Individual");
-                    c.setFirstName(firstName);
-                    c.setLastName(lastName);
-                    c.setEmail(normalizedEmail); // can be null (GitHub etc.)
-                    c.setHomePhone(null);
-                    c.setExternalProvider(provider);
-                    c.setExternalCustomerId(externalId);
-                    c.setStatus("Active");
-                    c.setCreatedAt(LocalDateTime.now());
-                    c.setPasswordHash("OAUTH:" + provider);
-
-                    customer = customerRepo.save(c);
-                }
-
-                // 2) Create UA for this key, linked to that customer
                 UserAccount newUa = new UserAccount();
                 newUa.setUsername(key);
                 newUa.setRole("CUSTOMER");
@@ -167,7 +136,6 @@ public class MeController {
                 newUa.setIsLocked(0);
                 newUa.setPasswordHash("OAUTH:" + provider);
                 newUa.setLastLoginAt(LocalDateTime.now());
-
                 ua = userAccountRepo.save(newUa);
             }
 
@@ -176,54 +144,34 @@ public class MeController {
             userAccountRepo.save(ua);
 
             String oauthPictureUrl = isOauth ? extractOAuthPictureUrl(attrs) : null;
-
             if (isOauth && ua != null && (ua.getAvatarUrl() == null || ua.getAvatarUrl().isBlank())) {
                 String provider = oauthTok != null ? oauthTok.getAuthorizedClientRegistrationId().toLowerCase() : null;
                 try {
                     avatarStorageService.importOAuthAvatarForUser(ua, oauthPictureUrl, provider);
-
-                    // reload so latest avatarUrl is returned
                     ua = userAccountRepo.findById(ua.getUserId()).orElse(ua);
-
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
 
-
             // Build response
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("name", principal.getName());
             out.put("lookupKey", key);
-
             out.put("employeeId", ua.getEmployeeId());
             out.put("customerId", ua.getCustomerId());
-            String roleKey =
-                    ua.getEmployeeId() != null ? "EMPLOYEE" :
-                            ua.getCustomerId() != null ? "CUSTOMER" :
-                                    "GUEST";
-            out.put("role", roleKey);
+            out.put("role", ua.getEmployeeId() != null ? "EMPLOYEE" :
+                    ua.getCustomerId() != null ? "CUSTOMER" : "GUEST");
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
 
-            // Employee
             if (ua.getEmployeeId() != null) {
                 out.put("userType", "EMPLOYEE");
-
                 employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
                     out.put("firstName", emp.getFirstName());
                     out.put("lastName", emp.getLastName());
                 });
-
-                if (ua.getCustomerId() != null) {
-                    customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
-                        out.put("email", c.getEmail());
-                        out.put("homePhone", c.getHomePhone());
-                    });
-                }
-            }
-            // Customer
-            else if (ua.getCustomerId() != null) {
+            } else if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
                 customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
                     out.put("firstName", c.getFirstName());
@@ -235,14 +183,11 @@ public class MeController {
                 out.put("userType", "Unknown");
             }
 
-            // Address (if customerId exists)
             if (ua.getCustomerId() != null) {
                 customerAddressRepo
                         .findFirstByCustomerIdOrderByIsPrimaryDesc(ua.getCustomerId())
-                        .ifPresentOrElse(
-                                addr -> out.put("address", addressToMap(addr)),
-                                () -> out.put("address", null)
-                        );
+                        .ifPresentOrElse(addr -> out.put("address", addressToMap(addr)),
+                                () -> out.put("address", null));
             } else {
                 out.put("address", null);
             }
@@ -261,314 +206,40 @@ public class MeController {
         }
     }
 
-//    @GetMapping("/api/me")
-//    @Transactional(readOnly = true)
-//    public ResponseEntity<?> me(Principal principal,
-//                                Authentication auth,
-//                                @AuthenticationPrincipal OAuth2User oauthUser){
-//
-//        String email = oauthUser.getAttribute("email");
-//
-//        String key = resolveLoginKey(principal, auth, oauthUser);
-//        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElseThrow();
-//
-//        Customer c = customerRepo.findFirstByEmailIgnoreCase(email)
-//                .orElseThrow(() -> new RuntimeException("Customer not found"));
-//
-//        CustomerAddress addr = customerAddressRepo
-//                .findFirstByCustomerIdOrderByIsPrimaryDesc(c.getCustomerId())
-//                .orElse(null);
-//
-//        Map<String, Object> out = new HashMap<>();
-//
-//        // Personal section
-//        Map<String, Object> personal = new HashMap<>();
-//        personal.put("firstName", c.getFirstName());
-//        personal.put("lastName", c.getLastName());
-//        personal.put("email", c.getEmail());
-//        personal.put("phone", c.getHomePhone());
-//
-//        // Billing section
-//        Map<String, Object> billing = new HashMap<>();
-//
-//        if (addr != null) {
-//            Map<String, Object> address = new HashMap<>();
-//            address.put("street1", addr.getStreet1());
-//            address.put("street2", addr.getStreet2());
-//            address.put("city", addr.getCity());
-//            address.put("province", addr.getProvince());
-//            address.put("postalCode", addr.getPostalCode());
-//            address.put("country", addr.getCountry());
-//            billing.put("address", address);
-//        } else {
-//            billing.put("address", null);
-//        }
-//
-//        billing.put("nextBillAmount", 29.99);
-//        billing.put("nextBillDate", "2026-03-15");
-//        billing.put("paymentMethod", "Visa **** 1234");
-//
-//        out.put("id", c.getCustomerId());
-//        out.put("personal", personal);
-//        out.put("billing", billing);
-//
-//        return ResponseEntity.ok(out);
-//    }
-
-    // -------------------- POST /api/me/register-as-customer --------------------
-    @PostMapping("/api/me/register-as-customer")
-    public Object registerAsCustomer(Principal principal,
-                                     Authentication auth,
-                                     @AuthenticationPrincipal OAuth2User oauthUser,
-                                     @RequestBody RegisterAsCustomerRequestDTO req) {
-
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-        Map<String, Object> attrs = (oauthUser != null) ? oauthUser.getAttributes() : Map.of();
-
-        String provider = null;
-        if (auth instanceof OAuth2AuthenticationToken oauth) {
-            provider = oauth.getAuthorizedClientRegistrationId().toLowerCase();
-        }
-
-        String rawEmail = firstNonBlank(
-                str(attrs.get("email")),
-                str(attrs.get("preferred_username")),
-                str(attrs.get("upn"))
-        );
-        String email = rawEmail != null ? rawEmail.trim().toLowerCase() : null;
-
-        String key = resolveLoginKey(principal, auth, oauthUser);
-
-        if ((email == null || email.isBlank()) && req != null) {
-            String reqEmail = req.email != null ? req.email.trim().toLowerCase() : null;
-            email = firstNonBlank(reqEmail);
-        }
-
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body("OAuth email is missing. Please re-login with OAuth.");
-        }
-
-        if (req != null && (req.email == null || req.email.isBlank())) {
-            req.email = email;
-        }
-
-        String externalId = firstNonBlank(
-                str(attrs.get("sub")),
-                str(attrs.get("id")),
-                str(attrs.get("login"))
-        );
-
-        String firstName = firstNonBlank(
-                str(attrs.get("given_name")),
-                str(attrs.get("first_name"))
-        );
-
-        String lastName = firstNonBlank(
-                str(attrs.get("family_name")),
-                str(attrs.get("last_name"))
-        );
-
-        Object result = agentCustomerService.registerAsCustomer(key, provider, externalId, firstName, lastName, req);
-
-        auditService.log("User", "RegisterAsCustomer", key, key);
-
-        return result;
-    }
-
-    // -------------------- POST /api/me/address (first time) --------------------
-    @PostMapping("/api/me/address")
-    public Object createMyAddress(Principal principal,
-                                  Authentication auth,
-                                  @AuthenticationPrincipal OAuth2User oauthUser,
-                                  @RequestBody SaveMyAddressRequestDTO req) {
-
+    // -------------------- GET /api/me/invoice/latest --------------------
+    @GetMapping("/api/me/invoice/latest")
+    public ResponseEntity<?> getMyLatestInvoice(Principal principal,
+                                                Authentication auth,
+                                                @AuthenticationPrincipal OAuth2User oauthUser) {
         if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
 
         String key = resolveLoginKey(principal, auth, oauthUser);
-
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
-
-        if (ua.getCustomerId() == null) {
-            return ResponseEntity.status(400).body("No customerId for this user.");
+        if (ua == null || ua.getCustomerId() == null) {
+            return ResponseEntity.status(404).body("UserAccount or customerId not found");
         }
-
-        var existing = customerAddressRepo.findFirstByCustomerIdOrderByIsPrimaryDesc(ua.getCustomerId());
-        if (existing.isPresent()) {
-            return ResponseEntity.status(409).body("Address already exists. Use PUT /api/me/address to update.");
-        }
-
-        CustomerAddress addr = new CustomerAddress();
-        addr.setCustomerId(ua.getCustomerId());
-        addr.setAddressType(firstNonBlank(req.addressType, "Billing"));
-        addr.setIsPrimary(1);
-
-        addr.setStreet1(req.street1);
-        addr.setStreet2(req.street2);
-        addr.setCity(req.city);
-        addr.setProvince(req.province);
-        addr.setPostalCode(req.postalCode);
-        addr.setCountry(req.country);
-
-        customerAddressRepo.save(addr);
-
-        auditService.log("Address", "Create", key, key);
-
-        return ResponseEntity.ok("Address saved");
-    }
-
-    // -------------------- PUT /api/me/address (edit later) --------------------
-    @PutMapping("/api/me/address")
-    public Object updateMyAddress(Principal principal,
-                                  Authentication auth,
-                                  @AuthenticationPrincipal OAuth2User oauthUser,
-                                  @RequestBody SaveMyAddressRequestDTO req) {
-
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-        String key = resolveLoginKey(principal, auth, oauthUser);
-
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
-
-        if (ua.getCustomerId() == null) {
-            return ResponseEntity.status(400).body("No customerId for this user.");
-        }
-
-        CustomerAddress addr = customerAddressRepo
-                .findFirstByCustomerIdOrderByIsPrimaryDesc(ua.getCustomerId())
-                .orElseGet(() -> {
-                    CustomerAddress a = new CustomerAddress();
-                    a.setCustomerId(ua.getCustomerId());
-                    a.setIsPrimary(1);
-                    a.setAddressType(firstNonBlank(req.addressType, "Billing"));
-                    return a;
-                });
-
-        addr.setIsPrimary(1);
-        addr.setAddressType(firstNonBlank(req.addressType, addr.getAddressType()));
-
-        addr.setStreet1(req.street1);
-        addr.setStreet2(req.street2);
-        addr.setCity(req.city);
-        addr.setProvince(req.province);
-        addr.setPostalCode(req.postalCode);
-        addr.setCountry(req.country);
-
-        customerAddressRepo.save(addr);
-
-        auditService.log("Address", "Update", key, key);
-//        return ResponseEntity.ok("Address updated");
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Address updated");
-        return ResponseEntity.ok(response);
-    }
-
-    // -------------------- DELETE /api/me --------------------
-    @Transactional
-    @DeleteMapping("/api/me")
-    public ResponseEntity<?> deleteMyProfile(Principal principal,
-                                             Authentication auth,
-                                             @AuthenticationPrincipal OAuth2User oauthUser,
-                                             HttpServletRequest request,
-                                             HttpServletResponse response) {
-
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-        String key = resolveLoginKey(principal, auth, oauthUser);
-
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-        if (ua == null) return ResponseEntity.status(404).body("UserAccount not found");
 
         Integer customerId = ua.getCustomerId();
-        Integer employeeId = ua.getEmployeeId();
-
-        if (customerId == null) {
-            new SecurityContextLogoutHandler().logout(request, response, auth);
-            return ResponseEntity.ok("No customer profile to delete");
+        Invoices latestInvoice = invoiceService.findLatestByCustomerId(customerId);
+        if (latestInvoice == null) {
+            return ResponseEntity.noContent().build();
         }
 
-        if (employeeId != null) {
-            ua.setCustomerId(null);
-            userAccountRepo.saveAndFlush(ua);
+        InvoiceDTO dto = invoiceService.convertToDTO(latestInvoice);
 
-            customerAddressRepo.deleteAllByCustomerId(customerId);
-            customerRepo.deleteById(customerId);
-
-            auditService.log("Profile", "DeleteCustomerProfile", key, key);
-
-            new SecurityContextLogoutHandler().logout(request, response, auth);
-            return ResponseEntity.ok("Customer profile deleted (employee login kept)");
-        }
-
-        customerAddressRepo.deleteAllByCustomerId(customerId);
-        userAccountRepo.delete(ua);
-        userAccountRepo.flush();
-        customerRepo.deleteById(customerId);
-
-        auditService.log("Account", "Delete", key, key);
-
-        new SecurityContextLogoutHandler().logout(request, response, auth);
-        return ResponseEntity.ok("Account deleted");
-    }
-
-    @PutMapping("/api/me/profile")
-    @Transactional
-    public ResponseEntity<?> updateMyProfile(Principal principal,
-                                             Authentication auth,
-                                             @AuthenticationPrincipal OAuth2User oauthUser,
-                                             @RequestBody org.example.dto.UpdateMyProfileDTO req) {
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-        String key = resolveLoginKey(principal, auth, oauthUser);
-        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
-        if (uaOpt.isEmpty()) return ResponseEntity.status(404).body("UserAccount not found");
-
-        UserAccount ua = uaOpt.get();
-
-        // If employee: update employee name (optional, depends on your rules)
-        if (ua.getEmployeeId() != null) {
-            employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
-                if (req.firstName != null) emp.setFirstName(req.firstName.trim());
-                if (req.lastName != null) emp.setLastName(req.lastName.trim());
-                employeeRepo.save(emp);
-            });
-        }
-
-        // If customer: update customer name + phone
-        if (ua.getCustomerId() != null) {
-            customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
-                if (req.firstName != null) c.setFirstName(req.firstName.trim());
-                if (req.lastName != null) c.setLastName(req.lastName.trim());
-                if (req.homePhone != null) c.setHomePhone(req.homePhone.trim());
-                customerRepo.save(c);
-            });
-        }
-        auditService.log("Profile", "Update", key, key);
-
-        // Return something useful (optional)
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("message", "Profile updated");
+        out.put("invoice", dto);
+
         return ResponseEntity.ok(out);
     }
 
-
-
-    // -------------------- helpers --------------------
-
-    // OAuth => provider:externalId ; local login => principal.getName()
+    // -------------------- Helpers --------------------
     private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
         if (auth instanceof OAuth2AuthenticationToken oauthTok) {
             Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
             String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
 
-            String externalId = firstNonBlank(
-                    str(attrs.get("sub")),
-                    str(attrs.get("id")),
-                    str(attrs.get("login"))
-            );
-
+            String externalId = firstNonBlank(str(attrs.get("sub")), str(attrs.get("id")), str(attrs.get("login")));
             if (externalId != null && !externalId.isBlank()) {
                 return (provider + ":" + externalId).toLowerCase();
             }
@@ -577,16 +248,16 @@ public class MeController {
     }
 
     private Map<String, Object> addressToMap(CustomerAddress addr) {
-        Map<String, Object> address = new LinkedHashMap<>();
-        address.put("street1", addr.getStreet1());
-        address.put("street2", addr.getStreet2());
-        address.put("city", addr.getCity());
-        address.put("province", addr.getProvince());
-        address.put("postalCode", addr.getPostalCode());
-        address.put("country", addr.getCountry());
-        address.put("addressType", addr.getAddressType());
-        address.put("isPrimary", addr.getIsPrimary());
-        return address;
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("street1", addr.getStreet1());
+        map.put("street2", addr.getStreet2());
+        map.put("city", addr.getCity());
+        map.put("province", addr.getProvince());
+        map.put("postalCode", addr.getPostalCode());
+        map.put("country", addr.getCountry());
+        map.put("addressType", addr.getAddressType());
+        map.put("isPrimary", addr.getIsPrimary());
+        return map;
     }
 
     private static String str(Object o) {
@@ -600,139 +271,20 @@ public class MeController {
         return null;
     }
 
-    // -------------------- GET /api/me/subscription --------------------
-    @GetMapping("/api/me/subscription")
-    public ResponseEntity<?> getMySubscription(Principal principal,
-                                               Authentication auth,
-                                               @AuthenticationPrincipal OAuth2User oauthUser) {
-        try {
-            if (principal == null) {
-                return ResponseEntity.status(401).body("Not authenticated");
-            }
-
-            // IMPORTANT: use same login key logic as /api/me (works for OAuth + local)
-            String key = resolveLoginKey(principal, auth, oauthUser);
-            if (key == null || key.isBlank()) {
-                return ResponseEntity.status(401).body("Not authenticated");
-            }
-
-            // You already use this in /api/me, so keep consistent:
-            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-            if (ua == null || ua.getCustomerId() == null) {
-                return ResponseEntity.noContent().build(); // no subscription yet
-            }
-
-            int customerId = ua.getCustomerId();
-
-            var plan = meRepository.findActivePlanForCustomer(customerId)
-                    .orElse(new CurrentPlanDTO("Inactive", "—", null, null));
-
-            var lastPayment = meRepository.findLastCompletedPayment(customerId)
-                    .orElse(null);
-
-            Map<String, Object> out = new LinkedHashMap<>();
-            out.put("plan", plan);
-            out.put("lastPayment", lastPayment); // can be null safely
-            return ResponseEntity.ok(out);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Error in /api/me/subscription: " + e.getMessage());
-        }
-    }
-
-    //-------------Help to extra different social media's profile picture url-------------//
     private static String extractOAuthPictureUrl(Map<String, Object> attrs) {
-        // GitHub
         Object gh = attrs.get("avatar_url");
         if (gh != null && !gh.toString().isBlank()) return gh.toString();
-
-        // Google (OIDC) usually: picture is a direct string URL
         Object pic = attrs.get("picture");
         if (pic instanceof String s && !s.isBlank()) return s.trim();
-
-        // Facebook often: picture -> data -> url
         if (pic instanceof Map<?, ?> picMap) {
             Object data = picMap.get("data");
             if (data instanceof Map<?, ?> dataMap) {
                 Object url = dataMap.get("url");
                 if (url != null && !url.toString().isBlank()) return url.toString();
             }
-            // sometimes picture -> url
             Object url = picMap.get("url");
             if (url != null && !url.toString().isBlank()) return url.toString();
         }
-
         return null;
     }
-
-//    private static String asNonBlankString(Object o) {
-//        if (o == null) return null;
-//        if (o instanceof String s) {
-//            s = s.trim();
-//            return s.isEmpty() ? null : s;
-//        }
-//        // sometimes values come as other types (rare). Convert to string safely:
-//        String s = o.toString().trim();
-//        return s.isEmpty() ? null : s;
-//    }
-
-    // -------------------- GET /api/me/subscription/details --------------------
-    @GetMapping("/api/me/subscription/details")
-    public ResponseEntity<?> getMySubscriptionDetails(Principal principal,
-                                                      Authentication auth,
-                                                      @AuthenticationPrincipal OAuth2User oauthUser) {
-        try {
-            if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
-
-            String key = resolveLoginKey(principal, auth, oauthUser);
-            if (key == null || key.isBlank()) return ResponseEntity.status(401).body("Not authenticated");
-
-            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
-
-            if (ua == null || ua.getCustomerId() == null) {
-                Map<String, Object> out = new LinkedHashMap<>();
-                out.put("subscription", null);
-                out.put("plan", null);
-                out.put("features", List.of());
-                out.put("addOns", List.of());
-                out.put("payments", List.of());
-                return ResponseEntity.ok(out);
-            }
-
-            int customerId = ua.getCustomerId();
-
-            Integer subId = meRepository.findActiveSubscriptionId(customerId).orElse(null);
-            if (subId == null) {
-                Map<String, Object> out = new LinkedHashMap<>();
-                out.put("subscription", null);
-                out.put("plan", null);
-                out.put("features", List.of());
-                out.put("addOns", List.of());
-                out.put("payments", meRepository.findRecentPayments(customerId, 5));
-                return ResponseEntity.ok(out);
-            }
-
-            Map<String, Object> sub = meRepository.findSubscriptionRow(subId);
-
-            Object planIdObj = sub.get("planId");
-            int planId = (planIdObj instanceof Integer i)
-                    ? i
-                    : Integer.parseInt(String.valueOf(planIdObj));
-
-            Map<String, Object> plan = meRepository.findPlanInfo(planId);
-
-            return ResponseEntity.ok(Map.of(
-                    "subscription", sub,
-                    "plan", plan,
-                    "features", meRepository.findPlanFeatures(planId),
-                    "addOns", meRepository.findPurchasedAddOns(subId),
-                    "payments", meRepository.findRecentPayments(customerId, 5)
-            ));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Error in /api/me/subscription/details: " + e.getMessage());
-        }
-    }
-
 }

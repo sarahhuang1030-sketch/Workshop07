@@ -44,6 +44,7 @@ public class CustomerProfileDTO {
 
     public static class AddressDTO {
         public String street1;
+        public String street2;
         public String city;
         public String province;
         public String postalCode;

@@ -1,5 +1,6 @@
 package org.example.service;
 
+import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import org.example.entity.InvoiceItems;
 import org.example.entity.Invoices;
@@ -9,17 +10,15 @@ import org.example.repository.InvoiceItemRepository;
 import org.example.repository.InvoiceRepository;
 import org.example.repository.PaymentAccountRepository;
 import org.example.repository.UserAccountRepository;
-import org.springframework.security.core.Authentication;
+import org.example.dto.CheckoutItemDTO;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.example.dto.CheckoutItemDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-// Service responsible for handling checkout process
 @Service
 public class CheckoutService {
 
@@ -43,7 +42,20 @@ public class CheckoutService {
         this.stripePaymentService = stripePaymentService;
     }
 
-//     * Checkout flow
+    /**
+     * Process checkout with support for both saved cards and temporary cards.
+     *
+     * @param paymentAccountId ID of saved card; pass null for temporary card
+     * @param subtotal subtotal amount
+     * @param tax tax amount
+     * @param total total amount
+     * @param promoCode applied promo code
+     * @param billingCycle billing cycle info
+     * @param paymentIntentId Stripe PaymentIntent ID already created on frontend
+     * @param items list of checkout items
+     * @return saved invoice
+     * @throws Exception if payment fails or user/account not found
+     */
     @Transactional
     public Invoices checkout(
             Integer paymentAccountId,
@@ -56,102 +68,97 @@ public class CheckoutService {
             List<CheckoutItemDTO> items
     ) throws Exception {
 
-        PaymentIntent intent =
-                stripePaymentService.retrievePaymentIntent(paymentIntentId);
+        // -------------------------
+        // Debug: 打印前端传入的所有参数
+        // -------------------------
+        System.out.println("[DEBUG] ===== Checkout Request Start =====");
+        System.out.println("[DEBUG] paymentAccountId: " + paymentAccountId);
+        System.out.println("[DEBUG] subtotal: " + subtotal + ", tax: " + tax + ", total: " + total);
+        System.out.println("[DEBUG] promoCode: " + promoCode + ", billingCycle: " + billingCycle);
+        System.out.println("[DEBUG] paymentIntentId: " + paymentIntentId);
+        System.out.println("[DEBUG] items:");
+        for (CheckoutItemDTO dto : items) {
+            System.out.println("  - desc=" + dto.getDescription() + ", qty=" + dto.getQuantity()
+                    + ", unitPrice=" + dto.getUnitPrice()
+                    + ", lineTotal=" + dto.getLineTotal()
+                    + ", discount=" + dto.getDiscountAmount());
+        }
 
+        // -------------------------
+        // 1. Verify Stripe payment succeeded
+        // -------------------------
+        PaymentIntent intent = stripePaymentService.retrievePaymentIntent(paymentIntentId);
         if (!"succeeded".equals(intent.getStatus())) {
             throw new Exception("Payment not completed");
         }
 
-        Authentication auth =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        String username = auth.getName();
-
-        UserAccount user = userRepo
-                .findByUsernameIgnoreCase(username)
+        // -------------------------
+        // 2. Retrieve user
+        // -------------------------
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserAccount user = userRepo.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new Exception("User not found"));
+        System.out.println("[DEBUG] Username: " + username + ", customerId=" + user.getCustomerId());
 
-        Integer customerId = user.getCustomerId();
+        // -------------------------
+        // 3. Retrieve PaymentAccount
+        // -------------------------
+        PaymentAccounts account = null;
+        if (paymentAccountId != null && paymentAccountId > 0) {
+            account = accountRepo
+                    .findByAccountIdAndCustomerId(paymentAccountId, user.getCustomerId())
+                    .orElse(null);
 
-        PaymentAccounts account = accountRepo
-                .findByAccountIdAndCustomerId(paymentAccountId, customerId)
-                .orElseThrow(() -> new Exception("Invalid payment account"));
-
-        Double amountToCharge = total;
-
-        if ("monthly".equalsIgnoreCase(billingCycle)) {
-            amountToCharge = 0.0;
+            if (account != null) {
+                System.out.println("[DEBUG] Found PaymentAccount: AccountId=" + account.getAccountId()
+                        + ", last4=" + account.getLast4()
+                        + ", method=" + account.getMethod());
+            } else {
+                System.out.println("[DEBUG] No PaymentAccount found for AccountId=" + paymentAccountId
+                        + ", customerId=" + user.getCustomerId());
+            }
+        } else {
+            System.out.println("[DEBUG] Using temporary card (no saved account)");
         }
 
-        if (account.getBalance() < amountToCharge) {
-            throw new Exception("Insufficient balance");
-        }
+        // -------------------------
+        // 4. Create Invoice entity
+        // -------------------------
+        Invoices invoice = new Invoices();
+        invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
+        invoice.setCustomerId(user.getCustomerId());
+        invoice.setIssueDate(LocalDate.now());
+        invoice.setDueDate(LocalDate.now().plusDays(7));
+        invoice.setSubtotal(subtotal);
+        invoice.setTaxTotal(tax);
+        invoice.setTotal(total);
+        invoice.setPromoCode(promoCode);
+        invoice.setPaidByAccount(account); // can be null for temporary card
+        invoice.setStatus("PAID");
+        invoice.setStripePaymentIntentId(paymentIntentId);
 
-        account.setBalance(account.getBalance() - amountToCharge);
-        accountRepo.save(account);
+        Invoices savedInvoice = invoiceRepo.save(invoice);
 
-        Invoices invoices = new Invoices();
-
-        invoices.setInvoiceNumber("TC-" + System.currentTimeMillis());
-        invoices.setCustomerId(customerId);
-        invoices.setIssueDate(LocalDate.now());
-        invoices.setDueDate(LocalDate.now());
-
-        invoices.setSubtotal(subtotal);
-        invoices.setTaxTotal(tax);
-        invoices.setTotal(total);
-
-        invoices.setPromoCode(promoCode);
-        invoices.setPaidByAccount(account);
-        invoices.setStatus("PAID");
-
-        // Store Stripe reference
-        invoices.setStripePaymentIntentId(paymentIntentId);
-
-        Invoices savedInvoices = invoiceRepo.save(invoices);
-
+        // -------------------------
+        // 5. Save each checkout item
+        // -------------------------
         for (CheckoutItemDTO dto : items) {
-
-            // Create new Entity object
             InvoiceItems item = new InvoiceItems();
-
-            // Link to parent invoice
-            item.setInvoice(savedInvoices);
-
-            // Map basic fields
+            item.setInvoice(savedInvoice);
             item.setDescription(dto.getDescription());
             item.setQuantity(dto.getQuantity());
-
-            // Convert Double → BigDecimal
-            item.setUnitPrice(
-                    BigDecimal.valueOf(dto.getUnitPrice())
-            );
-
-            // Handle line total
-            if (dto.getLineTotal() != null) {
-                item.setLineTotal(
-                        BigDecimal.valueOf(dto.getLineTotal())
-                );
-            } else {
-                item.setLineTotal(
-                        BigDecimal.valueOf(
-                                dto.getQuantity() * dto.getUnitPrice()
-                        )
-                );
-            }
-
-            // Optional discount
-            if (dto.getDiscountAmount() != null) {
-                item.setDiscountAmount(
-                        BigDecimal.valueOf(dto.getDiscountAmount())
-                );
-            }
-
-            // Save to DB
+            item.setUnitPrice(BigDecimal.valueOf(dto.getUnitPrice()));
+            item.setLineTotal(BigDecimal.valueOf(
+                    dto.getLineTotal() != null ? dto.getLineTotal() : dto.getQuantity() * dto.getUnitPrice()
+            ));
+            item.setDiscountAmount(dto.getDiscountAmount() != null
+                    ? BigDecimal.valueOf(dto.getDiscountAmount())
+                    : BigDecimal.ZERO);
             itemRepo.save(item);
         }
 
-        return savedInvoices;
+        System.out.println("[DEBUG] ===== Checkout Request End =====");
+
+        return savedInvoice;
     }
 }

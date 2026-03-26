@@ -60,7 +60,7 @@ export default function ManagerUsers({ darkMode = false }) {
             setCustomers(data);
         } catch (err) {
             console.error(err);
-            setError("Unable to load customers.");
+            setError("Unable to load CustomersPage.jsx.");
         } finally {
             setLoading(false);
         }
@@ -144,7 +144,7 @@ export default function ManagerUsers({ darkMode = false }) {
 
             const url = editingId
                 ? `/api/manager/customers/${editingId}`
-                : "/api/manager/customers";
+                : "/api/manager/CustomersPage.jsx";
 
             const method = editingId ? "PUT" : "POST";
 

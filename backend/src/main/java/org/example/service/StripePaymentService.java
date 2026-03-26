@@ -1,82 +1,7 @@
-//package org.example.service;
-//
-//import com.stripe.Stripe;
-//import com.stripe.model.Customer;
-//import com.stripe.model.PaymentIntent;
-//import com.stripe.model.PaymentMethod;
-//import com.stripe.param.CustomerCreateParams;
-//import com.stripe.param.PaymentIntentCreateParams;
-//import com.stripe.param.PaymentMethodAttachParams;
-//import jakarta.annotation.PostConstruct;
-//import org.springframework.beans.factory.annotation.Value;
-//import org.springframework.stereotype.Service;
-//
-//@Service
-//public class StripePaymentService {
-//
-//    @Value("${stripe.secret.key}")
-//    private String stripeKey;
-//
-//    @PostConstruct
-//    public void init() {
-//        Stripe.apiKey = stripeKey;
-//    }
-//
-//    /**
-//     * Create a new Stripe customer with the user's email/username
-//     */
-//    public Customer createStripeCustomer(String username) throws Exception {
-//        CustomerCreateParams params = CustomerCreateParams.builder()
-//                .setName(username)
-//                .build();
-//        return Customer.create(params);
-//    }
-//
-//    /**
-//     * Attach a PaymentMethod to a Stripe customer
-//     */
-//    public PaymentMethod attachPaymentMethodToCustomer(String stripeCustomerId, String paymentMethodId) throws Exception {
-//        PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
-//        pm.attach(PaymentMethodAttachParams.builder()
-//                .setCustomer(stripeCustomerId)
-//                .build());
-//        return pm;
-//    }
-//
-//    /**
-//     * Create PaymentIntent WITHOUT confirming
-//     * Frontend confirms with Stripe.js
-//     */
-//    public PaymentIntent createPaymentIntent(Long amount) throws Exception {
-//        return PaymentIntent.create(PaymentIntentCreateParams.builder()
-//                .setAmount(amount)
-//                .setCurrency("cad")
-//                .build());
-//    }
-//
-//    /**
-//     * Create PaymentIntent for an existing Stripe customer and payment method
-//     */
-//    public PaymentIntent createPaymentIntentWithCustomer(Long amount, String stripeCustomerId, String paymentMethodId) throws Exception {
-//        return PaymentIntent.create(PaymentIntentCreateParams.builder()
-//                .setAmount(amount)
-//                .setCurrency("cad")
-//                .setCustomer(stripeCustomerId)
-//                .setPaymentMethod(paymentMethodId)
-//                .build());
-//    }
-//
-//    /**
-//     * Retrieve a PaymentIntent from Stripe
-//     */
-//    public PaymentIntent retrievePaymentIntent(String paymentIntentId) throws Exception {
-//        return PaymentIntent.retrieve(paymentIntentId);
-//    }
-//}
-
 package org.example.service;
 
 import com.stripe.Stripe;
+import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.PaymentMethod;
@@ -100,17 +25,14 @@ public class StripePaymentService {
         Stripe.apiKey = stripeKey;
     }
 
-    /**
-     * Create a simple PaymentIntent (no customer attached)
-     */
-    public PaymentIntent createPaymentIntent(Long amount) throws Exception {
+    // ================= CREATE PAYMENT =================
+    public PaymentIntent createPaymentIntent(Long amount) throws StripeException {
         return PaymentIntent.create(
                 PaymentIntentCreateParams.builder()
                         .setAmount(amount)
                         .setCurrency("cad")
                         .setAutomaticPaymentMethods(
-                                PaymentIntentCreateParams.AutomaticPaymentMethods
-                                        .builder()
+                                PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                         .setEnabled(true)
                                         .build()
                         )
@@ -118,16 +40,28 @@ public class StripePaymentService {
         );
     }
 
-    /**
-     * Create and confirm PaymentIntent with existing customer & payment method
-     */
+    public PaymentIntent createPaymentIntent(Long amount, String paymentMethodId) throws StripeException {
+        return PaymentIntent.create(
+                PaymentIntentCreateParams.builder()
+                        .setAmount(amount)
+                        .setCurrency("cad")
+                        .setPaymentMethod(paymentMethodId)
+                        .setConfirm(false)
+                        .setAutomaticPaymentMethods(
+                                PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                        .setEnabled(true)
+                                        .build()
+                        )
+                        .build()
+        );
+    }
+
     public PaymentIntent createPaymentIntentWithCustomer(
             Long amount,
             String customerId,
             String paymentMethodId
-    ) throws Exception {
+    ) throws StripeException {
 
-        // Attach payment method to customer (if not already)
         PaymentMethod.retrieve(paymentMethodId)
                 .attach(Map.of("customer", customerId));
 
@@ -143,22 +77,18 @@ public class StripePaymentService {
         );
     }
 
-    /**
-     * Retrieve PaymentIntent by ID
-     */
-    public PaymentIntent retrievePaymentIntent(String id) throws Exception {
+    // ================= RETRIEVE =================
+    public PaymentIntent retrievePaymentIntent(String id) throws StripeException {
         return PaymentIntent.retrieve(id);
     }
 
-    /**
-     * Attach payment method to customer
-     * If customer does not exist → create one
-     */
-    public PaymentMethod attachPaymentMethodToCustomer(String customerId, String paymentMethodId) throws Exception {
+    // ================= ATTACH =================
+    public PaymentMethod attachPaymentMethodToCustomer(String customerId, String paymentMethodId) throws StripeException {
+
         PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
 
         if (customerId == null) {
-            Customer customer = Customer.create(CustomerCreateParams.builder()
+            Customer.create(CustomerCreateParams.builder()
                     .setPaymentMethod(paymentMethodId)
                     .setInvoiceSettings(CustomerCreateParams.InvoiceSettings.builder()
                             .setDefaultPaymentMethod(paymentMethodId)
@@ -171,10 +101,9 @@ public class StripePaymentService {
         }
     }
 
-    /**
-     * Get customer's default payment method
-     */
-    public PaymentMethod getDefaultPaymentMethod(String customerId) throws Exception {
+    // ================= DEFAULT =================
+    public PaymentMethod getDefaultPaymentMethod(String customerId) throws StripeException {
+
         Customer customer = Customer.retrieve(customerId);
 
         if (customer.getInvoiceSettings().getDefaultPaymentMethod() == null) {
@@ -186,20 +115,21 @@ public class StripePaymentService {
         );
     }
 
-    /**
-     * Create a new Stripe customer with username/email
-     */
-    public String createCustomer(String username) throws Exception {
-        Customer customer = Customer.create(CustomerCreateParams.builder()
-                .setName(username)
-                .build());
+    // ================= CREATE CUSTOMER =================
+    public String createCustomer(String username) throws StripeException {
+
+        Customer customer = Customer.create(
+                CustomerCreateParams.builder()
+                        .setName(username)
+                        .build()
+        );
+
         return customer.getId();
     }
 
-    /**
-     * Detach a payment method from Stripe customer
-     */
-    public void detachPaymentMethod(String paymentMethodId) throws Exception {
+    // ================= DETACH =================
+    public void detachPaymentMethod(String paymentMethodId) throws StripeException {
+
         PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
         pm.detach();
     }

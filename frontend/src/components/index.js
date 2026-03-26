@@ -6,3 +6,4 @@ export { PaymentModal } from "./PaymentModal";
 export { default as SubscriptionPage } from "./SubscriptionPage";
 export { DeleteProfileModal } from "./DeleteProfileModal";
 export { BillingAddressCard } from "./BillingAddressCard.jsx"
+
