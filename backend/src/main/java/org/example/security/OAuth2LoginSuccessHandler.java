@@ -4,8 +4,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.example.model.Customer;
+import org.example.model.Role;
 import org.example.model.UserAccount;
 import org.example.repository.CustomerRepository;
+import org.example.repository.RoleRepository;
 import org.example.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -29,6 +31,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final UserDetailsService userDetailsService;
     private final UserAccountRepository userAccountRepo;
     private final CustomerRepository customerRepo;
+    private final RoleRepository roleRepository;
 
     @Value("${app.frontend.origin:http://localhost:5173}")
     private String frontendOrigin;
@@ -36,11 +39,13 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     public OAuth2LoginSuccessHandler(JwtService jwtService,
                                      UserDetailsService userDetailsService,
                                      UserAccountRepository userAccountRepo,
-                                     CustomerRepository customerRepo) {
+                                     CustomerRepository customerRepo,
+                                     RoleRepository roleRepository) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
         this.userAccountRepo = userAccountRepo;
         this.customerRepo = customerRepo;
+        this.roleRepository = roleRepository;
     }
 
     @Override
@@ -144,7 +149,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
             UserAccount newUa = new UserAccount();
             newUa.setUsername(username);
-            newUa.setRole("CUSTOMER");
+            //newUa.setRole("CUSTOMER");
+            Role customerRole = roleRepository.findByRoleName("Customer")
+                    .orElseThrow(() -> new RuntimeException("Customer role not found"));
+
+            newUa.setRole(customerRole);
             newUa.setCustomerId(customer.getCustomerId());
             newUa.setEmployeeId(null);
             newUa.setIsLocked(0);

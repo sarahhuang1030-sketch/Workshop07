@@ -24,8 +24,12 @@ public class UserAccount {
     @Column(name = "PasswordHash")
     private String passwordHash;
 
-    @Column(name = "Role", nullable = false)
-    private String role;
+//    @Column(name = "Role", nullable = false)
+//    private String role;
+
+    @ManyToOne
+    @JoinColumn(name = "RoleId")
+    private Role role;
 
     @Column(name = "IsLocked", nullable = false)
     private Integer isLocked;
@@ -41,7 +45,6 @@ public class UserAccount {
 
     @PrePersist
     public void prePersist() {
-        if (role == null) role = "Customer";
         if (isLocked == null) isLocked = 0;
     }
 
@@ -61,8 +64,16 @@ public class UserAccount {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+//    public String getRole() { return role; }
+//    public void setRole(String role) { this.role = role; }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
 
     public Integer getIsLocked() { return isLocked; }
     public void setIsLocked(Integer isLocked) { this.isLocked = isLocked; }

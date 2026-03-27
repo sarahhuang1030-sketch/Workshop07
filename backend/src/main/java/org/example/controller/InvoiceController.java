@@ -99,7 +99,8 @@ public class InvoiceController {
 
         List<Invoices> invoices;
 
-        if (ua.getRole() != null && !ua.getRole().equalsIgnoreCase("CUSTOMER")) {
+//        if (ua.getRole() != null && !ua.getRole().equalsIgnoreCase("Customer")) {
+        if (ua.getRole() != null && !"Customer".equalsIgnoreCase(ua.getRole().getRoleName())) {
             invoices = invoiceService.findAllInvoices();
         } else {
             if (ua.getCustomerId() == null)

@@ -150,6 +150,21 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             userProp.phone ??
             "—";
 
+        const rawRole = userProp.role ?? null;
+
+        const normalizedRole =
+            rawRole === "Manager" ||
+            rawRole === "Sales Agent" ||
+            rawRole === "Service Technician"
+                ? "EMPLOYEE"
+                : rawRole === "Customer"
+                    ? "CUSTOMER"
+                    : userProp.employeeId
+                        ? "EMPLOYEE"
+                        : userProp.customerId
+                            ? "CUSTOMER"
+                            : "GUEST";
+
         const baseProfile = {
             customerId: userProp.customerId ?? null,
             employeeId: userProp.employeeId ?? null,
@@ -159,7 +174,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             phone,
             avatarUrl: userProp.avatarUrl ?? null,
             oauthPicture: userProp.oauthPicture ?? userProp.raw?.oauthPicture ?? userProp.picture ?? userProp.raw?.picture ?? null,
-            role: userProp.role ?? (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
+            // role: userProp.role ?? (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
+            role: normalizedRole,
             billing: { nextBillAmount: null, nextBillDate: null, paymentMethod: {}, address: {}, invoices: [] },
         };
 

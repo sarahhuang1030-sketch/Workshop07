@@ -3,11 +3,9 @@ package org.example.service;
 import org.example.dto.RegisterRequestDTO;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
+import org.example.model.Role;
 import org.example.model.UserAccount;
-import org.example.repository.CustomerAddressRepository;
-import org.example.repository.CustomerRepository;
-import org.example.repository.PasswordResetTokenRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +20,19 @@ public class CustomerRegistrationService {
     private final UserAccountRepository userAccountRepo;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     //private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
 
     public CustomerRegistrationService(CustomerRepository customerRepo,
                                        CustomerAddressRepository addressRepo,
                                        UserAccountRepository userAccountRepo,
-                                       PasswordEncoder passwordEncoder, PasswordResetTokenRepository passwordResetTokenRepository) {
+                                       PasswordEncoder passwordEncoder, PasswordResetTokenRepository passwordResetTokenRepository,
+                                       RoleRepository roleRepository) {
         this.customerRepo = customerRepo;
         this.addressRepo = addressRepo;
         this.userAccountRepo = userAccountRepo;
       //  this.passwordEncoder = passwordEncoder;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.roleRepository=roleRepository;
     }
 
     @Transactional
@@ -117,7 +118,11 @@ public class CustomerRegistrationService {
 //        ua.setPasswordHash(hash);
         //storing raw passwords
         ua.setPasswordHash(rawPassword);
-        ua.setRole("Customer");
+//        ua.setRole("Customer");
+        Role customerRole = roleRepository.findByRoleName("Customer")
+                .orElseThrow(() -> new RuntimeException("Customer role not found"));
+
+        ua.setRole(customerRole);
         ua.setIsLocked(0);
         ua.setLastLoginAt(null);
 

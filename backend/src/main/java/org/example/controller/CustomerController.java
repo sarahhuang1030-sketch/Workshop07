@@ -191,7 +191,7 @@ public class CustomerController {
         CustomerProfileDTO dto = new CustomerProfileDTO(
                 ua.getCustomerId(),
                 ua.getEmployeeId(),
-                ua.getRole()
+                ua.getRole() != null ? ua.getRole().getRoleName() : null
         );
 
         Customer customer = customerRepo.findById(ua.getCustomerId()).orElse(null);

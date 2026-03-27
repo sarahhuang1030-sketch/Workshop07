@@ -3,7 +3,9 @@ package org.example.service;
 import org.example.dto.EmployeeDTO;
 import org.example.dto.SaveEmployeeRequestDTO;
 import org.example.model.Employee;
+import org.example.model.Role;
 import org.example.repository.EmployeeRepository;
+import org.example.repository.RoleRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,9 +14,12 @@ import java.util.List;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final RoleRepository roleRepository;
 
-    public EmployeeService(EmployeeRepository employeeRepository) {
+    public EmployeeService(EmployeeRepository employeeRepository,
+                           RoleRepository roleRepository) {
         this.employeeRepository = employeeRepository;
+        this.roleRepository=roleRepository;
     }
 
     public List<EmployeeDTO> getAllEmployees() {
@@ -59,7 +64,11 @@ public class EmployeeService {
         employee.setLastName(request.getLastName());
         employee.setEmail(request.getEmail());
         employee.setPhone(request.getPhone());
-        employee.setRole(request.getRole());
+//        employee.setRole(request.getRole());
+        Role role = roleRepository.findByRoleName(request.getRole())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid role: " + request.getRole()));
+
+        employee.setRole(role);
         employee.setSalary(request.getSalary());
         employee.setHireDate(request.getHireDate());
         employee.setStatus(request.getStatus());
@@ -76,7 +85,9 @@ public class EmployeeService {
         dto.setLastName(employee.getLastName());
         dto.setEmail(employee.getEmail());
         dto.setPhone(employee.getPhone());
-        dto.setRole(employee.getRole());
+        dto.setRole(
+                employee.getRole() != null ? employee.getRole().getRoleName() : null
+        );
         dto.setSalary(employee.getSalary());
         dto.setHireDate(employee.getHireDate());
         dto.setStatus(employee.getStatus());

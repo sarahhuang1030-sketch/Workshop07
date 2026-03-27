@@ -32,8 +32,11 @@ public class Employee {
     @Column(name = "Phone")
     private String phone;
 
-    @Column(name = "PositionTitle")
-    private String role;
+//    @Column(name = "PositionTitle")
+//    private String role;
+    @ManyToOne
+    @JoinColumn(name = "RoleId")
+    private Role role;
 
     @Column(name = "Salary")
     private BigDecimal salary;
@@ -106,13 +109,20 @@ public class Employee {
         this.phone = phone;
     }
 
-    public String getRole() {
+    public Role getRole() {
         return role;
     }
 
-    public void setRole(String role) {
+    public void setRole(Role role) {
         this.role = role;
     }
+//    public String getRole() {
+//        return role;
+//    }
+//
+//    public void setRole(String role) {
+//        this.role = role;
+//    }
 
     public BigDecimal getSalary() {
         return salary;

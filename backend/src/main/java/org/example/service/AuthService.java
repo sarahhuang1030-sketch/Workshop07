@@ -79,7 +79,7 @@ public class AuthService {
                     null,
                     customer.getFirstName(),
                     ua.getUsername(),
-                    ua.getRole()
+                    ua.getRole() != null ? ua.getRole().getRoleName() : null
             );
         }
 
@@ -94,7 +94,7 @@ public class AuthService {
                     emp.getEmployeeId(), // adjust if already Long
                     emp.getFirstName(),
                     ua.getUsername(),
-                    ua.getRole()
+                    ua.getRole() != null ? ua.getRole().getRoleName() : null
             );
         }
 

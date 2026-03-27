@@ -141,7 +141,10 @@ public class SecurityConfig {
     public UserDetailsService userDetailsService(UserAccountRepository repo) {
         return username -> repo.findByUsernameIgnoreCase(username)
                 .map(u -> {
-                    String dbRole = (u.getRole() == null || u.getRole().isBlank()) ? "Customer" : u.getRole();
+                    //String dbRole = (u.getRole() == null || u.getRole().isBlank()) ? "Customer" : u.getRole();
+                    String dbRole = (u.getRole() == null || u.getRole().getRoleName() == null || u.getRole().getRoleName().isBlank())
+                            ? "Customer"
+                            : u.getRole().getRoleName();
                     String roleKey = dbRole.trim().toUpperCase().replace(' ', '_'); // "Sales Agent" -> "SALES_AGENT"
                     return User.withUsername(u.getUsername())
                             .password(u.getPasswordHash())

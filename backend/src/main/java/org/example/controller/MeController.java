@@ -16,6 +16,7 @@ import org.example.dto.UpdateMyProfileDTO;
 import org.example.entity.Invoices;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
+import org.example.model.Role;
 import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.example.service.AgentCustomerService;
@@ -44,6 +45,7 @@ public class MeController {
     private final AvatarStorageService avatarStorageService;
     private final AuditService auditService;
     private final InvoiceService invoiceService;
+    private final RoleRepository roleRepository;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -53,7 +55,8 @@ public class MeController {
                         MeRepository meRepository,
                         AvatarStorageService avatarStorageService,
                         AuditService auditService,
-                        InvoiceService invoiceService) {
+                        InvoiceService invoiceService,
+                        RoleRepository roleRepository) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -63,6 +66,7 @@ public class MeController {
         this.avatarStorageService = avatarStorageService;
         this.auditService = auditService;
         this.invoiceService = invoiceService;
+        this.roleRepository = roleRepository;
     }
 
     // -------------------- GET /api/me --------------------
@@ -130,7 +134,11 @@ public class MeController {
 
                 UserAccount newUa = new UserAccount();
                 newUa.setUsername(key);
-                newUa.setRole("CUSTOMER");
+//                newUa.setRole("Customer");
+                Role customerRole = roleRepository.findByRoleName("Customer")
+                        .orElseThrow(() -> new RuntimeException("Customer role not found"));
+
+                newUa.setRole(customerRole);
                 newUa.setCustomerId(customer.getCustomerId());
                 newUa.setEmployeeId(null);
                 newUa.setIsLocked(0);

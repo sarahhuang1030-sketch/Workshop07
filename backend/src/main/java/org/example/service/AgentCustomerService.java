@@ -3,9 +3,11 @@ package org.example.service;
 import org.example.dto.RegisterAsCustomerRequestDTO;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
+import org.example.model.Role;
 import org.example.model.UserAccount;
 import org.example.repository.CustomerAddressRepository;
 import org.example.repository.CustomerRepository;
+import org.example.repository.RoleRepository;
 import org.example.repository.UserAccountRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ public class AgentCustomerService {
     private final UserAccountRepository userAccountRepo;
     private final CustomerRepository customerRepo;
     private final CustomerAddressRepository addressRepo;
+    private final RoleRepository roleRepository;
 
     private String oauthPasswordMarker(String provider) {
         String p = (provider == null ? "oauth" : provider.trim().toLowerCase());
@@ -34,10 +37,12 @@ public class AgentCustomerService {
 
     public AgentCustomerService(UserAccountRepository userAccountRepo,
                                 CustomerRepository customerRepo,
-                                CustomerAddressRepository addressRepo) {
+                                CustomerAddressRepository addressRepo,
+                                RoleRepository roleRepository) {
         this.userAccountRepo = userAccountRepo;
         this.customerRepo = customerRepo;
         this.addressRepo = addressRepo;
+        this.roleRepository=roleRepository;
     }
 
 
@@ -92,7 +97,11 @@ public class AgentCustomerService {
                     .orElseGet(UserAccount::new);
 
             ua.setUsername(username);
-            ua.setRole("Customer");
+//            ua.setRole("Customer");
+            Role customerRole = roleRepository.findByRoleName("Customer")
+                    .orElseThrow(() -> new RuntimeException("Customer role not found"));
+
+            ua.setRole(customerRole);
             ua.setCustomerId(c.getCustomerId());
             ua.setEmployeeId(null);
             ua.setLastLoginAt(LocalDateTime.now());
@@ -181,7 +190,11 @@ public class AgentCustomerService {
                 .orElseGet(UserAccount::new);
 
         ua.setUsername(key);
-        ua.setRole("Customer");
+//        ua.setRole("Customer");
+        Role customerRole = roleRepository.findByRoleName("Customer")
+                .orElseThrow(() -> new RuntimeException("Customer role not found"));
+
+        ua.setRole(customerRole);
         ua.setCustomerId(c.getCustomerId());
         ua.setEmployeeId(null);
         ua.setLastLoginAt(LocalDateTime.now());
