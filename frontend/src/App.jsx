@@ -54,6 +54,7 @@ import ManagerAudit from "./pages/manager/ManagerAudit";
 import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature";
 import ManagerLocation from "./pages/manager/ManagerLocation"
 import ManagerServices from "./pages/manager/ManagerServices"
+import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales"
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
@@ -510,6 +511,14 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerServices />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/employee-sales"
+                    element={
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                            <ManagerEmployeeSales />
                         </RequireRole>
                     }
                 />

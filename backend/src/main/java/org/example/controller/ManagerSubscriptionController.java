@@ -4,9 +4,11 @@ import org.example.dto.ManagerSubscriptionDTO;
 import org.example.dto.SubscriptionAddOnDTO;
 import org.example.dto.AddOnDTO;
 import org.example.model.Subscription;
+import org.example.model.UserAccount;
 import org.example.repository.AddOnRepository;
 import org.example.repository.SubscriptionAddOnRepository;
 import org.example.repository.SubscriptionRepository;
+import org.example.repository.UserAccountRepository;
 import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -23,17 +25,20 @@ public class ManagerSubscriptionController {
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
     private final AddOnRepository addOnRepository;
     private final AuditService auditService;
+    private final UserAccountRepository userAccountRepository;
 
     public ManagerSubscriptionController(
             SubscriptionRepository subscriptionRepository,
             SubscriptionAddOnRepository subscriptionAddOnRepository,
             AddOnRepository addOnRepository,
-            AuditService auditService
+            AuditService auditService,
+            UserAccountRepository userAccountRepository
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.addOnRepository = addOnRepository;
         this.auditService = auditService;
+        this.userAccountRepository=userAccountRepository;
     }
 
     @GetMapping
@@ -96,6 +101,10 @@ public class ManagerSubscriptionController {
     @PostMapping
     public Subscription create(@RequestBody Subscription body,
                                Authentication authentication) {
+
+        Integer currentEmployeeId = getCurrentEmployeeId(authentication);
+        body.setSoldByEmployeeId(currentEmployeeId);
+
         Subscription saved = subscriptionRepository.save(body);
 
         String username = authentication.getName();
@@ -105,8 +114,24 @@ public class ManagerSubscriptionController {
 
         auditService.log("Subscription", "Create", target, username);
 
+
+
         return saved;
     }
+
+//    Helper for subscription link to employee
+private Integer getCurrentEmployeeId(Authentication authentication) {
+    String username = authentication.getName();
+
+    UserAccount ua = userAccountRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    if (ua.getEmployeeId() == null) {
+        throw new RuntimeException("Current user is not an employee");
+    }
+
+    return ua.getEmployeeId();
+}
 
     @PutMapping("/{id}")
     public Subscription update(@PathVariable Integer id,

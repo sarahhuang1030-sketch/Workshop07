@@ -10,5 +10,6 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Intege
     Optional<UserAccount> findByCustomerId(Integer customerId);
     Optional<UserAccount> findByEmployeeId(Integer employeeId);
 //    Optional<UserAccount> findByEmailIgnoreCase(String email);
+    Optional<UserAccount> findByUsername(String username);
 }
 

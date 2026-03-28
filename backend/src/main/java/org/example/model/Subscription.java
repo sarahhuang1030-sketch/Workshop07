@@ -33,7 +33,18 @@ public class Subscription {
     @Column(name = "Notes")
     private String notes;
 
+    @Column(name = "SoldByEmployeeId")
+    private Integer soldByEmployeeId;
+
     public Subscription() {
+    }
+
+    public Integer getSoldByEmployeeId() {
+        return soldByEmployeeId;
+    }
+
+    public void setSoldByEmployeeId(Integer soldByEmployeeId) {
+        this.soldByEmployeeId = soldByEmployeeId;
     }
 
     public Integer getSubscriptionId() {

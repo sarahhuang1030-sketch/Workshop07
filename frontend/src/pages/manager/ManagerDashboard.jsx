@@ -11,6 +11,7 @@ import {
     ListChecks,
     ArrowRight,
     FileText,
+    TrendingUp,
     Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -491,6 +492,18 @@ export default function ManagerDashboard({ darkMode = false }) {
                         icon={ListChecks}
                         badge="Security"
                         to="/manager/audit"
+                        onGo={go}
+                    />
+                </Col>
+
+                <Col xs={12} md={6}>
+                    <ManageCard
+                        darkMode={darkMode}
+                        title="Employee Sales"
+                        desc="View each employee's subscription sales and total sales value."
+                        icon={TrendingUp}
+                        badge="Reports"
+                        to="/manager/employee-sales"
                         onGo={go}
                     />
                 </Col>
