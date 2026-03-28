@@ -35,8 +35,7 @@ export default function AppFooter() {
                         <div className="d-flex flex-column gap-1">
                             <Link to="/" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Home</Link>
                             <Link to="/plans" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Plans</Link>
-                            <Link to="/packages" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Packages</Link>
-                            <Link to="/booking" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Booking</Link>
+
                         </div>
                     </Col>
 
