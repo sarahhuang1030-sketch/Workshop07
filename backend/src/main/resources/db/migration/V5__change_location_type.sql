@@ -1,0 +1,2 @@
+ALTER TABLE locations
+    MODIFY COLUMN LocationType VARCHAR(255);

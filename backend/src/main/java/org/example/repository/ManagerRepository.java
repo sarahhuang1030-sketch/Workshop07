@@ -53,7 +53,16 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
 @Query(value = "SELECT COUNT(*) FROM addons", nativeQuery = true)
 long countAddOns();
 
-@Query(value = "SELECT COUNT(*) FROM planfeatures", nativeQuery = true)
+@Query(value = "SELECT COUNT(*) FROM locations", nativeQuery = true)
 long countPlanFeatures();
+
+@Query(value = "SELECT COUNT(*) FROM locations WHERE IsActive = 1", nativeQuery = true)
+long countActiveLocations();
+
+@Query(value = "SELECT COUNT(*) FROM servicerequests", nativeQuery = true)
+long countServiceRequests();
+
+@Query(value = "SELECT COUNT(*) FROM serviceappointments", nativeQuery = true)
+long countServiceAppointments();
 
 }

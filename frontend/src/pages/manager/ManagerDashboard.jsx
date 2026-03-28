@@ -10,6 +10,8 @@ import {
     FileBarChart2,
     ListChecks,
     ArrowRight,
+    FileText,
+    Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
@@ -17,6 +19,8 @@ import { apiFetch } from "../../services/api";
 function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
     const cardBase = darkMode ? "bg-dark border-secondary text-light" : "bg-white text-dark";
     const muted = darkMode ? "text-light-50" : "text-muted";
+
+
 
     return (
         <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
@@ -139,6 +143,11 @@ export default function ManagerDashboard({ darkMode = false }) {
         pastDue: 0,
         addOns: 0,
         planFeatures: 0,
+        invoices: 0,
+        pendingQuotes: 0,
+        location: 0,
+        serviceRequests: 0,
+        serviceAppointments: 0
     });
 
     const [loading, setLoading] = useState(true);
@@ -146,6 +155,21 @@ export default function ManagerDashboard({ darkMode = false }) {
 
     useEffect(() => {
         let ignore = false;
+
+        // const monthlyRevenue = invoicesArray
+        //     .filter(inv => {
+        //         const invDate = new Date(inv.date); // Assuming `date` field exists
+        //         return inv.status === "PAID" && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear;
+        //     })
+        //     .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+        //
+        // // --- Update state ---
+        // setSummary({
+        //     customers: customersArray.length,
+        //     invoices: invoicesArray.length,
+        //     pendingQuotes: quotesArray.filter(q => q.status === "PENDING").length,
+        //     monthlyRevenue,
+        // });
 
         async function loadSummary() {
             try {
@@ -159,21 +183,52 @@ export default function ManagerDashboard({ darkMode = false }) {
                     },
                 });
 
+
+
                 if (!response.ok) {
                     throw new Error(`Failed to load summary: ${response.status}`);
                 }
 
                 const data = await response.json();
 
+                // Quotes
+                const quotesRes = await apiFetch("/api/quotes");
+                if (!quotesRes.ok) {
+                    throw new Error(`Failed to load quotes: ${quotesRes.status}`);
+                }
+                const quotesData = await quotesRes.json();
+                const quotesArray = Array.isArray(quotesData)
+                    ? quotesData
+                    : quotesData.quotes ?? [];
+
+                // Invoices
+                const invoicesRes = await apiFetch("/api/invoices/all");
+                if (!invoicesRes.ok) {
+                    throw new Error(`Failed to load invoices: ${invoicesRes.status}`);
+                }
+                const invoicesData = await invoicesRes.json();
+                const invoicesArray = Array.isArray(invoicesData)
+                    ? invoicesData
+                    : invoicesData.invoices ?? [];
+
+
                 if (!ignore) {
                     setSummary({
                         customers: data.customers ?? 0,
                         activeSubs: data.activeSubs ?? 0,
-                        monthlyRevenue: data.monthlyRevenue ?? 0,
+                        monthlyRevenue: data.monthlyRevenue ?? 0, // keep yours
                         pastDue: data.pastDue ?? 0,
                         addOns: data.addOns ?? 0,
                         planFeatures: data.planFeatures ?? 0,
+                        invoices: invoicesArray.length,
+                        pendingQuotes: quotesArray.filter(
+                            (q) => String(q.status).toUpperCase() === "PENDING"
+                        ).length,
+                        location: data.location ?? 0,
+                        serviceRequests: data.serviceRequests ?? 0,
+                        serviceAppointments: data.serviceAppointments ?? 0,
                     });
+
                 }
             } catch (err) {
                 console.error("Error loading manager summary:", err);
@@ -252,6 +307,87 @@ export default function ManagerDashboard({ darkMode = false }) {
                         icon={Users}
                     />
                 </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
+                        darkMode={darkMode}
+                        title="Locations"
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.location}
+                        hint="All active locations"
+                        icon={FileText}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/manager/location")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
+                </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
+                        darkMode={darkMode}
+                        title="Service"
+                        value={
+                            loading ? (
+                                <Spinner animation="border" size="sm" />
+                            ) : (
+                                `${summary.serviceRequests} / ${summary.serviceAppointments}`
+                            )
+                        }
+                        hint="Requests / Appointments"
+                        icon={Briefcase}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/manager/services")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+                </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
+                        darkMode={darkMode}
+                        title="Invoices"
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.invoices}
+                        hint="All billing invoices"
+                        icon={FileText}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/sales/history")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
+                </Col>
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
+                        darkMode={darkMode}
+                        title="Pending Quotes"
+                        value={loading ? <Spinner animation="border" size="sm" /> : summary.pendingQuotes}
+                        hint="Awaiting approval"
+                        icon={Clock}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/sales/quotes")}
+                        >
+                            Details
+                        </Button>
+                    </Stat>
+
+                </Col>
+
                 <Col xs={12} md={6} lg={3}>
                     <Stat
                         darkMode={darkMode}
@@ -293,10 +429,10 @@ export default function ManagerDashboard({ darkMode = false }) {
                         icon={ListChecks}
                     />
                 </Col>
-            </Row>
+
 
             {/* Management Cards */}
-            <Row className="g-3 mt-2">
+
                 {/*<Col xs={12} md={6} lg={4}>*/}
                 {/*    <ManageCard*/}
                 {/*        darkMode={darkMode}*/}
@@ -382,7 +518,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                 {/*        onGo={go}*/}
                 {/*    />*/}
                 {/*</Col>*/}
-            </Row>
+
 
             {/* Reports row */}
             {/*<Row className="g-3 mt-2">*/}
@@ -398,6 +534,7 @@ export default function ManagerDashboard({ darkMode = false }) {
             {/*        />*/}
             {/*    </Col>*/}
             {/*</Row>*/}
+            </Row>
         </Container>
     );
 }

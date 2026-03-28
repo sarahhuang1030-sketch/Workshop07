@@ -275,6 +275,21 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         return missing;
     }, [profile, needsCustomerRegistration]);
 
+    const billingAddress = profile.billing?.address || {};
+    const paymentMethod = profile.billing?.paymentMethod || {};
+
+    const hasBillingAddress =
+        !isBlank(billingAddress.street1) &&
+        !isBlank(billingAddress.city) &&
+        !isBlank(billingAddress.province) &&
+        !isBlank(billingAddress.postalCode) &&
+        !isBlank(billingAddress.country);
+
+    const hasPaymentMethod =
+        !isBlank(paymentMethod.method) &&
+        !isBlank(paymentMethod.last4);
+
+    const hasCompletedBillingSetup = hasBillingAddress && hasPaymentMethod;
     // const missingFields = useMemo(() => {
     //     const missing = [];
     //
@@ -373,19 +388,22 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         </div>
 
                         <div className="mt-2">
+
+                            {needsCustomerRegistration && (
                             <Button
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
-                                onClick={() => navigate("/register-as-customer")}  // or setShowRegisterModal(true)
+                                onClick={() => setShowBillingModal(true)}
                                 style={{ borderRadius: 12 }}
                             >
                                 Register as Customer
                             </Button>
+                                )}
                         </div>
                     </div>
                 </Alert>
             ) : (
-                missingFields.length > 0 && (
+                !hasCompletedBillingSetup && (
                     <Alert
                         variant="warning"
                         className="d-flex align-items-start gap-2"
@@ -393,9 +411,33 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                     >
                         <AlertTriangle size={18} className="mt-1" />
                         <div>
-                            <div className="fw-bold">Your profile isn’t complete yet</div>
+                            <div className="fw-bold">Complete your billing setup first</div>
                             <div className="small">
-                                Please add: {missingFields.join(", ")}. This helps checkout and billing work properly.
+                                Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
+                            </div>
+
+                            <div className="mt-3 d-flex gap-2 flex-wrap">
+                                {!hasBillingAddress && (
+                                    <Button
+                                        size="sm"
+                                        variant="primary"
+                                        onClick={() => setShowBillingModal(true)}
+                                        style={{ borderRadius: 12 }}
+                                    >
+                                        Add Billing Address
+                                    </Button>
+                                )}
+
+                                {!hasPaymentMethod && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline-primary"
+                                        onClick={() => setShowPaymentModal(true)}
+                                        style={{ borderRadius: 12 }}
+                                    >
+                                        Add Payment Method
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </Alert>
@@ -403,7 +445,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             )}
 
             <Row className="g-4">
-                <Col lg={4}>
+                <Col lg={hasCompletedBillingSetup ? 4 : 12}>
                     <AvatarCard
                         profile={profile}
                         darkMode={darkMode}
@@ -411,76 +453,83 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         onDeleteAvatar={deleteAvatar}
                     />
 
-                    <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
-                        <Card.Body className="p-4">
-                            <div className="d-flex align-items-center justify-content-between">
-                                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                    Rewards Points
-                                </div>
-                                <Star size={18} />
-                            </div>
-
-                            <div className="mt-3">
-                                <div
-                                    className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
-                                    style={{ fontWeight: 900, fontSize: "2rem" }}
-                                >
-                                    {Number(profile.points ?? 0).toLocaleString()} pts
-                                </div>
-                                <div className={mutedClass}>
-                                    Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}
-                                </div>
-                            </div>
-
-                            <div className="mt-3">
-                                <div className="d-flex justify-content-between small">
-                                    <span className={mutedClass}>
-                                        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                                    </span>
-                                    <span className={mutedClass}>{tierInfo.progress}%</span>
+                    {hasCompletedBillingSetup && (
+                        <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
+                            <Card.Body className="p-4">
+                                <div className="d-flex align-items-center justify-content-between">
+                                    <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                                        Rewards Points
+                                    </div>
+                                    <Star size={18} />
                                 </div>
 
-                                <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                <div className="mt-3">
                                     <div
-                                        className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
-                                        style={{ width: `${tierInfo.progress}%` }}
-                                    />
+                                        className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
+                                        style={{ fontWeight: 900, fontSize: "2rem" }}
+                                    >
+                                        {Number(profile.points ?? 0).toLocaleString()} pts
+                                    </div>
+                                    <div className={mutedClass}>
+                                        Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}
+                                    </div>
                                 </div>
 
-                                {!tierInfo.isBronze ? (
-                                    <div className={`small mt-2 ${mutedClass}`}>
-                                        {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                <div className="mt-3">
+                                    <div className="d-flex justify-content-between small">
+                        <span className={mutedClass}>
+                            Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                        </span>
+                                        <span className={mutedClass}>{tierInfo.progress}%</span>
                                     </div>
-                                ) : (
-                                    <div className="small mt-2 text-warning">
-                                        <Crown size={16} className="me-1" />
-                                        Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+
+                                    <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                        <div
+                                            className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
+                                            style={{ width: `${tierInfo.progress}%` }}
+                                        />
                                     </div>
-                                )}
-                            </div>
-                        </Card.Body>
-                    </Card>
+
+                                    {!tierInfo.isBronze ? (
+                                        <div className={`small mt-2 ${mutedClass}`}>
+                                            {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                        </div>
+                                    ) : (
+                                        <div className="small mt-2 text-warning">
+                                            <Crown size={16} className="me-1" />
+                                            Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+                                        </div>
+                                    )}
+                                </div>
+                            </Card.Body>
+                        </Card>
+                    )}
                 </Col>
 
+
                 <Col lg={8}>
-                    <SubscriptionPage user={profile} darkMode={darkMode} />
-                    {/* ---- BillingCard no longer has its own alert ---- */}
-                    <BillingCard
-                        profile={profile}
-                        darkMode={darkMode}
-                        onEdit={(section) => {
-                            if (section === "payment") setShowPaymentModal(true);
-                            else setShowBillingModal(true);
-                        }}
-                        className="mt-4"
-                    />
-                    {/* ---- Billing Address Card ---- */}
-                    <BillingAddressCard
-                        address={profile.billing.address}
-                        darkMode={darkMode}
-                        onEdit={() => setShowBillingModal(true)}
-                        className="mt-3"
-                    />
+                    {hasCompletedBillingSetup && (
+                        <>
+                            <SubscriptionPage user={profile} darkMode={darkMode} />
+
+                            <BillingCard
+                                profile={profile}
+                                darkMode={darkMode}
+                                onEdit={(section) => {
+                                    if (section === "payment") setShowPaymentModal(true);
+                                    else setShowBillingModal(true);
+                                }}
+                                className="mt-4"
+                            />
+
+                            <BillingAddressCard
+                                address={profile.billing.address}
+                                darkMode={darkMode}
+                                onEdit={() => setShowBillingModal(true)}
+                                className="mt-3"
+                            />
+                        </>
+                    )}
                 </Col>
             </Row>
 

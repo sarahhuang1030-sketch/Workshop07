@@ -27,7 +27,7 @@ export default function ManageEmployee({ darkMode = false }) {
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState(emptyForm);
     const [search, setSearch] = useState("");
-
+    const [roles, setRoles] = useState([]);
 
     const loadEmployees = async () => {
         try {
@@ -50,8 +50,27 @@ export default function ManageEmployee({ darkMode = false }) {
         }
     };
 
+
+
+    const loadRoles = async () => {
+        try {
+            const res = await apiFetch("/api/roles");
+
+            if (!res.ok) {
+                throw new Error(`Failed to load roles: ${res.status}`);
+            }
+
+            const data = await res.json();
+            setRoles(data);
+        } catch (err) {
+            console.error(err);
+            setError("Unable to load roles.");
+        }
+    };
+
     useEffect(() => {
         loadEmployees();
+        loadRoles();
     }, []);
 
     const openCreate = () => {
@@ -341,9 +360,16 @@ export default function ManageEmployee({ darkMode = false }) {
                                         required
                                     >
                                         <option value="">Select role</option>
-                                        <option value="Manager">Manager</option>
-                                        <option value="Sales Agent">Sales Agent</option>
-                                        <option value="Service Technician">Service Technician</option>
+                                        {roles
+                                            .filter((role) => role.roleName !== "Customer")
+                                            .map((role) => (
+                                                <option
+                                                    key={role.roleId}
+                                                    value={role.roleName}
+                                                >
+                                                    {role.roleName}
+                                                </option>
+                                            ))}
                                     </Form.Select>
                                 </Form.Group>
                             </Col>

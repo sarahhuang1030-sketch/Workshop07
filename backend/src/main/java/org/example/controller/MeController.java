@@ -173,19 +173,21 @@ public class MeController {
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
 
-            if (ua.getEmployeeId() != null) {
-                out.put("userType", "EMPLOYEE");
-                employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
-                    out.put("firstName", emp.getFirstName());
-                    out.put("lastName", emp.getLastName());
-                });
-            } else if (ua.getCustomerId() != null) {
+            if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
                 customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
                     out.put("firstName", c.getFirstName());
                     out.put("lastName", c.getLastName());
                     out.put("email", c.getEmail());
-                    out.put("homePhone", c.getHomePhone());
+                    out.put("phone", c.getHomePhone());
+                });
+            } else if (ua.getEmployeeId() != null) {
+                out.put("userType", "EMPLOYEE");
+                employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                    out.put("firstName", emp.getFirstName());
+                    out.put("lastName", emp.getLastName());
+                    out.put("email", emp.getEmail());
+                    out.put("phone", emp.getPhone());
                 });
             } else {
                 out.put("userType", "Unknown");
@@ -211,6 +213,44 @@ public class MeController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error in /api/me: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/api/me/profile")
+    @Transactional
+    public ResponseEntity<?> updateMyProfile(Principal principal,
+                                             Authentication auth,
+                                             @AuthenticationPrincipal OAuth2User oauthUser,
+                                             @RequestBody UpdateMyProfileDTO req) {
+        try {
+            if (principal == null) {
+                return ResponseEntity.status(401).body("Not authenticated");
+            }
+
+            String key = resolveLoginKey(principal, auth, oauthUser);
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+
+            if (ua == null || ua.getCustomerId() == null) {
+                return ResponseEntity.status(404).body("Customer profile not found");
+            }
+
+            Customer c = customerRepo.findById(ua.getCustomerId()).orElse(null);
+            if (c == null) {
+                return ResponseEntity.status(404).body("Customer not found");
+            }
+
+            c.setFirstName(req.getFirstName());
+            c.setLastName(req.getLastName());
+            c.setEmail(req.getEmail());
+            c.setHomePhone(req.getHomePhone());
+
+            customerRepo.save(c);
+
+            return ResponseEntity.ok("Profile updated successfully");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Failed to update profile: " + e.getMessage());
         }
     }
 
@@ -295,4 +335,80 @@ public class MeController {
         }
         return null;
     }
+
+    @PostMapping("/api/me/register-as-customer")
+    @Transactional
+    public ResponseEntity<?> registerAsCustomer(Principal principal,
+                                                Authentication auth,
+                                                @AuthenticationPrincipal OAuth2User oauthUser,
+                                                @RequestBody RegisterAsCustomerRequestDTO req) {
+        try {
+            if (principal == null) {
+                return ResponseEntity.status(401).body("Not authenticated");
+            }
+
+            String key = resolveLoginKey(principal, auth, oauthUser);
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+
+            if (ua == null) {
+                return ResponseEntity.status(404).body("UserAccount not found");
+            }
+
+            if (ua.getCustomerId() != null) {
+                return ResponseEntity.status(409).body("User is already registered as a customer");
+            }
+
+            if (ua.getEmployeeId() == null) {
+                return ResponseEntity.status(400).body("Only employees can use this registration flow");
+            }
+
+            var empOpt = employeeRepo.findById(ua.getEmployeeId());
+            if (empOpt.isEmpty()) {
+                return ResponseEntity.status(404).body("Employee not found");
+            }
+
+            var emp = empOpt.get();
+
+            Customer c = new Customer();
+            c.setCustomerType("Individual");
+            c.setFirstName(firstNonBlank(req.getFirstName(), emp.getFirstName()));
+            c.setLastName(firstNonBlank(req.getLastName(), emp.getLastName()));
+            c.setEmail(firstNonBlank(req.getEmail(), emp.getEmail()));
+            c.setHomePhone(firstNonBlank(req.getHomePhone(), emp.getPhone()));
+            c.setStatus("Active");
+            c.setCreatedAt(LocalDateTime.now());
+            c.setPasswordHash("LINKED_EMPLOYEE");
+
+            Customer savedCustomer = customerRepo.save(c);
+
+            ua.setCustomerId(savedCustomer.getCustomerId());
+            userAccountRepo.save(ua);
+
+            if (req.getStreet1() != null && !req.getStreet1().isBlank()) {
+                CustomerAddress addr = new CustomerAddress();
+                addr.setCustomerId(savedCustomer.getCustomerId());
+                addr.setStreet1(req.getStreet1());
+                addr.setStreet2(req.getStreet2());
+                addr.setCity(req.getCity());
+                addr.setProvince(req.getProvince());
+                addr.setPostalCode(req.getPostalCode());
+                addr.setCountry(req.getCountry());
+                addr.setAddressType("Billing");
+                addr.setIsPrimary(1);
+                customerAddressRepo.save(addr);
+            }
+
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("message", "Customer profile created successfully");
+            out.put("customerId", savedCustomer.getCustomerId());
+            out.put("employeeId", ua.getEmployeeId());
+
+            return ResponseEntity.ok(out);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Failed to register as customer: " + e.getMessage());
+        }
+    }
+
 }

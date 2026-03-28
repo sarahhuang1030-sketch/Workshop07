@@ -51,7 +51,9 @@ import ManagerAddon from "./pages/manager/ManagerAddon";
 import ManagerReport from "./pages/manager/ManagerReport";
 import ManagerSubscription from "./pages/manager/ManagerSubscription";
 import ManagerAudit from "./pages/manager/ManagerAudit";
-import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature"
+import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature";
+import ManagerLocation from "./pages/manager/ManagerLocation"
+import ManagerServices from "./pages/manager/ManagerServices"
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
@@ -72,9 +74,12 @@ function mapMeToUser(meResponse) {
         null;
 
     const dbRoleRaw =
+        meResponse?.uaRole?.roleName ??
         meResponse?.uaRole ??
+        meResponse?.role?.roleName ??
         meResponse?.role ??
         meResponse?.authorities?.[0]?.authority ??
+        meResponse?.raw?.role?.roleName ??
         meResponse?.raw?.role ??
         null;
 
@@ -244,14 +249,22 @@ export default function App() {
     }, [refreshMe]);
 
 
-    //
-    // useEffect(() => {
-    //     if (!user) return;
-    //
-    //     if (location.pathname === "/login") {
-    //         navigate("/profile", { replace: true });
-    //     }
-    // }, [user]);
+    useEffect(() => {
+        if (!user) return;
+
+        if (location.pathname === "/login") {
+            if (user.role === "manager") {
+                navigate("/manager", { replace: true });
+            } else if (user.role === "salesagent") {
+                navigate("/sales", { replace: true });
+            } else if (user.role === "servicetechnician") {
+                navigate("/service", { replace: true });
+            } else if (user.customerId) {
+                navigate("/customer", { replace: true });
+            }
+        }
+    }, [user, location.pathname, navigate]);
+
 
     const finishOAuthLogin = useCallback(async () => {
         await refreshMe();
@@ -483,6 +496,22 @@ export default function App() {
                             <ManagerPlanFeature  />
                         </RequireRole>
                         }
+                />
+                <Route
+                    path="/manager/location"
+                    element={
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                            <ManagerLocation />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/services"
+                    element={
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                            <ManagerServices />
+                        </RequireRole>
+                    }
                 />
 
                 <Route

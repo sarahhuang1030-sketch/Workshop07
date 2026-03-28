@@ -1,5 +1,7 @@
 package org.example.dto;
 
+import org.springframework.core.SpringVersion;
+
 import java.math.BigDecimal;
 
 public class ManagerSummaryDTO {
@@ -8,9 +10,35 @@ public class ManagerSummaryDTO {
     private int activeSubs;
     private BigDecimal monthlyRevenue;
     private int pastDue;
-
     private long addOns;
     private long planFeatures;
+    private long location;
+    private long serviceRequests;
+    private long serviceAppointments;
+
+    public long getServiceRequests() {
+        return serviceRequests;
+    }
+
+    public void setServiceRequests(long serviceRequests) {
+        this.serviceRequests = serviceRequests;
+    }
+
+    public long getServiceAppointments() {
+        return serviceAppointments;
+    }
+
+    public void setServiceAppointments(long serviceAppointments) {
+        this.serviceAppointments = serviceAppointments;
+    }
+    public long getLocation() {
+        return location;
+    }
+
+    public void setLocation(long location) {
+        this.location = location;
+    }
+
 
     public ManagerSummaryDTO() {}
 
@@ -20,7 +48,11 @@ public class ManagerSummaryDTO {
             BigDecimal monthlyRevenue,
             int pastDue,
             long addOns,
-            long planFeatures
+            long planFeatures,
+            long location,
+            long serviceRequests,
+            long serviceAppointments
+
     ) {
         this.customers = customers;
         this.activeSubs = activeSubs;
@@ -28,6 +60,11 @@ public class ManagerSummaryDTO {
         this.pastDue = pastDue;
         this.addOns = addOns;
         this.planFeatures = planFeatures;
+        this.location = location;
+        this.serviceRequests = serviceRequests;
+        this.serviceAppointments = serviceAppointments;
+
+
     }
 
     public int getCustomers() {
