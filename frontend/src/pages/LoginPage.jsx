@@ -65,6 +65,12 @@ export default function LoginPage({ refreshMe }) {
             // optional: save login response too
             localStorage.setItem("tc_user", JSON.stringify(data));
 
+            // 🔥 NEW: force password change
+            if (data.mustChangePassword) {
+                navigate("/change-password-first-login", { replace: true });
+                return;
+            }
+
             const mapped = await refreshMeWithRetry();
             if (!mapped) {
                 setError("Login succeeded, but user profile could not be loaded.");                return;

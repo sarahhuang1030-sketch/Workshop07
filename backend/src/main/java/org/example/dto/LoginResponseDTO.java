@@ -9,6 +9,7 @@ public class LoginResponseDTO {
     private String firstName;
     private String username;
     private String role;
+    private Boolean mustChangePassword;
 
     public LoginResponseDTO(
             String token,
@@ -16,7 +17,8 @@ public class LoginResponseDTO {
             Integer employeeId,
             String firstName,
             String username,
-            String role
+            String role,
+            Boolean mustChangePassword
     ) {
         this.token = token;
         this.customerId = customerId;
@@ -24,6 +26,7 @@ public class LoginResponseDTO {
         this.firstName = firstName;
         this.username = username;
         this.role = role;
+        this.mustChangePassword= mustChangePassword;
     }
 
     public String getToken() { return token; }
@@ -32,4 +35,12 @@ public class LoginResponseDTO {
     public String getFirstName() { return firstName; }
     public String getUsername() { return username; }
     public String getRole() { return role; }
+
+    public Boolean getMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(Boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
+    }
 }

@@ -28,6 +28,7 @@ export default function ManageEmployee({ darkMode = false }) {
     const [form, setForm] = useState(emptyForm);
     const [search, setSearch] = useState("");
     const [roles, setRoles] = useState([]);
+    const [createdCredentials, setCreatedCredentials] = useState(null);
 
     const loadEmployees = async () => {
         try {
@@ -76,14 +77,15 @@ export default function ManageEmployee({ darkMode = false }) {
     const openCreate = () => {
         setEditingId(null);
         setForm(emptyForm);
+        setCreatedCredentials(null);
         setShowModal(true);
     };
 
     const openEdit = (employee) => {
+        setCreatedCredentials(null);
         setEditingId(employee.employeeId);
         setForm({
             primaryLocationId: employee.primaryLocationId ?? "",
-
             firstName: employee.firstName ?? "",
             lastName: employee.lastName ?? "",
             email: employee.email ?? "",
@@ -101,6 +103,7 @@ export default function ManageEmployee({ darkMode = false }) {
     const closeModal = () => {
         if (saving) return;
         setShowModal(false);
+        setCreatedCredentials(null);
     };
 
     const handleChange = (e) => {
@@ -136,7 +139,20 @@ export default function ManageEmployee({ darkMode = false }) {
                 throw new Error(`Save failed: ${res.status}`);
             }
 
-            setShowModal(false);
+            const data = await res.json();
+
+            if (editingId) {
+                setShowModal(false);
+                setCreatedCredentials(null);
+            } else {
+                setCreatedCredentials({
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    username: data.username,
+                    tempPassword: data.tempPassword,
+                });
+            }
+
             await loadEmployees();
         } catch (err) {
             console.error(err);
@@ -295,12 +311,32 @@ export default function ManageEmployee({ darkMode = false }) {
             </Card>
 
             <Modal show={showModal} onHide={closeModal} centered>
+
+
                 <Form onSubmit={handleSave}>
                     <Modal.Header closeButton={!saving}>
                         <Modal.Title>{editingId ? "Edit Employee" : "Add Employee"}</Modal.Title>
                     </Modal.Header>
 
                     <Modal.Body>
+                        {createdCredentials && (
+                            <Alert variant="success">
+                                <div className="fw-bold mb-2">Employee created successfully.</div>
+                                <div>
+                                    Name: {createdCredentials.firstName} {createdCredentials.lastName}
+                                </div>
+                                <div>
+                                    Username: <strong>{createdCredentials.username}</strong>
+                                </div>
+                                <div>
+                                    Temporary Password: <strong>{createdCredentials.tempPassword}</strong>
+                                </div>
+                                <div className="mt-2">
+                                    Please copy these credentials now and give them to the employee.
+                                </div>
+                            </Alert>
+                        )}
+
                         <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
@@ -458,12 +494,20 @@ export default function ManageEmployee({ darkMode = false }) {
                     </Modal.Body>
 
                     <Modal.Footer>
-                        <Button variant="secondary" onClick={closeModal} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={saving}>
-                            {saving ? "Saving..." : editingId ? "Update" : "Create"}
-                        </Button>
+                        {createdCredentials ? (
+                            <Button variant="primary" onClick={closeModal}>
+                                Close
+                            </Button>
+                        ) : (
+                            <>
+                                <Button variant="secondary" onClick={closeModal} disabled={saving}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? "Saving..." : editingId ? "Update" : "Create"}
+                                </Button>
+                            </>
+                        )}
                     </Modal.Footer>
                 </Form>
             </Modal>

@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import org.example.dto.CreateEmployeeResponseDTO;
 import org.example.dto.EmployeeDTO;
 import org.example.dto.SaveEmployeeRequestDTO;
 import org.example.service.EmployeeService;
@@ -28,9 +29,15 @@ public class ManagerEmployeeController {
         return employeeService.getEmployeeById(id);
     }
 
+//    @PostMapping
+//    @ResponseStatus(HttpStatus.CREATED)
+//    public EmployeeDTO createEmployee(@RequestBody SaveEmployeeRequestDTO request) {
+//        return employeeService.createEmployee(request);
+//    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public EmployeeDTO createEmployee(@RequestBody SaveEmployeeRequestDTO request) {
+    public CreateEmployeeResponseDTO createEmployee(@RequestBody SaveEmployeeRequestDTO request) {
         return employeeService.createEmployee(request);
     }
 

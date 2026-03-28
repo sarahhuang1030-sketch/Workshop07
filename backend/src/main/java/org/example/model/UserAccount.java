@@ -48,6 +48,18 @@ public class UserAccount {
         if (isLocked == null) isLocked = 0;
     }
 
+    @Column(name = "MustChangePassword", nullable = false)
+    private Boolean mustChangePassword = false;
+
+    @Column(name = "TempPasswordExpiresAt")
+    private LocalDateTime tempPasswordExpiresAt;
+
+    @Column(name = "PasswordChangedAt")
+    private LocalDateTime passwordChangedAt;
+
+    @Column(name = "IsActive", nullable = false)
+    private Boolean isActive = true;
+
     // ------------------- Getters & Setters -------------------
 
     public Integer getUserId() { return userId; }
@@ -86,4 +98,36 @@ public class UserAccount {
 
     public String getStripeCustomerId() { return stripeCustomerId; }
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
+
+    public Boolean getMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(Boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
+    }
+
+    public LocalDateTime getTempPasswordExpiresAt() {
+        return tempPasswordExpiresAt;
+    }
+
+    public void setTempPasswordExpiresAt(LocalDateTime tempPasswordExpiresAt) {
+        this.tempPasswordExpiresAt = tempPasswordExpiresAt;
+    }
+
+    public LocalDateTime getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public void setPasswordChangedAt(LocalDateTime passwordChangedAt) {
+        this.passwordChangedAt = passwordChangedAt;
+    }
+
+    public Boolean getActive() {
+        return isActive;
+    }
+
+    public void setActive(Boolean active) {
+        isActive = active;
+    }
 }

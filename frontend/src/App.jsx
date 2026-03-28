@@ -20,6 +20,7 @@ import ShoppingCartPage from "./pages/ShoppingCartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import ForgetPasswordPage from "./pages/ForgetPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import ChangePasswordFirstLogin from "./pages/ChangePasswordFirstLogin";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./style/style.css";
 
@@ -35,7 +36,6 @@ import SalesCustomers from "./pages/sales/SalesCustomers";
 import SalesQuotes from "./pages/sales/SalesQuotes.jsx";
 import SalesActivations from "./pages/sales/SalesActivations";
 import SalesBilling from "./pages/sales/SalesBilling";
-
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -521,6 +521,11 @@ export default function App() {
                             <ManagerEmployeeSales />
                         </RequireRole>
                     }
+                />
+
+                <Route
+                    path="/change-password-first-login"
+                    element={<ChangePasswordFirstLogin refreshMe={refreshMe} />}
                 />
 
                 <Route

@@ -1,13 +1,19 @@
 package org.example.service;
 
+import org.example.dto.CreateEmployeeResponseDTO;
 import org.example.dto.EmployeeDTO;
 import org.example.dto.SaveEmployeeRequestDTO;
 import org.example.model.Employee;
 import org.example.model.Role;
+import org.example.model.UserAccount;
 import org.example.repository.EmployeeRepository;
 import org.example.repository.RoleRepository;
+import org.example.repository.UserAccountRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -15,11 +21,17 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final RoleRepository roleRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public EmployeeService(EmployeeRepository employeeRepository,
-                           RoleRepository roleRepository) {
+                           RoleRepository roleRepository,
+                           UserAccountRepository userAccountRepository,
+                           PasswordEncoder passwordEncoder) {
         this.employeeRepository = employeeRepository;
         this.roleRepository=roleRepository;
+        this.userAccountRepository = userAccountRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<EmployeeDTO> getAllEmployees() {
@@ -36,10 +48,38 @@ public class EmployeeService {
         return toDTO(employee);
     }
 
-    public EmployeeDTO createEmployee(SaveEmployeeRequestDTO request) {
+    public CreateEmployeeResponseDTO createEmployee(SaveEmployeeRequestDTO request) {
         Employee employee = new Employee();
         apply(employee, request);
-        return toDTO(employeeRepository.save(employee));
+
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        String tempPassword = generateTemporaryPassword();
+        String username = generateUsername(savedEmployee);
+
+        UserAccount userAccount = new UserAccount();
+        userAccount.setEmployeeId(savedEmployee.getEmployeeId());
+        userAccount.setCustomerId(null);
+        userAccount.setUsername(username);
+        userAccount.setPasswordHash(passwordEncoder.encode(tempPassword));
+        userAccount.setIsLocked(0);
+        userAccount.setActive(true);
+        userAccount.setMustChangePassword(true);
+        userAccount.setTempPasswordExpiresAt(LocalDateTime.now().plusDays(3));
+        userAccount.setPasswordChangedAt(null);
+        userAccount.setRole(savedEmployee.getRole());
+
+        userAccountRepository.save(userAccount);
+
+        CreateEmployeeResponseDTO dto = new CreateEmployeeResponseDTO();
+        dto.setEmployeeId(savedEmployee.getEmployeeId());
+        dto.setFirstName(savedEmployee.getFirstName());
+        dto.setLastName(savedEmployee.getLastName());
+        dto.setRole(savedEmployee.getRole() != null ? savedEmployee.getRole().getRoleName() : null);
+        dto.setUsername(username);
+        dto.setTempPassword(tempPassword);
+
+        return dto;
     }
 
     public EmployeeDTO updateEmployee(Integer id, SaveEmployeeRequestDTO request) {
@@ -53,6 +93,9 @@ public class EmployeeService {
     public void deleteEmployee(Integer id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + id));
+
+        userAccountRepository.findByEmployeeId(id)
+                .ifPresent(userAccountRepository::delete);
 
         employeeRepository.delete(employee);
     }
@@ -95,4 +138,27 @@ public class EmployeeService {
         dto.setManagerId(employee.getManagerId());
         return dto;
     }
+
+//    helper to generate a temporary password and username generator
+        private String generateTemporaryPassword() {
+            String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!";
+            SecureRandom random = new SecureRandom();
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < 10; i++) {
+                sb.append(chars.charAt(random.nextInt(chars.length())));
+            }
+
+            return sb.toString();
+        }
+
+    private String generateUsername(Employee employee) {
+        String first = employee.getFirstName() != null ? employee.getFirstName().trim().toLowerCase() : "";
+        String last = employee.getLastName() != null ? employee.getLastName().trim().toLowerCase() : "";
+
+        return first + "." + last;
+    }
+
+
+
 }

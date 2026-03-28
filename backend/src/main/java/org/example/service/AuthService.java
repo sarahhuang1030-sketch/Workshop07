@@ -17,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.example.dto.FirstLoginPasswordChangeRequestDTO;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -66,6 +67,20 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid username or password");
         }
 
+        if (Boolean.FALSE.equals(ua.getActive())) {
+            throw new IllegalArgumentException("Account is inactive");
+        }
+
+        if (ua.getIsLocked() != null && ua.getIsLocked() == 1) {
+            throw new IllegalArgumentException("Account is locked");
+        }
+
+        if (Boolean.TRUE.equals(ua.getMustChangePassword())
+                && ua.getTempPasswordExpiresAt() != null
+                && LocalDateTime.now().isAfter(ua.getTempPasswordExpiresAt())) {
+            throw new IllegalArgumentException("Temporary password has expired");
+        }
+
 
 
         // Customer login
@@ -79,7 +94,8 @@ public class AuthService {
                     null,
                     customer.getFirstName(),
                     ua.getUsername(),
-                    ua.getRole() != null ? ua.getRole().getRoleName() : null
+                    ua.getRole() != null ? ua.getRole().getRoleName() : null,
+                    ua.getMustChangePassword()
             );
         }
 
@@ -94,7 +110,8 @@ public class AuthService {
                     emp.getEmployeeId(), // adjust if already Long
                     emp.getFirstName(),
                     ua.getUsername(),
-                    ua.getRole() != null ? ua.getRole().getRoleName() : null
+                    ua.getRole() != null ? ua.getRole().getRoleName() : null,
+                    ua.getMustChangePassword()
             );
         }
 
@@ -212,6 +229,9 @@ public class AuthService {
 //        ua.setPasswordHash(passwordEncoder.encode(newPassword));
         //raw password
         ua.setPasswordHash(newPassword);
+        ua.setMustChangePassword(false);
+        ua.setTempPasswordExpiresAt(null);
+        ua.setPasswordChangedAt(LocalDateTime.now());
         userAccountRepository.save(ua);
 
         prt.setUsed(true);
@@ -228,5 +248,40 @@ public class AuthService {
         } catch (Exception e) {
             throw new RuntimeException("SHA-256 not available", e);
         }
+    }
+
+    public void changePasswordFirstLogin(String usernameRaw, FirstLoginPasswordChangeRequestDTO req) {
+        String username = usernameRaw.trim().toLowerCase();
+
+        UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!Boolean.TRUE.equals(ua.getMustChangePassword())) {
+            throw new IllegalArgumentException("Password change is not required");
+        }
+
+        if (ua.getTempPasswordExpiresAt() != null &&
+                LocalDateTime.now().isAfter(ua.getTempPasswordExpiresAt())) {
+            throw new IllegalArgumentException("Temporary password has expired");
+        }
+
+        if (req.getCurrentPassword() == null || !req.getCurrentPassword().equals(ua.getPasswordHash())) {
+            throw new IllegalArgumentException("Temporary password is incorrect");
+        }
+
+        if (req.getNewPassword() == null || req.getNewPassword().isBlank()) {
+            throw new IllegalArgumentException("New password is required");
+        }
+
+        if (!req.getNewPassword().equals(req.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        ua.setPasswordHash(req.getNewPassword()); // later replace with passwordEncoder.encode(...)
+        ua.setMustChangePassword(false);
+        ua.setTempPasswordExpiresAt(null);
+        ua.setPasswordChangedAt(LocalDateTime.now());
+
+        userAccountRepository.save(ua);
     }
 }

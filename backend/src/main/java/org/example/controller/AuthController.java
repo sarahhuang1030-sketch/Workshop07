@@ -109,7 +109,8 @@ public class AuthController {
                 user.getEmployeeId(),
                 user.getFirstName(),
                 user.getUsername(),
-                user.getRole()
+                user.getRole(),
+                user.getMustChangePassword()
         );
 
         String username = user.getUsername();
@@ -144,5 +145,18 @@ public class AuthController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/change-password-first-login")
+    public ResponseEntity<?> changePasswordFirstLogin(
+            @RequestBody FirstLoginPasswordChangeRequestDTO req,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+
+        authService.changePasswordFirstLogin(authentication.getName(), req);
+        return ResponseEntity.ok("Password updated successfully");
     }
 }
