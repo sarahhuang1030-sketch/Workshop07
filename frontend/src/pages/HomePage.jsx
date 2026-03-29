@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";import {
+import React, { useEffect, useMemo, useState } from "react";
+import {
     Container,
     Row,
     Col,
@@ -14,10 +15,11 @@ import {
     ChevronLeft, ChevronRight
 } from "lucide-react";
 import "../style/style.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import HomepageDock from "../components/HomepageDock";
 import { apiFetch } from "../services/api";
 import CustomerReviewsSection from "../pages/CustomerReviewsSection";
+import ReviewModal from "../components/common/ReviewModal";
 
 /* ---------- icons ---------- */
 const ICONS = { smartphone: Smartphone, video: Video, zap: Zap, users: Users, gift: Gift, signal: Signal, headphones: Headphones, heart: Heart };
@@ -55,6 +57,10 @@ export default function HomePage() {
 
     const heroClass = darkMode ? "bg-dark text-white" : "bg-primary text-white";
     const mutedClass = darkMode ? "text-light opacity-75" : "text-muted";
+
+    const { reviews } = useOutletContext();
+
+
 
     useEffect(() => {
         let cancelled = false;
@@ -243,7 +249,8 @@ export default function HomePage() {
                 </Container>
             </section>
 
-            <CustomerReviewsSection darkMode={darkMode} />
+            <CustomerReviewsSection  reviews={reviews}  darkMode={darkMode} />
+
 
 
 
@@ -361,3 +368,5 @@ export default function HomePage() {
         </>
     );
 }
+
+

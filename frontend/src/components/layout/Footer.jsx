@@ -7,11 +7,11 @@
  Created on: February 2026
  **/
 
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Row, Col, Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 
-export default function AppFooter() {
+export default function AppFooter({onOpenReviewModal }) {
     const { darkMode } = useTheme();
 
     return (
@@ -35,7 +35,20 @@ export default function AppFooter() {
                         <div className="d-flex flex-column gap-1">
                             <Link to="/" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Home</Link>
                             <Link to="/plans" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Plans</Link>
-
+                            <span
+                                role="button"
+                                onClick={onOpenReviewModal}
+                                style={{
+                                    color: "rgba(255,255,255,0.75)",
+                                    textDecoration: "none",
+                                    cursor: "pointer",
+                                    transition: "color 0.2s"
+                                }}
+                                onMouseEnter={(e) => e.target.style.color = "#ffffff"}
+                                onMouseLeave={(e) => e.target.style.color = "rgba(255,255,255,0.75)"}
+                            >
+                                Leave a Review
+                            </span>
                         </div>
                     </Col>
 
