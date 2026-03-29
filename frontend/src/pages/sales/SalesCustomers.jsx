@@ -139,12 +139,21 @@ export default function SalesCustomers() {
     // Delete customer
     const handleDelete = async (customerId) => {
         if (!window.confirm("Delete this customer?")) return;
+
         try {
-            await apiFetch(`/api/customers/${customerId}`, { method: "DELETE" });
+            const res = await apiFetch(`/api/customers/${customerId}`, {
+                method: "DELETE",
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Delete failed");
+            }
+
             await loadCustomers();
         } catch (e) {
             console.error(e);
-            setError("Failed to delete customer.");
+            setError(e.message || "Failed to delete customer.");
         }
     };
 

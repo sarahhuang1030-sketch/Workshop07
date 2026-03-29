@@ -91,7 +91,7 @@ public class BillingPaymentController {
 
         account.setIsDefault(setDefault ? 1 : 0);
 
-        // ✅ 防 null（重要）
+
         account.setExpiryMonth(
                 stripeCard.getCard().getExpMonth() != null
                         ? stripeCard.getCard().getExpMonth().intValue()

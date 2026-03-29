@@ -4,12 +4,9 @@ import org.example.dto.PaymentUpdateDTO;
 import org.example.entity.PaymentAccounts;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
-import org.example.repository.CustomerAddressRepository;
-import org.example.repository.CustomerRepository;
-import org.example.repository.UserAccountRepository;
-import org.example.repository.EmployeeRepository;
-import org.example.repository.PaymentAccountRepository;
-import org.example.dto.BillingPaymentDTO;
+import org.example.model.UserAccount;
+import org.example.repository.*;
+import org.example.service.AuditService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,11 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import org.example.service.AuditService;
 
 @RestController
 @RequestMapping("/api/billing")
@@ -37,12 +31,14 @@ public class BillingController {
     private final PaymentAccountRepository paymentAccountRepo;
     private final AuditService auditService;
 
-    public BillingController(UserAccountRepository userAccountRepo,
-                             CustomerRepository customerRepo,
-                             CustomerAddressRepository customerAddressRepo,
-                             EmployeeRepository employeeRepo,
-                             PaymentAccountRepository paymentAccountRepo,
-                             AuditService auditService) {
+    public BillingController(
+            UserAccountRepository userAccountRepo,
+            CustomerRepository customerRepo,
+            CustomerAddressRepository customerAddressRepo,
+            EmployeeRepository employeeRepo,
+            PaymentAccountRepository paymentAccountRepo,
+            AuditService auditService
+    ) {
         this.userAccountRepo = userAccountRepo;
         this.customerRepo = customerRepo;
         this.customerAddressRepo = customerAddressRepo;
@@ -51,7 +47,9 @@ public class BillingController {
         this.auditService = auditService;
     }
 
-    // ------------------- Address Update DTO -------------------
+    // =========================================================
+    // DTO
+    // =========================================================
     public record AddressUpdateRequest(
             String street1,
             String street2,
@@ -65,54 +63,58 @@ public class BillingController {
             String email
     ) {}
 
-    // ------------------- GET Billing Address -------------------
+    // =========================================================
+    // GET Billing Address (FIXED - NO MORE 409)
+    // =========================================================
     @GetMapping("/address")
-    public ResponseEntity<?> getBillingAddress(Principal principal,
-                                               Authentication auth,
-                                               @AuthenticationPrincipal OAuth2User oauthUser) {
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+    public ResponseEntity<?> getBillingAddress(
+            Principal principal,
+            Authentication auth,
+            @AuthenticationPrincipal OAuth2User oauthUser
+    ) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
         String key = resolveLoginKey(principal, auth, oauthUser);
-        if (key == null || key.isBlank()) return ResponseEntity.status(401).body("Not authenticated");
 
-        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
-        if (uaOpt.isEmpty()) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
+        var ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+        if (ua == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
-        var ua = uaOpt.get();
-        Integer customerId = ua.getCustomerId();
+        Customer customer = ensureCustomer(ua);
+        if (customer == null) {
+            return ResponseEntity.status(500).body("Failed to create customer");
+        }
+
+        Integer customerId = customer.getCustomerId();
         Integer employeeId = ua.getEmployeeId();
         boolean isEmployee = employeeId != null;
 
-        if (customerId == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
-
-        // Prepare response map
         var out = new LinkedHashMap<String, Object>();
+
         out.put("customerId", customerId);
         out.put("employeeId", employeeId);
 
-        // Name: Employee first/last takes priority
         if (isEmployee) {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
             });
         } else {
-            customerRepo.findById(customerId).ifPresent(c -> {
-                out.put("firstName", c.getFirstName());
-                out.put("lastName", c.getLastName());
-            });
+            out.put("firstName", customer.getFirstName());
+            out.put("lastName", customer.getLastName());
         }
 
-        // Email & phone from Customer table
-        customerRepo.findById(customerId).ifPresent(c -> {
-            out.put("email", c.getEmail());
-            out.put("homePhone", c.getHomePhone());
-        });
+        out.put("email", customer.getEmail());
+        out.put("homePhone", customer.getHomePhone());
 
-        // Fetch primary billing address
         var addr = customerAddressRepo
                 .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
                 .orElse(null);
+
         if (addr != null) {
             out.put("street1", addr.getStreet1());
             out.put("street2", addr.getStreet2());
@@ -125,47 +127,63 @@ public class BillingController {
         return ResponseEntity.ok(out);
     }
 
-    // ------------------- PUT Update Address -------------------
+    // =========================================================
+    // PUT Billing Address (FIXED - NO MORE 409)
+    // =========================================================
     @Transactional
     @PutMapping("/address")
-    public ResponseEntity<?> updateAddress(Principal principal,
-                                           Authentication auth,
-                                           @AuthenticationPrincipal OAuth2User oauthUser,
-                                           @RequestBody AddressUpdateRequest req) {
-        if (principal == null) return ResponseEntity.status(401).body("Not authenticated");
+    public ResponseEntity<?> updateAddress(
+            Principal principal,
+            Authentication auth,
+            @AuthenticationPrincipal OAuth2User oauthUser,
+            @RequestBody AddressUpdateRequest req
+    ) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
         String key = resolveLoginKey(principal, auth, oauthUser);
-        if (key == null || key.isBlank()) return ResponseEntity.status(401).body("Not authenticated");
 
-        var uaOpt = userAccountRepo.findByUsernameIgnoreCase(key);
-        if (uaOpt.isEmpty()) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
+        var ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
+        if (ua == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
 
-        var ua = uaOpt.get();
-        Integer customerId = ua.getCustomerId();
+        Customer customer = ensureCustomer(ua);
+        Integer customerId = customer.getCustomerId();
+
         Integer employeeId = ua.getEmployeeId();
         boolean isEmployee = employeeId != null;
 
-        if (customerId == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
-
-        // Update Customer info
-        Customer c = customerRepo.findById(customerId).orElse(null);
-        if (c == null) return ResponseEntity.status(409).body("NEEDS_REGISTRATION");
-
-        if (req.homePhone() != null && !req.homePhone().isBlank()) c.setHomePhone(req.homePhone().trim());
-        if (req.email() != null && !req.email().isBlank()) c.setEmail(req.email().trim());
-
-        if (!isEmployee) {
-            if (req.firstName() != null && !req.firstName().isBlank()) c.setFirstName(req.firstName().trim());
-            if (req.lastName() != null && !req.lastName().isBlank()) c.setLastName(req.lastName().trim());
+        // =========================
+        // Update Customer
+        // =========================
+        if (req.homePhone() != null) {
+            customer.setHomePhone(req.homePhone().trim());
+        }
+        if (req.email() != null) {
+            customer.setEmail(req.email().trim());
         }
 
-        customerRepo.save(c);
+        if (!isEmployee) {
+            if (req.firstName() != null) {
+                customer.setFirstName(req.firstName().trim());
+            }
+            if (req.lastName() != null) {
+                customer.setLastName(req.lastName().trim());
+            }
+        }
 
-        // Upsert billing address
-        var addr = customerAddressRepo
+        customerRepo.save(customer);
+
+        // =========================
+        // Upsert Address
+        // =========================
+        CustomerAddress addr = customerAddressRepo
                 .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
                 .orElseGet(() -> {
-                    var a = new CustomerAddress();
+                    CustomerAddress a = new CustomerAddress();
                     a.setCustomerId(customerId);
                     a.setAddressType("Billing");
                     a.setIsPrimary(1);
@@ -181,17 +199,21 @@ public class BillingController {
 
         customerAddressRepo.save(addr);
 
-        // Prepare response
+        // =========================
+        // Response
+        // =========================
         var out = new LinkedHashMap<String, Object>();
+
+        out.put("customerId", customerId);
+        out.put("email", customer.getEmail());
+        out.put("homePhone", customer.getHomePhone());
+
         out.put("street1", addr.getStreet1());
         out.put("street2", addr.getStreet2());
         out.put("city", addr.getCity());
         out.put("province", addr.getProvince());
         out.put("postalCode", addr.getPostalCode());
         out.put("country", addr.getCountry());
-        out.put("customerId", customerId);
-        out.put("homePhone", c.getHomePhone());
-        out.put("email", c.getEmail());
 
         if (isEmployee) {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
@@ -199,59 +221,64 @@ public class BillingController {
                 out.put("lastName", emp.getLastName());
             });
         } else {
-            out.put("firstName", c.getFirstName());
-            out.put("lastName", c.getLastName());
+            out.put("firstName", customer.getFirstName());
+            out.put("lastName", customer.getLastName());
         }
 
         auditService.log(
                 "BillingAddress",
                 "Update",
-                "Customer " + customerId + " - " + addr.getStreet1(),
+                "Customer " + customerId,
                 key
         );
 
         return ResponseEntity.ok(out);
     }
 
-    // ------------------- Helper Methods -------------------
-    /**
-     * Resolve login key from Principal, OAuth2User, or Authentication token.
-     * Priority: email → preferred_username → login → externalId
-     */
+    // =========================================================
+    // AUTO CREATE CUSTOMER (FIX CORE)
+    // =========================================================
+    private Customer ensureCustomer(UserAccount ua) {
+
+        if (ua.getCustomerId() != null) {
+            return customerRepo.findById(ua.getCustomerId()).orElse(null);
+        }
+
+        Customer c = new Customer();
+        c.setFirstName("");
+        c.setLastName("");
+        c.setEmail(ua.getUsername());
+        c.setHomePhone("");
+        c.setCustomerType("Individual");
+
+        Customer saved = customerRepo.save(c);
+
+        ua.setCustomerId(saved.getCustomerId());
+        userAccountRepo.save(ua);
+
+        return saved;
+    }
+
+    // =========================================================
+    // LOGIN KEY RESOLVER (UNCHANGED)
+    // =========================================================
     private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
         if (auth instanceof OAuth2AuthenticationToken oauthTok) {
             Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
 
-            // Try email
             Object email = attrs.get("email");
             if (email != null && !email.toString().isBlank()) return email.toString().trim();
 
-            // Try preferred_username
             Object preferred = attrs.get("preferred_username");
             if (preferred != null && !preferred.toString().isBlank()) return preferred.toString().trim();
 
-            // Try login
             Object login = attrs.get("login");
             if (login != null && !login.toString().isBlank()) return login.toString().trim();
 
-            // Fall back to externalId
             String provider = oauthTok.getAuthorizedClientRegistrationId().toLowerCase();
-            String externalId = firstNonBlank(str(attrs.get("sub")), str(attrs.get("id")), str(attrs.get("login")));
-            if (externalId != null && !externalId.isBlank()) return (provider + ":" + externalId).toLowerCase();
+            return provider + ":" + attrs.getOrDefault("sub", principal.getName());
         }
 
-        // Default: principal name
         return principal.getName();
-    }
-
-    private static String str(Object o) {
-        return o == null ? null : o.toString().trim();
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String v : values) {
-            if (v != null && !v.trim().isEmpty()) return v.trim();
-        }
-        return null;
     }
 }

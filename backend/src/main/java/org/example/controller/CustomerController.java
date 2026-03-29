@@ -163,9 +163,17 @@ public class CustomerController {
 
     // ================== ADMIN: DELETE CUSTOMER ==================
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deleteCustomer(@PathVariable Integer id) {
 
-        if (!customerRepo.existsById(id)) return ResponseEntity.notFound().build();
+        if (!customerRepo.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        addressRepo.deleteAllByCustomerId(id);
+
+        userAccountRepo.findByCustomerId(id)
+                .ifPresent(userAccountRepo::delete);
 
         customerRepo.deleteById(id);
 
