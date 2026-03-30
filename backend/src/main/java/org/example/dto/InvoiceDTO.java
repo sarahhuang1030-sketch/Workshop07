@@ -13,6 +13,7 @@ public class InvoiceDTO {
     public BigDecimal total;
     public PaidAccountDTO paidByAccount;
     public List<InvoiceItemDTO> items;
+    private String customerName;
 
     public static class PaidAccountDTO {
         public String method;

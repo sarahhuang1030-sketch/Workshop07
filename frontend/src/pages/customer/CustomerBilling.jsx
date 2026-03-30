@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { Container, Card, Table, Spinner, Alert, Button } from "react-bootstrap";
 import { FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-// Utility function: format number as CAD currency
+/* =========================
+   FORMAT MONEY (CAD)
+========================= */
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
         ? "—"
-        : Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
+        : Number(n).toLocaleString(undefined, {
+            style: "currency",
+            currency: "CAD",
+        });
 
-// CustomerBilling component: full invoice details on same page
+/* =========================
+   CUSTOMER BILLING
+========================= */
 export default function CustomerBilling({ darkMode = false }) {
+    const nav = useNavigate();
+
     const [invoice, setInvoice] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -21,82 +31,109 @@ export default function CustomerBilling({ darkMode = false }) {
         async function loadInvoice() {
             try {
                 const res = await apiFetch("/api/invoices/latest");
-                if (!res.ok) throw new Error(`Failed to fetch invoice: ${res.status}`);
+                if (!res.ok) throw new Error(`Failed: ${res.status}`);
+
                 const data = await res.json();
                 if (isMounted) setInvoice(data);
+
             } catch (err) {
-                if (isMounted) setError(err.message || "Error loading invoice");
+                if (isMounted) setError(err.message);
             } finally {
                 if (isMounted) setLoading(false);
             }
         }
 
         loadInvoice();
-        return () => {
-            isMounted = false;
-        };
+        return () => (isMounted = false);
     }, []);
 
-    if (loading)
+    /* =========================
+       LOADING / ERROR STATES
+    ========================= */
+    if (loading) {
         return (
             <Container className="py-5 text-center">
-                <Spinner animation="border" />
-                <div className={`mt-2 ${darkMode ? "text-light-50 text-secondary" : "text-muted"}`}>
-                    Loading invoice…
-                </div>
+                <Spinner />
+                <div className="mt-2 text-muted">Loading invoice…</div>
             </Container>
         );
+    }
 
-    if (error)
+    if (error) {
         return (
             <Container className="py-5">
                 <Alert variant="danger">{error}</Alert>
             </Container>
         );
+    }
 
-    if (!invoice || !invoice.items?.length)
+    if (!invoice || !invoice.items?.length) {
         return (
             <Container className="py-5 text-center">
-                <Alert variant="info">You have no invoices yet. Please subscribe to a plan first.</Alert>
-                <Button variant="primary" onClick={() => (window.location.href = "/plans")}>
-                    Subscribe Now
-                </Button>
+                <Alert variant="info">No invoices yet.</Alert>
+                <Button onClick={() => nav("/plans")}>Subscribe Now</Button>
             </Container>
         );
+    }
 
+    /* =========================
+       MAIN UI
+    ========================= */
     return (
         <Container className="py-5">
-            <h2>Billing</h2>
-            <p>View your latest invoice, including plan and add-ons details.</p>
 
-            <Card className={`${darkMode ? "bg-dark text-light" : "bg-white"} mt-3`} style={{ borderRadius: 18 }}>
+            {/* HEADER + BUTTON */}
+            <div className="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Billing</h2>
+                    <p className="text-muted">Your latest invoice details</p>
+                </div>
+
+                {/* 🔥 NEW BUTTON */}
+                <Button
+                    variant={darkMode ? "outline-light" : "outline-primary"}
+                    onClick={() => nav("/customer/billing/history")}
+                >
+                    View All Invoices
+                </Button>
+            </div>
+
+            <Card className={`${darkMode ? "bg-dark text-light" : ""}`} style={{ borderRadius: 18 }}>
                 <Card.Body>
+
+                    {/* HEADER */}
                     <div className="d-flex align-items-center gap-2 mb-2">
                         <FileText size={18} />
-                        <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>
-                            Invoice #{invoice.invoiceNumber}
-                        </div>
+                        <strong>Invoice #{invoice.invoiceNumber}</strong>
+                    </div>
+
+                    {/* 🔥 NEW: CUSTOMER NAME */}
+                    <div>
+                        <strong>Customer:</strong>{" "}
+                        {invoice.customerName || "N/A"}
                     </div>
 
                     <div>Status: {invoice.status}</div>
                     <div>Issue Date: {invoice.issueDate}</div>
                     <div>Due Date: {invoice.dueDate}</div>
+
                     <hr />
 
-                    {/* Invoice Items Table */}
-                    <Table striped bordered hover responsive className={darkMode ? "table-dark" : ""}>
+                    {/* ITEMS */}
+                    <Table bordered hover responsive className={darkMode ? "table-dark" : ""}>
                         <thead>
                         <tr>
                             <th>Description</th>
-                            <th>Quantity</th>
-                            <th>Unit Price</th>
+                            <th>Qty</th>
+                            <th>Price</th>
                             <th>Discount</th>
-                            <th>Line Total</th>
+                            <th>Total</th>
                         </tr>
                         </thead>
+
                         <tbody>
-                        {invoice.items.map((item, idx) => (
-                            <tr key={idx}>
+                        {invoice.items.map((item, i) => (
+                            <tr key={i}>
                                 <td>{item.description}</td>
                                 <td>{item.quantity}</td>
                                 <td>{formatMoney(item.unitPrice)}</td>
@@ -107,25 +144,13 @@ export default function CustomerBilling({ darkMode = false }) {
                         </tbody>
                     </Table>
 
-                    {/* Totals */}
                     <hr />
-                    <div>
-                        <strong>Subtotal:</strong> {formatMoney(invoice.subtotal)}
-                    </div>
-                    <div>
-                        <strong>Tax:</strong> {formatMoney(invoice.taxTotal)}
-                    </div>
-                    <div>
-                        <strong>Total:</strong> {formatMoney(invoice.total)}
-                    </div>
 
-                    {/* Payment Method */}
-                    <div className="mt-2">
-                        <strong>Paid With:</strong>{" "}
-                        {invoice.paidByAccount
-                            ? `${invoice.paidByAccount.method} ••••${invoice.paidByAccount.last4}`
-                            : "Temporary Card"}
-                    </div>
+                    {/* TOTALS */}
+                    <div><strong>Subtotal:</strong> {formatMoney(invoice.subtotal)}</div>
+                    <div><strong>Tax:</strong> {formatMoney(invoice.taxTotal)}</div>
+                    <div><strong>Total:</strong> {formatMoney(invoice.total)}</div>
+
                 </Card.Body>
             </Card>
         </Container>

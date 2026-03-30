@@ -23,6 +23,21 @@ export default function ShoppingCartPage() {
     const [loadingAddOns, setLoadingAddOns] = useState(false);
     const [addOnsError, setAddOnsError] = useState("");
 
+    const token = localStorage.getItem("token");
+    const isLoggedIn = !!token;
+
+    // ===============================
+    // 🔐 LOGIN GUARD (FIXED)
+    // ===============================
+    useEffect(() => {
+        if (!isLoggedIn) {
+            navigate("/login", { replace: true });
+        }
+    }, [isLoggedIn, navigate]);
+
+    // ===============================
+    // PLAN TYPE DETECTION
+    // ===============================
     const planServiceTypeId = useMemo(() => {
         if (!plan) return null;
 
@@ -35,6 +50,7 @@ export default function ShoppingCartPage() {
         if (rawId != null && !isNaN(Number(rawId))) return Number(rawId);
 
         const rawText = `${plan.serviceType ?? ""} ${plan.name ?? ""}`.toLowerCase();
+
         if (
             rawText.includes("internet") ||
             rawText.includes("fibre") ||
@@ -46,6 +62,9 @@ export default function ShoppingCartPage() {
         return 1;
     }, [plan]);
 
+    // ===============================
+    // LOAD ADD-ONS
+    // ===============================
     useEffect(() => {
         let cancelled = false;
 
@@ -79,6 +98,9 @@ export default function ShoppingCartPage() {
         };
     }, [plan]);
 
+    // ===============================
+    // FILTER ADD-ONS
+    // ===============================
     const availableAddOns = useMemo(() => {
         if (!plan) return [];
 
@@ -109,6 +131,9 @@ export default function ShoppingCartPage() {
         return [];
     }, [allAddOns, planServiceTypeId, plan]);
 
+    // ===============================
+    // PRICING
+    // ===============================
     const pricing = useMemo(() => {
         if (!plan) return null;
 
@@ -129,6 +154,9 @@ export default function ShoppingCartPage() {
         return { addOnsTotal, planMonthly, subtotal };
     }, [plan, addOns]);
 
+    // ===============================
+    // EMPTY CART
+    // ===============================
     if (!plan) {
         return (
             <Container className="py-5">
@@ -140,9 +168,14 @@ export default function ShoppingCartPage() {
         );
     }
 
+    // ===============================
+    // MAIN UI
+    // ===============================
     return (
         <div className="py-5" style={{ background: "#f8fafc", minHeight: "100vh" }}>
             <Container style={{ maxWidth: 900 }}>
+
+                {/* HEADER */}
                 <div className="mb-4 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
                     <div>
                         <h1 className="fw-black d-flex align-items-center gap-2 mb-1">
@@ -161,6 +194,7 @@ export default function ShoppingCartPage() {
                     </div>
                 </div>
 
+                {/* PLAN CARD */}
                 <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
                     <Card.Body className="p-4">
                         <Row className="align-items-center">
@@ -170,168 +204,98 @@ export default function ShoppingCartPage() {
                                 </Badge>
 
                                 <h4 className="fw-bold mb-1">{plan.name}</h4>
-
-                                {plan.serviceType === "Mobile" ? (
-                                    <div className="text-muted">
-                                        {plan.lines ?? 1} line(s)
-                                        {" • "}
-                                        ${Number(plan.pricePerLine ?? plan.price ?? 0).toFixed(2)}/line
-                                    </div>
-                                ) : (
-                                    <div className="text-muted">{plan.tagline || "Home internet plan"}</div>
-                                )}
                             </Col>
 
                             <Col md={4} className="text-md-end mt-3 mt-md-0">
                                 <div className="fw-black fs-4">
                                     ${Number(pricing.planMonthly).toFixed(2)}
                                 </div>
-                                <div className="text-muted small">per month</div>
 
                                 <Button
                                     variant="outline-danger"
                                     size="sm"
-                                    className="mt-2 d-inline-flex align-items-center gap-1"
+                                    className="mt-2"
                                     onClick={() => removePlan(plan.serviceType)}
                                 >
-                                    <XCircle size={14} />
-                                    Remove Plan
+                                    <XCircle size={14} /> Remove Plan
                                 </Button>
                             </Col>
                         </Row>
                     </Card.Body>
                 </Card>
 
+                {/* ADD-ONS */}
                 <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
                     <Card.Body className="p-4">
-                        <h5 className="fw-bold mb-2">Available Add-ons</h5>
-                        <div className="text-muted mb-3">
-                            Add-ons recommended for this{" "}
-                            <strong>{planServiceTypeId === 2 ? "Internet" : "Mobile"}</strong> plan.
-                        </div>
+
+                        <h5 className="fw-bold mb-3">Available Add-ons</h5>
 
                         {loadingAddOns && (
-                            <div className="d-flex align-items-center gap-2 text-muted">
-                                <Spinner animation="border" size="sm" />
-                                Loading add-ons…
-                            </div>
+                            <Spinner animation="border" size="sm" />
                         )}
 
-                        {!loadingAddOns && addOnsError && (
+                        {addOnsError && (
                             <Alert variant="danger">{addOnsError}</Alert>
                         )}
 
-                        {!loadingAddOns && !addOnsError && availableAddOns.length === 0 && (
-                            <div className="text-muted">No add-ons available.</div>
-                        )}
+                        <Row className="g-3">
+                            {availableAddOns.map((a) => {
+                                const alreadyAdded = addOns.some(
+                                    (x) => x.addOnId === a.addOnId
+                                );
 
-                        {!loadingAddOns && !addOnsError && availableAddOns.length > 0 && (
-                            <Row className="g-3">
-                                {availableAddOns.map((a) => {
-                                    const alreadyAdded = addOns.some(
-                                        (x) => x.addOnId === a.addOnId
-                                    );
+                                return (
+                                    <Col key={a.addOnId} md={6}>
+                                        <Card>
+                                            <Card.Body className="d-flex flex-column">
+                                                <div className="fw-bold">{a.addOnName}</div>
+                                                <div className="text-muted small mb-3">
+                                                    +${Number(a.monthlyPrice).toFixed(2)}/month
+                                                </div>
 
-                                    return (
-                                        <Col key={a.addOnId} md={6}>
-                                            <Card className="h-100">
-                                                <Card.Body className="d-flex flex-column">
-                                                    <div className="fw-bold">{a.addOnName}</div>
-                                                    <div className="text-muted small mb-2">
-                                                        +${Number(a.monthlyPrice).toFixed(2)}/month
-                                                    </div>
-                                                    {a.description && (
-                                                        <div className="text-muted small mb-3">
-                                                            {a.description}
-                                                        </div>
-                                                    )}
+                                                <Button
+                                                    className="mt-auto"
+                                                    variant={alreadyAdded ? "outline-danger" : "primary"}
+                                                    onClick={() =>
+                                                        alreadyAdded
+                                                            ? removeAddOn(a.addOnId)
+                                                            : addAddOn(a)
+                                                    }
+                                                >
+                                                    {alreadyAdded ? "Remove" : "Add"}
+                                                </Button>
+                                            </Card.Body>
+                                        </Card>
+                                    </Col>
+                                );
+                            })}
+                        </Row>
 
-                                                    <Button
-                                                        className="mt-auto d-inline-flex align-items-center justify-content-center gap-2"
-                                                        variant={
-                                                            alreadyAdded ? "outline-danger" : "primary"
-                                                        }
-                                                        onClick={() =>
-                                                            alreadyAdded
-                                                                ? removeAddOn(a.addOnId)
-                                                                : addAddOn(a)
-                                                        }
-                                                    >
-                                                        {alreadyAdded ? (
-                                                            <Trash2 size={16} />
-                                                        ) : (
-                                                            <Plus size={16} />
-                                                        )}
-                                                        {alreadyAdded ? "Remove" : "Add"}
-                                                    </Button>
-                                                </Card.Body>
-                                            </Card>
-                                        </Col>
-                                    );
-                                })}
-                            </Row>
-                        )}
                     </Card.Body>
                 </Card>
 
-                <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
-                    <Card.Body className="p-4">
-                        <h5 className="fw-bold mb-3">Selected Add-ons</h5>
-
-                        {addOns.length === 0 ? (
-                            <div className="text-muted">No add-ons selected</div>
-                        ) : (
-                            <ListGroup variant="flush">
-                                {addOns.map((a) => (
-                                    <ListGroup.Item
-                                        key={a.addOnId}
-                                        className="d-flex justify-content-between align-items-center px-0 py-3"
-                                    >
-                                        <div>
-                                            <div className="fw-bold">{a.addOnName}</div>
-                                            <div className="text-muted small">
-                                                +${Number(a.monthlyPrice ?? a.price ?? 0).toFixed(2)}/month
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            variant="outline-danger"
-                                            size="sm"
-                                            onClick={() => removeAddOn(a.addOnId)}
-                                            className="d-inline-flex align-items-center gap-1"
-                                        >
-                                            <Trash2 size={14} />
-                                            Remove
-                                        </Button>
-                                    </ListGroup.Item>
-                                ))}
-                            </ListGroup>
-                        )}
-                    </Card.Body>
-                </Card>
-
+                {/* SUMMARY */}
                 <Card className="shadow border-0" style={{ borderRadius: 20 }}>
                     <Card.Body className="p-4">
-                        <h5 className="fw-bold mb-4">Order Summary</h5>
 
-                        <div className="d-flex justify-content-between mb-2">
+                        <h5 className="fw-bold mb-3">Order Summary</h5>
+
+                        <div className="d-flex justify-content-between">
                             <span>Plan</span>
-                            <span>${Number(pricing.planMonthly).toFixed(2)}</span>
+                            <span>${pricing.planMonthly.toFixed(2)}</span>
                         </div>
 
-                        <div className="d-flex justify-content-between mb-2">
+                        <div className="d-flex justify-content-between">
                             <span>Add-ons</span>
                             <span>${pricing.addOnsTotal.toFixed(2)}</span>
                         </div>
 
                         <hr />
 
-                        <div className="d-flex justify-content-between align-items-center">
-                            <div className="fw-bold fs-5">Total (Monthly)</div>
-                            <div className="fw-black fs-4">${pricing.subtotal.toFixed(2)}</div>
+                        <div className="d-flex justify-content-between fw-bold fs-5">
+                            <span>Total</span>
+                            <span>${pricing.subtotal.toFixed(2)}</span>
                         </div>
-
-                        <hr />
 
                         <Button
                             size="lg"
@@ -341,12 +305,20 @@ export default function ShoppingCartPage() {
                                 background: "linear-gradient(90deg,#4f46e5,#7c3aed)",
                                 border: "none",
                             }}
-                            onClick={() => navigate("/checkout")}
+                            onClick={() => {
+                                if (!isLoggedIn) {
+                                    navigate("/login");
+                                    return;
+                                }
+                                navigate("/checkout");
+                            }}
                         >
                             Proceed to Checkout
                         </Button>
+
                     </Card.Body>
                 </Card>
+
             </Container>
         </div>
     );

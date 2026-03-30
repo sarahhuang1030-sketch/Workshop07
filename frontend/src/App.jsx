@@ -66,6 +66,7 @@ import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales"
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
 import RequireAuth from "./components/auth/RequireAuth";
+import CustomerBillingHistory from "./pages/customer/CustomerBillingHistory.jsx";
 
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
@@ -343,6 +344,10 @@ export default function App() {
                             <CustomerDashboard />
                         </RequireRole>
                     }
+                />
+                <Route
+                    path="/customer/billing/history"
+                    element={<CustomerBillingHistory />}
                 />
                 <Route
                     path="/customer/plan"
