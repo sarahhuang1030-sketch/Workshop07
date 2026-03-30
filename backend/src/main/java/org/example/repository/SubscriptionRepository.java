@@ -71,6 +71,7 @@ public interface SubscriptionRepository
     ORDER BY s.StartDate DESC
     """, nativeQuery = true)
     List<Object[]> findActivePlansByCustomerIdRaw(@Param("customerId") Integer customerId);
+
 }
 
 

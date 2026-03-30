@@ -304,18 +304,6 @@ CREATE TABLE serviceappointments (
     CONSTRAINT serviceappointments_ibfk_4 FOREIGN KEY (LocationId) REFERENCES locations (LocationId)
 );
 
-CREATE TABLE chatmessages (
-    MessageId INT NOT NULL AUTO_INCREMENT,
-    FromUserId INT NOT NULL,
-    ToUserId INT NOT NULL,
-    MessageText TEXT NOT NULL,
-    SentAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    IsRead TINYINT(1) NOT NULL DEFAULT 0,
-    PRIMARY KEY (MessageId),
-    KEY idx_chat_pair_time (FromUserId, ToUserId, SentAt),
-    KEY idx_chat_to_read (ToUserId, IsRead)
-);
-
 CREATE TABLE audit_logs (
     id BIGINT NOT NULL AUTO_INCREMENT,
     module VARCHAR(50) DEFAULT NULL,

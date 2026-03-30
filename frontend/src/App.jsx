@@ -262,24 +262,37 @@ export default function App() {
 
     useEffect(() => {
         if (!user) return;
+        if (location.pathname !== "/login") return;
 
-        if (location.pathname === "/login") {
-            if (user.role === "manager") {
-                navigate("/manager", { replace: true });
-            } else if (user.role === "salesagent") {
-                navigate("/sales", { replace: true });
-            } else if (user.role === "servicetechnician") {
-                navigate("/service", { replace: true });
-            } else if (user.customerId) {
-                navigate("/customer", { replace: true });
-            }
+        const shouldOpenReview = localStorage.getItem("openReviewAfterLogin");
+
+        if (shouldOpenReview === "true") {
+            navigate("/", { replace: true, state: { openReviewModal: true } });
+            return;
+        }
+
+        if (user.role === "manager") {
+            navigate("/manager", { replace: true });
+        } else if (user.role === "salesagent") {
+            navigate("/sales", { replace: true });
+        } else if (user.role === "servicetechnician") {
+            navigate("/service", { replace: true });
+        } else if (user.customerId) {
+            navigate("/customer", { replace: true });
         }
     }, [user, location.pathname, navigate]);
 
 
     const finishOAuthLogin = useCallback(async () => {
         await refreshMe();
-        navigate("/profile", { replace: true });
+
+        const shouldOpenReview = localStorage.getItem("openReviewAfterLogin");
+
+        if (shouldOpenReview === "true") {
+            navigate("/", { replace: true, state: { openReviewModal: true } });
+        } else {
+            navigate("/profile", { replace: true });
+        }
     }, [refreshMe, navigate]);
 
     async function logout() {

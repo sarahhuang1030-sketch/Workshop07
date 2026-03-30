@@ -1,10 +1,13 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import AppNavbar from "./Navbar";
 import AppFooter from "./Footer";
 import { useTheme } from "../../context/ThemeContext";
 import "../../style/style.css";
 import { useState } from "react";
-import ReviewModal from "../common/ReviewModal"; // adjust path if needed
+import ReviewModal from "../common/ReviewModal";
+import { useEffect } from "react";
+import { apiFetch } from "../../services/api.js";
+
 
 export default function Layout({ user, setUser, onLogout }) {
     const { darkMode } = useTheme();
@@ -32,10 +35,45 @@ export default function Layout({ user, setUser, onLogout }) {
             rating: 4,
         },
     ]);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [customerPlans, setCustomerPlans] = useState([]);
 
     function handleAddReview(newReview) {
         setReviews(prev => [newReview, ...prev]);
     }
+
+    useEffect(() => {
+        if (location.state?.openReviewModal) {
+            setShowReviewModal(true);
+            localStorage.removeItem("openReviewAfterLogin");
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.pathname, location.state, navigate]);
+
+
+
+    useEffect(() => {
+        async function loadCustomerPlans() {
+            if (!showReviewModal || !user?.customerId) return;
+
+            try {
+                const res = await apiFetch("/api/customer/review-plans");
+
+                if (!res.ok) {
+                    setCustomerPlans([]);
+                    return;
+                }
+
+                const data = await res.json();
+                setCustomerPlans(Array.isArray(data) ? data : []);
+            } catch {
+                setCustomerPlans([]);
+            }
+        }
+
+        loadCustomerPlans();
+    }, [showReviewModal, user]);
 
     return (
         <div
@@ -54,6 +92,8 @@ export default function Layout({ user, setUser, onLogout }) {
                 show={showReviewModal}
                 onClose={() => setShowReviewModal(false)}
                 onSubmit={handleAddReview}
+                user={user}
+                customerPlans={customerPlans}
             />
         </div>
     );

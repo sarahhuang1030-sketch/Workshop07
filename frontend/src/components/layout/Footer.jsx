@@ -1,18 +1,22 @@
-/**
- Description: This is for the footer of the app, which is shown on all pages.
- It contains some basic info about the company, quick links to main pages, and support contact info.
- The styling adapts to dark mode using the ThemeContext.
-
- Created by: Sarah
- Created on: February 2026
- **/
-
-import { Container, Row, Col, Button } from "react-bootstrap";
-import { Link } from "react-router-dom";
+import { Container, Row, Col } from "react-bootstrap";
+import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 
-export default function AppFooter({onOpenReviewModal }) {
+export default function AppFooter({ onOpenReviewModal }) {
     const { darkMode } = useTheme();
+    const navigate = useNavigate();
+
+    const handleLeaveReview = () => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            localStorage.setItem("openReviewAfterLogin", "true");
+            navigate("/login");
+            return;
+        }
+
+        onOpenReviewModal();
+    };
 
     return (
         <footer className={`mt-5 py-5 ${darkMode ? "tc-footer-dark" : "tc-footer-light"}`}>
@@ -37,7 +41,7 @@ export default function AppFooter({onOpenReviewModal }) {
                             <Link to="/plans" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none" }}>Plans</Link>
                             <span
                                 role="button"
-                                onClick={onOpenReviewModal}
+                                onClick={handleLeaveReview}
                                 style={{
                                     color: "rgba(255,255,255,0.75)",
                                     textDecoration: "none",

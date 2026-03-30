@@ -98,18 +98,10 @@ INSERT INTO planfeatures (FeatureId, PlanId, FeatureName, FeatureValue, Unit, So
 INSERT INTO paymentaccounts (AccountId, CustomerId, balance, CreatedAt, cardNumber, cvv, expiredDate, holderName, method, expiryMonth, expiryYear, last4, stripePaymentMethodId) VALUES
     (1, 3, NULL, NULL, '4242424242424242', NULL, '2026-07-01', 'Sarah Chen', 'VISA', NULL, NULL, NULL, NULL);
 
-INSERT INTO invoices (InvoiceId, CustomerId, InvoiceNumber, IssueDate, DueDate, subtotal, taxTotal, total, PaidByAccountId, Status, promoCode) VALUES
-    (1, 1, 'INV-1001', '2024-03-01', '2024-03-15', 60, 3, 63, NULL, 'Open', NULL);
 
-INSERT INTO invoiceitems (InvoiceItemId, InvoiceId, Description, Quantity, unitPrice, discountAmount, lineTotal) VALUES
-                                                                                                                     (1, 1, 'Unlimited Mobile 50 Plan', 1, 50.00, NULL, 50.00),
-                                                                                                                     (2, 1, 'International Calling Add-on', 1, 10.00, NULL, 10.00);
 
 INSERT INTO payments (PaymentId, CustomerId, PaymentDate, amount, Method, Status) VALUES
     (1, 3, '2026-01-17 15:17:57', 63.00, 'Credit Card', 'Completed');
-
-INSERT INTO paymentallocations (PaymentAllocationId, PaymentId, InvoiceId, AmountApplied) VALUES
-    (1, 1, 1, 63.00);
 
 INSERT INTO servicerequests (RequestId, CustomerId, CreatedByUserId, AssignedTechnicianUserId, ParentRequestId, RequestType, Priority, Status, Description, CreatedAt, UpdatedAt) VALUES
     (1, 1, 4, 3, NULL, 'Installation', 'Medium', 'Assigned', 'Need help setting up mobile service', '2026-01-17 15:17:57', NULL);

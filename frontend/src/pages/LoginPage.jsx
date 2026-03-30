@@ -41,31 +41,24 @@ export default function LoginPage({ refreshMe }) {
         setLoading(true);
         localStorage.removeItem("token");
 
-
         try {
             const res = await apiFetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-
                 body: JSON.stringify({ username, password }),
             });
 
             if (!res.ok) {
-                const msg = await res.text().catch(() => "");
+                await res.text().catch(() => "");
                 setError("Invalid username or password");
                 return;
             }
 
-
             const data = await res.json();
 
-            // save JWT first
             localStorage.setItem("token", data.token);
-
-            // optional: save login response too
             localStorage.setItem("tc_user", JSON.stringify(data));
 
-            // 🔥 NEW: force password change
             if (data.mustChangePassword) {
                 navigate("/change-password-first-login", { replace: true });
                 return;
@@ -73,10 +66,17 @@ export default function LoginPage({ refreshMe }) {
 
             const mapped = await refreshMeWithRetry();
             if (!mapped) {
-                setError("Login succeeded, but user profile could not be loaded.");                return;
+                setError("Login succeeded, but user profile could not be loaded.");
+                return;
             }
 
-            navigate("/profile", { replace: true });
+            const shouldOpenReview = localStorage.getItem("openReviewAfterLogin");
+
+            if (shouldOpenReview === "true") {
+                navigate("/", { replace: true, state: { openReviewModal: true } });
+            } else {
+                navigate("/profile", { replace: true });
+            }
         } catch (err) {
             setError(err?.message || "Unexpected error");
         } finally {
