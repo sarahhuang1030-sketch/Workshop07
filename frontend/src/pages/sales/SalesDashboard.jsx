@@ -318,17 +318,17 @@ export default function SalesDashboard({ darkMode = false }) {
             {/* ================= MANAGEMENT ================= */}
             <Row className="mt-4 g-3">
 
-                <Col md={6}>
-                    <ManageCard
-                        title="Audit Log"
-                        desc="Track system changes"
-                        icon={ListChecks}
-                        badge="Security"
-                        to="/sales/audit"
-                        onGo={go}
-                        darkMode={darkMode}
-                    />
-                </Col>
+                {/*<Col md={6}>*/}
+                {/*    <ManageCard*/}
+                {/*        title="Audit Log"*/}
+                {/*        desc="Track system changes"*/}
+                {/*        icon={ListChecks}*/}
+                {/*        badge="Security"*/}
+                {/*        to="/sales/audit"*/}
+                {/*        onGo={go}*/}
+                {/*        darkMode={darkMode}*/}
+                {/*    />*/}
+                {/*</Col>*/}
 
                 <Col md={6}>
                     <ManageCard

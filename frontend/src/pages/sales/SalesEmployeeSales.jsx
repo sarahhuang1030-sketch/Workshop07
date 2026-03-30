@@ -26,20 +26,27 @@ export default function SalesEmployeeSales({ darkMode = false }) {
     const cardClass = darkMode ? "bg-dark text-light border-secondary" : "bg-white";
     const tableClass = darkMode ? "table-dark" : "";
 
+    // Fetch ONLY current user's sales
     async function loadEmployeeSales() {
         try {
             setLoading(true);
             setError("");
 
-            const res = await apiFetch("/api/manager/reports/employee-sales");
+            const res = await apiFetch("/api/manager/reports/my-sales");
+
             if (!res.ok) {
-                throw new Error("Failed to load employee sales");
+                const text = await res.text(); // 👈 show backend error
+                throw new Error(text || "Failed to load your sales");
             }
 
             const data = await res.json();
-            setRows(Array.isArray(data) ? data : []);
+
+            // Wrap into array for table reuse
+            setRows(data ? [data] : []);
+
         } catch (err) {
-            setError(err.message || "Failed to load employee sales");
+            console.error("API ERROR:", err);
+            setError(err.message || "Failed to load your sales");
         } finally {
             setLoading(false);
         }
@@ -91,9 +98,9 @@ export default function SalesEmployeeSales({ darkMode = false }) {
         <Container className="py-4">
             <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                    <h2 className="mb-1">Employee Sales</h2>
-                    <div className={darkMode ? "text-light-50" : "text-muted"}>
-                        View sales performance by employee.
+                    <h2 className="mb-1">My Sales</h2>
+                    <div className="text-muted">
+                        View your personal sales performance.
                     </div>
                 </div>
 
