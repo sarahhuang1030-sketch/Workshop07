@@ -1,32 +1,95 @@
+/**
+ * SalesDashboard (FINAL VERSION)
+ * ----------------------------------------
+ * Features:
+ * - Fully aligned with ManagerDashboard design system
+ * - Dark mode support
+ * - Unified Stat + ManageCard components
+ * - Consistent button styles
+ * - Safe API handling
+ * - Clean ESLint (no warnings)
+ */
+
 import React, { useEffect, useState } from "react";
-import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
-import { Users, FileText, Clock, Package, ArrowRight } from "lucide-react";
+import { Container, Row, Col, Card, Button, Spinner, Badge } from "react-bootstrap";
+import {
+    Users,
+    FileText,
+    Clock,
+    Package,
+    Repeat,
+    ListChecks,
+    TrendingUp,
+    ArrowRight
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-/* ===== Reusable Stat Card Component ===== */
-function Stat({ title, value, hint, icon: Icon, children }) {
+/* =========================
+   FORMAT MONEY (SAFE)
+========================= */
+function formatMoney(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return "$0";
+    return num.toLocaleString(undefined, {
+        style: "currency",
+        currency: "CAD",
+        maximumFractionDigits: 0,
+    });
+}
+
+/* =========================
+   STAT CARD (MATCH MANAGER)
+========================= */
+function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
+
+    const cardBase = darkMode
+        ? "bg-dark border-secondary text-light"
+        : "bg-white text-dark";
+
+    const muted = darkMode ? "text-light-50" : "text-muted";
+
     return (
-        <Card className="shadow-sm h-100 border-0" style={{ borderRadius: 16 }}>
+        <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
             <Card.Body className="p-4">
                 <div className="d-flex justify-content-between align-items-start">
+
+                    {/* LEFT */}
                     <div>
-                        <div className="text-muted fw-semibold">{title}</div>
-                        <div className="fw-bold fs-4">
-                            {value ?? <Spinner animation="border" size="sm" />}
+                        <div className={`${muted} fw-semibold`} style={{ fontSize: ".95rem" }}>
+                            {title}
                         </div>
-                        {hint && <div className="text-muted small">{hint}</div>}
+
+                        <div className="fw-bold" style={{ fontSize: "1.7rem" }}>
+                            {value}
+                        </div>
+
+                        {hint && (
+                            <div className={muted} style={{ fontSize: ".9rem" }}>
+                                {hint}
+                            </div>
+                        )}
                     </div>
+
+                    {/* RIGHT */}
                     <div className="d-flex flex-column align-items-end gap-2">
-                        {Icon && (
-                            <div
-                                className="d-flex align-items-center justify-content-center"
-                                style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(0,0,0,0.05)" }}
-                            >
-                                <Icon size={22} />
-                            </div>
-                        )}
+
+                        <div
+                            style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 16,
+                                background: darkMode
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(0,0,0,0.05)",
+                            }}
+                            className="d-flex align-items-center justify-content-center"
+                        >
+                            <Icon size={24} />
+                        </div>
+
                         {children}
+
                     </div>
                 </div>
             </Card.Body>
@@ -34,154 +97,253 @@ function Stat({ title, value, hint, icon: Icon, children }) {
     );
 }
 
-/* ===== Reusable Management Card Component ===== */
-function ManageCard({ title, desc, icon: Icon, to, onGo }) {
+/* =========================
+   MANAGE CARD (MATCH MANAGER)
+========================= */
+function ManageCard({ title, desc, icon: Icon, badge, to, darkMode, onGo }) {
+
+    const cardBase = darkMode
+        ? "bg-dark border-secondary text-light"
+        : "bg-white text-dark";
+
+    const muted = darkMode ? "text-light-50" : "text-muted";
+
     return (
-        <Card className="shadow-sm h-100 border-0" style={{ borderRadius: 16 }}>
-            <Card.Body className="d-flex flex-column p-4">
-                <div className="d-flex justify-content-between align-items-start mb-3">
-                    <div className="d-flex gap-3 align-items-center">
-                        {Icon && (
-                            <div
-                                className="d-flex align-items-center justify-content-center"
-                                style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(0,0,0,0.05)" }}
-                            >
-                                <Icon size={22} />
-                            </div>
-                        )}
+        <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
+            <Card.Body className="p-4 d-flex flex-column">
+
+                <div className="d-flex justify-content-between align-items-start">
+
+                    {/* LEFT */}
+                    <div className="d-flex gap-3">
+
+                        <div
+                            style={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 16,
+                                background: darkMode
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(0,0,0,0.05)",
+                            }}
+                            className="d-flex align-items-center justify-content-center"
+                        >
+                            <Icon size={24} />
+                        </div>
+
                         <div>
-                            <div className="fw-bold">{title}</div>
-                            <div className="text-muted small">{desc}</div>
+                            <div className="fw-bold" style={{ fontSize: "1.1rem" }}>
+                                {title}
+                            </div>
+                            <div className={muted} style={{ fontSize: ".92rem" }}>
+                                {desc}
+                            </div>
                         </div>
                     </div>
+
+                    {badge && (
+                        <Badge bg={darkMode ? "secondary" : "light"} text={darkMode ? "light" : "dark"}>
+                            {badge}
+                        </Badge>
+                    )}
                 </div>
 
-                <Button
-                    className="mt-auto w-100 d-flex justify-content-center align-items-center gap-2"
-                    onClick={() => onGo(to)}
-                    style={{ borderRadius: 12 }}
-                >
-                    Open <ArrowRight size={16} />
-                </Button>
+                {/* BUTTON */}
+                <div className="mt-auto pt-3">
+                    <Button
+                        variant={darkMode ? "outline-light" : "outline-primary"}
+                        style={{ borderRadius: 14 }}
+                        className="w-100 d-flex align-items-center justify-content-center gap-2"
+                        onClick={() => onGo(to)}
+                    >
+                        Open <ArrowRight size={18} />
+                    </Button>
+                </div>
+
             </Card.Body>
         </Card>
     );
 }
 
-/* ===== Main Sales Dashboard Component ===== */
-export default function SalesDashboard() {
+/* =========================
+   MAIN DASHBOARD
+========================= */
+export default function SalesDashboard({ darkMode = false }) {
+
     const nav = useNavigate();
     const go = (to) => nav(to);
 
-    // Dashboard summary state
     const [summary, setSummary] = useState({
-        customers: null,
-        invoices: null,
-        pendingQuotes: null,
-        monthlyRevenue: null,
+        customers: 0,
+        invoices: 0,
+        pendingQuotes: 0,
+        monthlyRevenue: 0,
+        activeSubs: 0,
+        addOns: 0,
+        planFeatures: 0,
+        pastDue: 0
     });
 
-    // ================= Load Dashboard Summary =================
+    const [loading, setLoading] = useState(true);
+
     useEffect(() => {
-        async function loadSummary() {
+
+        async function load() {
             try {
-                // --- Fetch all customers ---
-                const custRes = await apiFetch("/api/customers/all");
-                const custData = await custRes.json();
-                const customersArray = Array.isArray(custData) ? custData : custData.customers ?? [];
+                setLoading(true);
 
-                // --- Fetch all quotes ---
-                const quotesRes = await apiFetch("/api/quotes");
-                const quotesData = await quotesRes.json();
-                const quotesArray = Array.isArray(quotesData) ? quotesData : quotesData.quotes ?? [];
+                const [custRes, quoteRes, invRes, managerRes] = await Promise.all([
+                    apiFetch("/api/customers/all"),
+                    apiFetch("/api/quotes"),
+                    apiFetch("/api/invoices/all"),
+                    apiFetch("/api/manager/summary")
+                ]);
 
-                // --- Fetch all invoices ---
-                const invoicesRes = await apiFetch("/api/invoices/all");
-                const invoicesData = await invoicesRes.json();
-                const invoicesArray = Array.isArray(invoicesData) ? invoicesData : invoicesData.invoices ?? [];
+                const customers = await custRes.json();
+                const quotes = await quoteRes.json();
+                const invoices = await invRes.json();
+                const manager = await managerRes.json();
 
-                // --- Calculate Monthly Revenue ---
+                const c = Array.isArray(customers) ? customers : [];
+                const q = Array.isArray(quotes) ? quotes : [];
+                const i = Array.isArray(invoices) ? invoices : [];
+
                 const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
 
-                const monthlyRevenue = invoicesArray
-                    .filter(inv => {
-                        const invDate = new Date(inv.date); // Assuming `date` field exists
-                        return inv.status === "PAID" && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear;
-                    })
-                    .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+                // Calculate current month revenue
+                const monthlyRevenue = i.reduce((sum, inv) => {
+                    const d = new Date(inv.issueDate);
+                    if (isNaN(d.getTime())) return sum;
+                    if (d.getMonth() !== now.getMonth()) return sum;
+                    return sum + (Number(inv.total) || 0);
+                }, 0);
 
-                // --- Update state ---
                 setSummary({
-                    customers: customersArray.length,
-                    invoices: invoicesArray.length,
-                    pendingQuotes: quotesArray.filter(q => q.status === "PENDING").length,
+                    customers: c.length,
+                    invoices: i.length,
+                    pendingQuotes: q.filter(x => x.status === "PENDING").length,
                     monthlyRevenue,
+
+                    activeSubs: manager?.activeSubs ?? 0,
+                    addOns: manager?.addOns ?? 0,
+                    planFeatures: manager?.planFeatures ?? 0,
+                    pastDue: manager?.pastDue ?? 0,
                 });
 
             } catch (e) {
-                console.error("Failed to load dashboard summary", e);
-                setSummary({
-                    customers: 0,
-                    invoices: 0,
-                    pendingQuotes: 0,
-                    monthlyRevenue: 0,
-                });
+                console.error("SalesDashboard error:", e);
+            } finally {
+                setLoading(false);
             }
         }
 
-        loadSummary();
+        load();
+
     }, []);
 
-    // ================= Render Dashboard =================
+    if (loading) {
+        return (
+            <Container className="text-center py-5">
+                <Spinner />
+            </Container>
+        );
+    }
+
     return (
         <Container className="py-4">
-            {/* Header */}
-            <div className="mb-4">
-                <h2 className="fw-bold">Sales Dashboard</h2>
-                <p className="text-muted mb-0">Overview of customers, invoices, and pending quotes.</p>
-            </div>
 
-            {/* Stats Row */}
+            <h2 className="fw-bold mb-3">Sales Dashboard</h2>
+
+            {/* ================= STATS ================= */}
             <Row className="g-3">
+
                 <Col md={3}>
-                    <Stat title="Customers" value={summary.customers} hint="Assigned to you" icon={Users}>
-                        <Button size="sm" onClick={() => go("/sales/customers")}>View</Button>
+                    <Stat title="Customers" value={summary.customers} hint="All accounts" icon={Users} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/customers")}>
+                            Details
+                        </Button>
                     </Stat>
                 </Col>
+
                 <Col md={3}>
-                    <Stat title="Invoices" value={summary.invoices} hint="All billing invoices" icon={FileText}>
-                        <Button size="sm" onClick={() => go("/sales/history")}>View</Button>
+                    <Stat title="Invoices" value={summary.invoices} hint="All billing invoices" icon={FileText} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/history")}>
+                            Details
+                        </Button>
                     </Stat>
                 </Col>
+
                 <Col md={3}>
-                    <Stat title="Pending Quotes" value={summary.pendingQuotes} hint="Awaiting approval" icon={Clock}>
-                        <Button size="sm" onClick={() => go("/sales/quotes")}>Details</Button>
+                    <Stat title="Quotes" value={summary.pendingQuotes} hint="Awaiting approval" icon={Clock} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/quotes")}>
+                            Details
+                        </Button>
                     </Stat>
                 </Col>
+
                 <Col md={3}>
-                    <Stat
-                        title="Monthly Revenue"
-                        value={summary.monthlyRevenue ? `$${summary.monthlyRevenue.toLocaleString()}` : null}
-                        hint="Current month only"
-                        icon={Package}
+                    <Stat title="Revenue" value={formatMoney(summary.monthlyRevenue)} hint="Estimated" icon={Package} darkMode={darkMode} />
+                </Col>
+
+                <Col md={3}>
+                    <Stat title="Subscriptions" value={summary.activeSubs} hint="Currently active" icon={Repeat} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/subscriptions")}>
+                            Details
+                        </Button>
+                    </Stat>
+                </Col>
+
+                <Col md={3}>
+                    <Stat title="Add-ons" value={summary.addOns} hint="Currently active" icon={Package} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/addons")}>
+                            Details
+                        </Button>
+                    </Stat>
+                </Col>
+
+                <Col md={3}>
+                    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>
+                            Details
+                        </Button>
+                    </Stat>
+                </Col>
+
+                <Col md={3}>
+                    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />
+                </Col>
+
+            </Row>
+
+            {/* ================= MANAGEMENT ================= */}
+            <Row className="mt-4 g-3">
+
+                <Col md={6}>
+                    <ManageCard
+                        title="Audit Log"
+                        desc="Track system changes"
+                        icon={ListChecks}
+                        badge="Security"
+                        to="/sales/audit"
+                        onGo={go}
+                        darkMode={darkMode}
                     />
                 </Col>
+
+                <Col md={6}>
+                    <ManageCard
+                        title="Employee Sales"
+                        desc="Sales performance report"
+                        icon={TrendingUp}
+                        badge="Reports"
+                        to="/sales/employee-sales"
+                        onGo={go}
+                        darkMode={darkMode}
+                    />
+                </Col>
+
             </Row>
 
-            {/* Management Cards */}
-            <Row className="g-3 mt-3">
-                <Col md={6} lg={4}>
-                    <ManageCard title="Unpaid Billing" desc="Transaction and payment history." icon={FileText} to="/sales/history" onGo={go} />
-                </Col>
-                <Col md={6} lg={4}>
-                    <ManageCard title="Quotes & Deals" desc="Create quotes and convert to sales." icon={FileText} to="/sales/quotes" onGo={go} />
-                </Col>
-                <Col md={6} lg={4}>
-                    <ManageCard title="Follow-ups" desc="Track leads and reminders." icon={Clock} to="/sales/followups" onGo={go} />
-                </Col>
-            </Row>
         </Container>
     );
 }
