@@ -36,13 +36,6 @@ import SalesCustomers from "./pages/sales/SalesCustomers";
 import SalesQuotes from "./pages/sales/SalesQuotes.jsx";
 import SalesActivations from "./pages/sales/SalesActivations";
 import SalesBilling from "./pages/sales/SalesBilling";
-import SalesSubscriptions from "./pages/sales/SalesSubscription";
-import SalesAddons from "./pages/sales/SalesAddon";
-import SalesPlanFeatures from "./pages/sales/SalesPlanFeature";
-// import SalesPastDue from "./pages/sales/SalesPastDue";
-import SalesAudit from "./pages/sales/SalesAudit";
-import SalesEmployeeSales from "./pages/sales/SalesEmployeeSales";
-import SalesLocation from "./pages/sales/SalesLocation";
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -368,7 +361,7 @@ export default function App() {
                         </RequireRole>
                     }
                 />
-                {/* SALES ROUTES (NEW SECTION)*/}
+
                 <Route
                     path="/sales"
                     element={
@@ -406,70 +399,6 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <SalesActivations />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/quotes"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesQuotes />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/subscriptions"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesSubscriptions />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/addons"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesAddons />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/planfeatures"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesPlanFeatures />
-                        </RequireRole>
-                    }
-                />
-
-
-                <Route
-                    path="/sales/audit"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesAudit />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/employee-sales"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesEmployeeSales />
-                        </RequireRole>
-                    }
-                />
-
-                <Route
-                    path="/sales/location"
-                    element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
-                            <SalesLocation />
                         </RequireRole>
                     }
                 />

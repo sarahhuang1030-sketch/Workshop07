@@ -124,7 +124,7 @@ export default function CheckoutPage() {
                     variant="primary"
                     size="lg"
                     className="mt-3"
-                    onClick={() => navigate(`/customer/billing`)}
+                    onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
                 >
                     View Invoice
                 </Button>
