@@ -115,4 +115,42 @@ public class InvoiceController {
 
         return ResponseEntity.ok(dtos);
     }
+    @GetMapping("/search")
+    public ResponseEntity<List<InvoiceDTO>> searchInvoices(
+            @RequestParam(required = false) String keyword,
+            Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated())
+            return ResponseEntity.status(401).build();
+
+        UserAccount ua = userAccountRepo
+                .findByUsernameIgnoreCase(authentication.getName())
+                .orElse(null);
+
+        if (ua == null)
+            return ResponseEntity.status(404).build();
+
+        List<Invoices> invoices;
+
+        if (ua.getRole() != null &&
+                !"Customer".equalsIgnoreCase(ua.getRole().getRoleName())) {
+            invoices = invoiceService.findAllInvoices();
+        } else {
+            invoices = invoiceService.findAllByCustomerId(ua.getCustomerId());
+        }
+
+        String kw = (keyword == null) ? "" : keyword.trim().toLowerCase();
+
+        List<InvoiceDTO> result = invoices.stream()
+                .map(invoiceService::convertToDTO)
+                .filter(dto ->
+                        (dto.invoiceNumber != null &&
+                                dto.invoiceNumber.toLowerCase().contains(kw))
+                                || (dto.getCustomerName() != null &&
+                                dto.getCustomerName().toLowerCase().contains(kw))
+                )
+                .toList();
+
+        return ResponseEntity.ok(result);
+    }
 }

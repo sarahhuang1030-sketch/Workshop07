@@ -176,20 +176,43 @@ public class SecurityConfig {
     /**
      * UserDetailsService - maps DB role → Spring Security role
      */
+//    @Bean
+//    public UserDetailsService userDetailsService(UserAccountRepository repo) {
+//        return username -> repo.findByUsernameIgnoreCase(username)
+//                .map(u -> {
+//
+//                    String dbRole = (u.getRole() == null
+//                            || u.getRole().getRoleName() == null
+//                            || u.getRole().getRoleName().isBlank())
+//                            ? "CUSTOMER"
+//                            : u.getRole().getRoleName();
+//
+//                    // Normalize role
+//                    String roleKey = dbRole.trim().toUpperCase().replace(" ", "_");
+//
+//                    return User.withUsername(u.getUsername())
+//                            .password(u.getPasswordHash())
+//                            .authorities("ROLE_" + roleKey)
+//                            .build();
+//                })
+//                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+//    }
+
     @Bean
     public UserDetailsService userDetailsService(UserAccountRepository repo) {
         return username -> repo.findByUsernameIgnoreCase(username)
                 .map(u -> {
 
-                    String dbRole = (u.getRole() == null
-                            || u.getRole().getRoleName() == null
-                            || u.getRole().getRoleName().isBlank())
+                    // Normalize DB role (no ROLE_ assumption here)
+                    String dbRole = (u.getRole() == null || u.getRole().getRoleName() == null)
                             ? "CUSTOMER"
                             : u.getRole().getRoleName();
 
-                    // Normalize role
-                    String roleKey = dbRole.trim().toUpperCase().replace(" ", "_");
+                    String roleKey = dbRole.trim()
+                            .toUpperCase()
+                            .replace(" ", "_");
 
+                    // IMPORTANT: Spring Security requires ROLE_ prefix
                     return User.withUsername(u.getUsername())
                             .password(u.getPasswordHash())
                             .authorities("ROLE_" + roleKey)

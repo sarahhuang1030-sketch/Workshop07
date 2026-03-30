@@ -27,4 +27,12 @@ public class InvoiceDTO {
         public BigDecimal discountAmount;
         public BigDecimal lineTotal;
     }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
 }
