@@ -26,8 +26,10 @@ function getCartKey() {
 }
 
 export function CartProvider({ children }) {
-
-    const [plan, setPlan] = useState(null);
+    // Keep cart plans as an array so we can support:
+    // - one Mobile plan
+    // - one Internet plan
+    const [plans, setPlans] = useState([]);
     const [addOns, setAddOns] = useState([]);
 
     const [sessionKey, setSessionKey] = useState(() => localStorage.getItem("tc_user") || "");
@@ -50,7 +52,7 @@ export function CartProvider({ children }) {
 
         const id = setInterval(() => {
             const cur = localStorage.getItem("tc_user") || "";
-            setSessionKey(prev => (prev === cur ? prev : cur));
+            setSessionKey((prev) => (prev === cur ? prev : cur));
         }, 500);
 
         return () => {
@@ -61,13 +63,12 @@ export function CartProvider({ children }) {
 
     // Load cart for current user
     useEffect(() => {
-
         setHydrated(false);
 
         const key = getCartKey();
 
         if (!key) {
-            setPlan(null);
+            setPlans([]);
             setAddOns([]);
             setHydrated(true);
             return;
@@ -78,80 +79,133 @@ export function CartProvider({ children }) {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                setPlan(parsed.plan || null);
-                setAddOns(parsed.addOns || []);
+
+                // Backward compatibility:
+                // old cart shape = { plan, addOns }
+                // new cart shape = { plans, addOns }
+                if (Array.isArray(parsed.plans)) {
+                    setPlans(parsed.plans);
+                } else if (parsed.plan) {
+                    setPlans([parsed.plan]);
+                } else {
+                    setPlans([]);
+                }
+
+                setAddOns(Array.isArray(parsed.addOns) ? parsed.addOns : []);
             } catch {
                 localStorage.removeItem(key);
-                setPlan(null);
+                setPlans([]);
                 setAddOns([]);
             }
         } else {
-            setPlan(null);
+            setPlans([]);
             setAddOns([]);
         }
 
         setHydrated(true);
-
     }, [sessionKey]);
 
     // Persist cart whenever it changes
     useEffect(() => {
-
         if (!hydrated) return;
 
         const key = getCartKey();
         if (!key) return;
 
-        localStorage.setItem(key, JSON.stringify({ plan, addOns }));
-
-    }, [plan, addOns, sessionKey, hydrated]);
+        localStorage.setItem(
+            key,
+            JSON.stringify({
+                plans,
+                addOns,
+            })
+        );
+    }, [plans, addOns, sessionKey, hydrated]);
 
     const addPlan = (p) => {
-        setPlan(p);
-        setAddOns([]);
+        setPlans((prev) => {
+            const serviceType = p?.serviceType ?? "Unknown";
+
+            // Replace only the same service type
+            // so Mobile and Internet can both exist in cart
+            const filtered = prev.filter(
+                (existing) => (existing?.serviceType ?? "Unknown") !== serviceType
+            );
+
+            return [...filtered, p];
+        });
     };
 
-    const removePlan = () => {
-        setPlan(null);
-        setAddOns([]);
+    // Backward-compatible removePlan:
+    // - removePlan() clears all plans
+    // - removePlan("Mobile") removes only mobile
+    // - removePlan("Internet") removes only internet
+    const removePlan = (serviceType) => {
+        if (!serviceType) {
+            setPlans([]);
+            setAddOns([]);
+            return;
+        }
+
+        setPlans((prev) =>
+            prev.filter((p) => (p?.serviceType ?? "Unknown") !== serviceType)
+        );
     };
 
     const addAddOn = (a) => {
-        if (!addOns.find(x => x.addOnId === a.addOnId)) {
-            setAddOns(prev => [...prev, a]);
+        if (!addOns.find((x) => x.addOnId === a.addOnId)) {
+            setAddOns((prev) => [...prev, a]);
         }
     };
 
     const removeAddOn = (id) => {
-        setAddOns(prev => prev.filter(a => a.addOnId !== id));
+        setAddOns((prev) => prev.filter((a) => a.addOnId !== id));
     };
 
     const clearCart = () => {
         const key = getCartKey();
         if (key) localStorage.removeItem(key);
 
-        setPlan(null);
+        setPlans([]);
         setAddOns([]);
     };
 
+    // Helpful derived values
+    const mobilePlan = plans.find((p) => p?.serviceType === "Mobile") || null;
+    const internetPlan = plans.find((p) => p?.serviceType === "Internet") || null;
+
+    // Backward compatibility for older pages that still expect a single "plan"
+    // Priority:
+    // 1. mobilePlan
+    // 2. internetPlan
+    // 3. first available plan
+    const plan = mobilePlan || internetPlan || plans[0] || null;
+
     // Calculate total price
     const total = useMemo(() => {
-
-        if (!plan) return 0;
-
-        const addOnsTotal = addOns.reduce(
-            (sum, a) => sum + Number(a.monthlyPrice ?? a.price ?? 0),
+        const plansTotal = plans.reduce(
+            (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
             0
         );
 
-        return Number(plan.price ?? plan.monthlyPrice ?? 0) + addOnsTotal;
+        const addOnsTotal = addOns.reduce(
+            (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
+            0
+        );
 
-    }, [plan, addOns]);
+        return plansTotal + addOnsTotal;
+    }, [plans, addOns]);
 
     return (
         <CartContext.Provider
             value={{
+                // New shape
+                plans,
+                mobilePlan,
+                internetPlan,
+
+                // Backward compatibility
                 plan,
+
                 addOns,
                 total,
                 addPlan,

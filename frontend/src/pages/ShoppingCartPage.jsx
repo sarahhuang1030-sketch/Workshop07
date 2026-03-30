@@ -117,9 +117,16 @@ export default function ShoppingCartPage() {
             0
         );
 
-        const subtotal = Number(plan.price) + addOnsTotal;
+        const planMonthly = Number(
+            plan.totalPrice ??
+            plan.price ??
+            plan.monthlyPrice ??
+            0
+        );
 
-        return { addOnsTotal, subtotal };
+        const subtotal = planMonthly + addOnsTotal;
+
+        return { addOnsTotal, planMonthly, subtotal };
     }, [plan, addOns]);
 
     if (!plan) {
@@ -164,18 +171,28 @@ export default function ShoppingCartPage() {
 
                                 <h4 className="fw-bold mb-1">{plan.name}</h4>
 
-                                <div className="text-muted">{plan.data || "—"} data included</div>
+                                {plan.serviceType === "Mobile" ? (
+                                    <div className="text-muted">
+                                        {plan.lines ?? 1} line(s)
+                                        {" • "}
+                                        ${Number(plan.pricePerLine ?? plan.price ?? 0).toFixed(2)}/line
+                                    </div>
+                                ) : (
+                                    <div className="text-muted">{plan.tagline || "Home internet plan"}</div>
+                                )}
                             </Col>
 
                             <Col md={4} className="text-md-end mt-3 mt-md-0">
-                                <div className="fw-black fs-4">${plan.price}</div>
+                                <div className="fw-black fs-4">
+                                    ${Number(pricing.planMonthly).toFixed(2)}
+                                </div>
                                 <div className="text-muted small">per month</div>
 
                                 <Button
                                     variant="outline-danger"
                                     size="sm"
                                     className="mt-2 d-inline-flex align-items-center gap-1"
-                                    onClick={removePlan}
+                                    onClick={() => removePlan(plan.serviceType)}
                                 >
                                     <XCircle size={14} />
                                     Remove Plan
@@ -299,7 +316,7 @@ export default function ShoppingCartPage() {
 
                         <div className="d-flex justify-content-between mb-2">
                             <span>Plan</span>
-                            <span>${Number(plan.price).toFixed(2)}</span>
+                            <span>${Number(pricing.planMonthly).toFixed(2)}</span>
                         </div>
 
                         <div className="d-flex justify-content-between mb-2">

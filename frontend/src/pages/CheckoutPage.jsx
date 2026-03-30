@@ -30,46 +30,49 @@ export default function CheckoutPage() {
         return { subtotal, tax, finalTotal: subtotal + tax };
     }, [billingCycle, province, total]);
 
+    // Plan monthly price (FIXED)
+    const planMonthly = Number(
+        plan?.totalPrice ??
+        plan?.price ??
+        plan?.monthlyPrice ??
+        0
+    );
+
     // -----------------------------
     // Handle Checkout
     // -----------------------------
     const handleCheckout = async () => {
         if (!paymentMethod) return alert("Please select a payment card.");
 
-        // Ensure the selected card has a Stripe PaymentMethod ID
-        // This works for both saved cards (with accountId) and temporary cards (no accountId)
         if (!paymentMethod.stripePaymentMethodId) {
-            return alert("Selected card is invalid. Missing stripePaymentMethodId.");
+            return alert("Selected card is invalid.");
         }
 
         try {
-            // Prepare query params for PaymentIntent creation
             const queryParams = new URLSearchParams();
             if (paymentMethod.stripeCustomerId) {
                 queryParams.append("stripeCustomerId", paymentMethod.stripeCustomerId);
             }
             queryParams.append("paymentMethodId", paymentMethod.stripePaymentMethodId);
 
-            // Create PaymentIntent on the backend
             const intentRes = await apiFetch(`/api/payment-intent?${queryParams.toString()}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) }), // amount in cents
+                body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) }),
             });
 
             const intentData = await intentRes.json();
-            if (!intentData.clientSecret) return alert("Failed to create PaymentIntent.");
+            if (!intentData.clientSecret) return alert("Payment setup failed.");
 
-            // Confirm the payment with Stripe
             const result = await stripe.confirmCardPayment(intentData.clientSecret, {
                 payment_method: paymentMethod.stripePaymentMethodId,
             });
 
             if (result.error) return alert("Payment failed: " + result.error.message);
 
-            // Save invoice in backend
-            // For saved cards: accountId exists
-            // For temporary cards: accountId is null
+            // -----------------------------
+            // FIXED invoice items
+            // -----------------------------
             const invoiceRes = await apiFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -82,7 +85,12 @@ export default function CheckoutPage() {
                     paymentIntentId: result.paymentIntent.id,
                     promoCode: null,
                     items: [
-                        { description: plan.name, quantity: 1, unitPrice: plan.price, lineTotal: plan.price },
+                        {
+                            description: plan.name,
+                            quantity: 1,
+                            unitPrice: planMonthly,
+                            lineTotal: planMonthly,
+                        },
                         ...addOns.map(a => ({
                             description: a.addOnName,
                             quantity: 1,
@@ -100,7 +108,7 @@ export default function CheckoutPage() {
 
         } catch (err) {
             console.error(err);
-            alert("Checkout failed. See console for details.");
+            alert("Checkout failed.");
         }
     };
 
@@ -128,7 +136,6 @@ export default function CheckoutPage() {
         <Container style={{ maxWidth: 700 }} className="py-5">
             <h2 className="mb-4">Checkout</h2>
 
-            {/* Billing cycle */}
             <Card className="mb-3 p-3">
                 <h5>Billing Cycle</h5>
                 <Form.Check
@@ -143,24 +150,45 @@ export default function CheckoutPage() {
                 />
             </Card>
 
-            {/* Province selection */}
             <Card className="mb-3 p-3">
                 <h5>Province</h5>
                 <Form.Select value={province} onChange={(e) => setProvince(e.target.value)}>
-                    {Object.keys(PROVINCE_TAX).map((p) => <option key={p} value={p}>{p}</option>)}
+                    {Object.keys(PROVINCE_TAX).map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                    ))}
                 </Form.Select>
             </Card>
 
-            {/* Payment card selection */}
             <PaymentCardUI onCardSelect={setPaymentMethod} />
 
-            {/* Order summary */}
+            {/* -----------------------------
+               FIXED ORDER SUMMARY DISPLAY
+            ----------------------------- */}
             <Card className="mt-3 p-3">
                 <h5>Order Summary</h5>
-                {plan && <div><strong>Plan:</strong> {plan.name} (${plan.price}/mo)</div>}
-                {addOns.length > 0 && (
-                    <ul>{addOns.map(a => <li key={a.addOnId}>{a.addOnName} (${a.monthlyPrice}/mo)</li>)}</ul>
+
+                {plan && (
+                    <div>
+                        <strong>Plan:</strong> {plan.name}
+                        <div className="text-muted small">
+                            {plan.serviceType === "Mobile"
+                                ? `${plan.lines ?? 1} line(s) • $${Number(plan.pricePerLine ?? plan.price ?? 0).toFixed(2)}/line`
+                                : "Home Internet Plan"}
+                        </div>
+                        <div>${planMonthly.toFixed(2)}/mo</div>
+                    </div>
                 )}
+
+                {addOns.length > 0 && (
+                    <ul>
+                        {addOns.map(a => (
+                            <li key={a.addOnId}>
+                                {a.addOnName} (${a.monthlyPrice}/mo)
+                            </li>
+                        ))}
+                    </ul>
+                )}
+
                 <hr />
                 <div>Subtotal: ${pricing.subtotal.toFixed(2)}</div>
                 <div>Tax: ${pricing.tax.toFixed(2)}</div>
