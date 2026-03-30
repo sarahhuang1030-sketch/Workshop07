@@ -8,21 +8,14 @@ import java.util.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.example.dto.CurrentPlanDTO;
-import org.example.dto.InvoiceDTO;
-import org.example.dto.RegisterAsCustomerRequestDTO;
-import org.example.dto.SaveMyAddressRequestDTO;
-import org.example.dto.UpdateMyProfileDTO;
+import org.example.dto.*;
 import org.example.entity.Invoices;
 import org.example.model.Customer;
 import org.example.model.CustomerAddress;
 import org.example.model.Role;
 import org.example.model.UserAccount;
 import org.example.repository.*;
-import org.example.service.AgentCustomerService;
-import org.example.service.AuditService;
-import org.example.service.AvatarStorageService;
-import org.example.service.InvoiceService;
+import org.example.service.*;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -46,6 +39,8 @@ public class MeController {
     private final AuditService auditService;
     private final InvoiceService invoiceService;
     private final RoleRepository roleRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final SubscriptionService subscriptionService;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -56,7 +51,9 @@ public class MeController {
                         AvatarStorageService avatarStorageService,
                         AuditService auditService,
                         InvoiceService invoiceService,
-                        RoleRepository roleRepository) {
+                        RoleRepository roleRepository,
+                        UserAccountRepository userAccountRepository,
+                        SubscriptionService subscriptionService) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -67,6 +64,8 @@ public class MeController {
         this.auditService = auditService;
         this.invoiceService = invoiceService;
         this.roleRepository = roleRepository;
+        this.subscriptionService = subscriptionService;
+        this.userAccountRepository = userAccountRepository;
     }
 
     // -------------------- GET /api/me --------------------
@@ -409,6 +408,32 @@ public class MeController {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Failed to register as customer: " + e.getMessage());
         }
+    }
+
+    //    for workshop06 finding the plans for customer
+    @GetMapping("/api/me/current-plan")
+    public ResponseEntity<?> getCurrentPlan(Authentication authentication) {
+        String loginKey = authentication.getName();
+
+        UserAccount ua = userAccountRepository.findByUsername(loginKey).orElse(null);
+
+        if (ua == null) {
+            return ResponseEntity.status(404).body("User not found");
+        }
+
+        Integer customerId = ua.getCustomerId();
+
+        if (customerId == null) {
+            return ResponseEntity.status(404).body("No customer linked to this user");
+        }
+
+        CurrentPlanResponseDTO plan = subscriptionService.getCurrentPlan(customerId);
+
+        if (plan == null) {
+            return ResponseEntity.status(404).body("No active plan");
+        }
+
+        return ResponseEntity.ok(plan);
     }
 
 }

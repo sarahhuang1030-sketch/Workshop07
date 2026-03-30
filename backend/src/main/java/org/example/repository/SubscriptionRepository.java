@@ -5,6 +5,7 @@ import org.example.dto.EmployeeSalesDTO;
 import org.example.model.Subscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -39,6 +40,37 @@ public interface SubscriptionRepository
     ORDER BY totalSales DESC
     """, nativeQuery = true)
     List<Object[]> getEmployeeSalesSummaryRaw();
+
+    @Query(value = """
+    SELECT
+        s.SubscriptionId AS subscriptionId,
+        s.CustomerId AS customerId,
+        s.PlanId AS planId,
+        s.Status AS status,
+        p.PlanName AS planName,
+        p.MonthlyPrice AS monthlyPrice,
+        COALESCE(SUM(a.MonthlyPrice), 0) AS addonTotal
+    FROM subscriptions s
+    JOIN plans p
+        ON s.PlanId = p.PlanId
+    LEFT JOIN subscriptionaddons sa
+        ON s.SubscriptionId = sa.SubscriptionId
+       AND sa.Status = 'Active'
+    LEFT JOIN addons a
+        ON sa.AddOnId = a.AddOnId
+    WHERE s.CustomerId = :customerId
+      AND s.Status = 'Active'
+    GROUP BY
+        s.SubscriptionId,
+        s.CustomerId,
+        s.PlanId,
+        s.Status,
+        p.PlanName,
+        p.MonthlyPrice,
+        s.StartDate
+    ORDER BY s.StartDate DESC
+    """, nativeQuery = true)
+    List<Object[]> findActivePlansByCustomerIdRaw(@Param("customerId") Integer customerId);
 }
 
 
