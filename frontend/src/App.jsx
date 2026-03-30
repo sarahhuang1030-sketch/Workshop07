@@ -278,7 +278,7 @@ export default function App() {
         } else if (user.role === "servicetechnician") {
             navigate("/service", { replace: true });
         } else if (user.customerId) {
-            navigate("/customer", { replace: true });
+            navigate("/profile", { replace: true });
         }
     }, [user, location.pathname, navigate]);
 
