@@ -1,6 +1,7 @@
 package org.example.controller;
 
 import org.example.dto.EmployeeSalesDTO;
+import org.example.dto.EmployeeSalesDetailDTO;
 import org.example.dto.ManagerReportSummaryDTO;
 import org.example.model.UserAccount;
 import org.example.repository.ManagerReportRepository;
@@ -145,5 +146,41 @@ public class ManagerReportController {
                 totalSales,
                 lastSaleDate
         );
+    }
+
+    @GetMapping("/my-sales/details")
+    public List<EmployeeSalesDetailDTO> getMySalesDetails(Principal principal) {
+
+        if (principal == null) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        UserAccount ua = userAccountRepository
+                .findByUsernameIgnoreCase(principal.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (ua.getEmployeeId() == null) {
+            throw new RuntimeException("Not an employee account");
+        }
+
+        Integer employeeId = ua.getEmployeeId();
+
+        List<Object[]> rows = subscriptionRepository.getEmployeeSalesDetails(employeeId);
+
+        return rows.stream().map(row -> new EmployeeSalesDetailDTO(
+                ((Number) row[0]).intValue(),
+                ((Number) row[1]).intValue(),
+                (String) row[2], // customerName
+                ((Number) row[3]).intValue(),
+                (String) row[4],
+                (String) row[5],
+                row[6] instanceof BigDecimal
+                        ? (BigDecimal) row[6]
+                        : BigDecimal.valueOf(((Number) row[6]).doubleValue()),
+                row[7] instanceof BigDecimal
+                        ? (BigDecimal) row[7]
+                        : BigDecimal.valueOf(((Number) row[7]).doubleValue()),
+                row[8] != null ? ((java.sql.Date) row[8]).toLocalDate() : null
+        )).toList();
     }
 }

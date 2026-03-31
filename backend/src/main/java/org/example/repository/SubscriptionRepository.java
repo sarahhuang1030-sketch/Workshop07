@@ -109,4 +109,49 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
         GROUP BY e.EmployeeId, e.FirstName, e.LastName
     """, nativeQuery = true)
     List<Object[]> getEmployeeSalesByEmployeeId(@Param("employeeId") Integer employeeId);
+
+    /**
+     * Get each sale detail for ONE employee (/my-sales/details)
+     */
+    @Query(value = """
+            SELECT
+                s.SubscriptionId,
+                s.CustomerId,
+                u.Username AS customerName,
+                s.PlanId,
+                s.Status,
+                p.PlanName,
+                p.MonthlyPrice,
+                COALESCE(SUM(a.MonthlyPrice), 0) AS addonTotal,
+                s.StartDate
+            FROM subscriptions s
+            JOIN plans p
+                ON s.PlanId = p.PlanId
+        
+            -- FIXED TABLE NAME
+            JOIN useraccounts u
+                ON s.CustomerId = u.UserId
+        
+            LEFT JOIN subscriptionaddons sa
+                ON s.SubscriptionId = sa.SubscriptionId
+               AND sa.Status = 'Active'
+        
+            LEFT JOIN addons a
+                ON sa.AddOnId = a.AddOnId
+        
+            WHERE s.SoldByEmployeeId = :employeeId
+        
+            GROUP BY
+                s.SubscriptionId,
+                s.CustomerId,
+                u.Username,
+                s.PlanId,
+                s.Status,
+                p.PlanName,
+                p.MonthlyPrice,
+                s.StartDate
+        
+            ORDER BY s.StartDate DESC
+        """, nativeQuery = true)
+    List<Object[]> getEmployeeSalesDetails(@Param("employeeId") Integer employeeId);
 }
