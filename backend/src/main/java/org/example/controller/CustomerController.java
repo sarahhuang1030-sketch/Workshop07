@@ -80,16 +80,23 @@ public class CustomerController {
     }
 
     // ================== CREATE CUSTOMER ==================
+    // ================== CREATE CUSTOMER ==================
     @PostMapping
     @Transactional
     public ResponseEntity<?> createCustomer(@RequestBody CreateCustomerRequest req) {
 
-        // 1. Check duplicate email
+        // 1. Validate duplicate email
         if (customerRepo.existsByEmail(req.email)) {
             return ResponseEntity.badRequest().body("Email already exists");
         }
 
-        // 2. Create customer
+        // Validate postal code format (A1A 1A1)
+        if (req.postalCode != null &&
+                !req.postalCode.matches("^[A-Z]\\d[A-Z] \\d[A-Z]\\d$")) {
+            return ResponseEntity.badRequest().body("Invalid postal code format");
+        }
+
+        // 2. Create Customer entity
         Customer c = new Customer();
         c.setFirstName(req.firstName);
         c.setLastName(req.lastName);
@@ -99,17 +106,40 @@ public class CustomerController {
 
         Customer saved = customerRepo.save(c);
 
-        // 3. Get role (DB value: Customer)
+        // 3. Fetch role from DB (must exist)
         Role role = roleRepo.findByRoleName("Customer")
                 .orElseThrow(() -> new RuntimeException("Role 'Customer' not found in DB"));
 
-        // 4. Generate temp password
+        // =========================================================
+        // 4. Generate UNIQUE username (firstname.lastname format)
+        // =========================================================
+
+        // Normalize: lowercase + remove spaces
+        String baseUsername = (req.firstName + "." + req.lastName)
+                .toLowerCase()
+                .replaceAll("\\s+", "")
+                .replaceAll("[^a-z0-9.]", ""); // remove special characters
+
+        String username = baseUsername;
+        int counter = 1;
+
+        // Ensure uniqueness by appending numbers if needed
+        while (userAccountRepo.existsByUsernameIgnoreCase(username)) {
+            username = baseUsername + counter;
+            counter++;
+        }
+
+        // =========================================================
+        // 5. Generate temporary password
+        // =========================================================
         String tempPassword = PasswordGenerator.generateTempPassword(10);
 
-        // 5. Create user account
+        // =========================================================
+        // 6. Create UserAccount
+        // =========================================================
         UserAccount ua = new UserAccount();
         ua.setCustomerId(saved.getCustomerId());
-        ua.setUsername(req.email);
+        ua.setUsername(username);
         ua.setRole(role);
         ua.setPasswordHash(passwordEncoder.encode(tempPassword));
         ua.setMustChangePassword(true);
@@ -118,7 +148,9 @@ public class CustomerController {
 
         userAccountRepo.save(ua);
 
-        // 6. Create billing address
+        // =========================================================
+        // 7. Create Billing Address
+        // =========================================================
         CustomerAddress addr = new CustomerAddress();
         addr.setCustomerId(saved.getCustomerId());
         addr.setAddressType("Billing");
@@ -133,12 +165,14 @@ public class CustomerController {
 
         addressRepo.save(addr);
 
-        // 7. Build response DTO (FOR FRONTEND POPUP)
+        // =========================================================
+        // 8. Build response DTO (for frontend popup)
+        // =========================================================
         CreateCustomerResponseDTO dto = new CreateCustomerResponseDTO();
         dto.setCustomerId(saved.getCustomerId());
         dto.setFirstName(req.firstName);
         dto.setLastName(req.lastName);
-        dto.setUsername(req.email);
+        dto.setUsername(username);
         dto.setRole(role.getRoleName());
         dto.setTempPassword(tempPassword);
 
@@ -151,9 +185,17 @@ public class CustomerController {
     public ResponseEntity<?> updateCustomer(@PathVariable Integer id,
                                             @RequestBody CreateCustomerRequest req) {
 
+        // 1. Find customer
         Customer c = customerRepo.findById(id).orElse(null);
         if (c == null) return ResponseEntity.notFound().build();
 
+        // Validate postal code format (A1A 1A1)
+        if (req.postalCode != null &&
+                !req.postalCode.matches("^[A-Z]\\d[A-Z] \\d[A-Z]\\d$")) {
+            return ResponseEntity.badRequest().body("Invalid postal code format");
+        }
+
+        // 2. Update basic info
         c.setFirstName(req.firstName);
         c.setLastName(req.lastName);
         c.setEmail(req.email);
@@ -161,6 +203,22 @@ public class CustomerController {
         c.setCustomerType(req.customerType);
 
         customerRepo.save(c);
+
+        CustomerAddress billing = addressRepo
+                .findByCustomerIdAndAddressType(id, "Billing")
+                .orElse(new CustomerAddress());
+
+        billing.setCustomerId(id);
+        billing.setAddressType("Billing");
+        billing.setStreet1(req.street1);
+        billing.setStreet2(req.street2);
+        billing.setCity(req.city);
+        billing.setProvince(req.province);
+        billing.setPostalCode(req.postalCode);
+        billing.setCountry(req.country != null ? req.country : "Canada");
+        billing.setIsPrimary(1);
+
+        addressRepo.save(billing);
 
         auditService.log("Customer", "Update", "Customer " + id, "system");
 

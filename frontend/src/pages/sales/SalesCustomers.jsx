@@ -6,9 +6,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-// ==========================
 // Canada Province → City mapping
-// ==========================
 const provinceCityMap = {
     Alberta: ["Calgary", "Edmonton", "Red Deer", "Lethbridge"],
     "British Columbia": ["Vancouver", "Victoria", "Surrey", "Burnaby"],
@@ -25,9 +23,7 @@ const provinceCityMap = {
     Yukon: ["Whitehorse"]
 };
 
-// ==========================
 // Empty form
-// ==========================
 const emptyDraft = {
     firstName: "",
     lastName: "",
@@ -42,9 +38,7 @@ const emptyDraft = {
     customerType: "",
 };
 
-// ==========================
 // Phone formatter
-// ==========================
 const formatPhone = (value) => {
     if (!value) return "";
 
@@ -61,6 +55,30 @@ const formatPhone = (value) => {
 
     return result;
 };
+
+// Canadian postal code formatter (AUTO FORMAT)
+const formatPostalCode = (value) => {
+    if (!value) return "";
+
+    // Remove all non-alphanumeric characters
+    let cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+    // Limit to 6 characters
+    cleaned = cleaned.slice(0, 6);
+
+    // Insert space after 3rd character
+    if (cleaned.length > 3) {
+        return cleaned.slice(0, 3) + " " + cleaned.slice(3);
+    }
+
+    return cleaned;
+};
+
+// Canadian postal code validation (A1A 1A1)
+const isValidPostalCode = (code) => {
+    return /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(code);
+};
+
 
 export default function SalesCustomers() {
 
@@ -80,13 +98,10 @@ export default function SalesCustomers() {
     const [showTempPwdModal, setShowTempPwdModal] = useState(false);
     const [tempPwdData, setTempPwdData] = useState(null);
 
-    // ===== NEW (copy + json safety) =====
     const [copySuccess, setCopySuccess] = useState(false);
     const [jsonError, setJsonError] = useState("");
 
-    // ==========================
     // Load customers
-    // ==========================
     useEffect(() => {
         loadCustomers();
     }, []);
@@ -119,9 +134,7 @@ export default function SalesCustomers() {
         }
     };
 
-    // ==========================
     // Create
-    // ==========================
     const openCreate = () => {
         setSelectedCustomer(null);
         setDraft(emptyDraft);
@@ -129,9 +142,7 @@ export default function SalesCustomers() {
         setError("");
     };
 
-    // ==========================
     // Edit
-    // ==========================
     const openModal = async (customerId) => {
         setError("");
 
@@ -165,13 +176,18 @@ export default function SalesCustomers() {
         }
     };
 
-    // ==========================
-    // SAVE (FIXED JSON SAFETY)
-    // ==========================
+    // SAVE
     const handleSave = async () => {
         setSaving(true);
         setError("");
         setJsonError("");
+
+        // Frontend postal code validation
+        if (draft.postalCode && !isValidPostalCode(draft.postalCode)) {
+            setError("Invalid Canadian postal code (Format: A1A 1A1)");
+            setSaving(false);
+            return;
+        }
 
         try {
             const url = selectedCustomer
@@ -216,9 +232,7 @@ export default function SalesCustomers() {
         }
     };
 
-    // ==========================
     // DELETE
-    // ==========================
     const handleDelete = async (customerId) => {
 
         if (!window.confirm("Are you sure you want to delete this customer?")) return;
@@ -450,7 +464,11 @@ export default function SalesCustomers() {
                             <Form.Label>Postal Code</Form.Label>
                             <Form.Control
                                 value={draft.postalCode}
-                                onChange={e => setDraft(d => ({ ...d, postalCode: e.target.value }))}
+                                onChange={e => setDraft(d => ({
+                                    ...d,
+                                    postalCode: formatPostalCode(e.target.value)
+                                }))}
+                                placeholder="A1A 1A1"
                             />
                         </Col>
 
