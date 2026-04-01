@@ -1,17 +1,18 @@
 import React, { useState, useMemo } from "react";
 import { Container, Card, Button, Form, Alert } from "react-bootstrap";
-import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
 import PaymentCardUI from "../components/PaymentCardUI";
 import { useNavigate } from "react-router-dom";
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 // Province tax rates
 const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975 };
 
 export default function CheckoutPage() {
     const stripe = useStripe();
-    const { plan, addOns, total, clearCart } = useCart();
+    const elements = useElements();
+    const { plan, addOns, total, _clearCart } = useCart();
 
     const [paymentMethod, setPaymentMethod] = useState(null);
     const [submitted, setSubmitted] = useState(false);
@@ -19,6 +20,7 @@ export default function CheckoutPage() {
     const [billingCycle, setBillingCycle] = useState("monthly");
     const [province, setProvince] = useState("ON");
     const navigate = useNavigate();
+
 
     // -----------------------------
     // Compute subtotal, tax, final total
@@ -138,56 +140,30 @@ export default function CheckoutPage() {
         }
 
         try {
-            // 1. Create PaymentIntent
             const res = await apiFetch("/api/payment-intent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: Math.round(pricing.finalTotal * 100)
+                    amount: Math.round(pricing.finalTotal * 100),
+                    paymentMethodId: paymentMethod.stripePaymentMethodId,
+                    saveCard: isSaveCard
                 })
             });
 
             const data = await res.json();
 
-            if (!data.clientSecret) {
-                throw new Error("Failed to create payment intent");
-            }
-
-            // 2. Confirm payment (Stripe handles card securely)
             const result = await stripe.confirmCardPayment(data.clientSecret, {
-                payment_method: paymentMethod.stripePaymentMethodId
+                payment_method: {
+                    card: elements.getElement(CardElement),
+                    billing_details: {
+                        name: paymentMethod.holderName || "Customer"
+                    }
+                }
             });
 
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
-
-            if (result.paymentIntent.status !== "succeeded") {
-                throw new Error("Payment not completed");
-            }
-
-            // 3. Create invoice AFTER payment success
-            const invoiceRes = await apiFetch("/api/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    paymentAccountId: paymentMethod.accountId || null,
-                    subtotal: pricing.subtotal,
-                    tax: pricing.tax,
-                    total: pricing.finalTotal,
-                    billingCycle,
-                    paymentIntentId: result.paymentIntent.id,
-                    items
-                })
-            });
-
-            if (!invoiceRes.ok) throw new Error("Checkout failed");
-
-            const invoice = await invoiceRes.json();
+            if (result.error) throw new Error(result.error.message);
 
             alert("Payment successful!");
-            setOrderNumber(invoice.invoiceNumber);
-            setSubmitted(true);
 
         } catch (e) {
             console.error(e);

@@ -9,6 +9,7 @@
  * Modified on: March 2026
  **/
 
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";
@@ -53,7 +54,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const loadedBillingForRef = useRef(null);
 
-    // ---- Derived / computed (hooks MUST be above any returns) ----
     const tierInfo = useMemo(() => {
         const points = profile.points || 0;
         const isBronze = points >= BRONZE_REQUIREMENT;
@@ -62,12 +62,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         return { isBronze, progress, remaining };
     }, [profile.points]);
 
-// ---- Load customer billing address ----
     const loadAddress = useCallback(async () => {
         try {
             const res = await apiFetch("/api/billing/address");
             if (!res.ok || [204, 404, 409].includes(res.status)) {
-                // No address found, reset to empty
                 setProfile(prev => ({
                     ...prev,
                     billing: { ...prev.billing, address: {} },
@@ -85,7 +83,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     }, []);
 
-// ---- Load customer payment method ----
     const loadPaymentMethod = useCallback(async () => {
         try {
             const res = await apiFetch("/api/billing/payment/all");
@@ -108,7 +105,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 return;
             }
 
-            // ✅ get default card OR first card
             const pm = data.find(c => c.isDefault) || data[0];
 
             const paymentMethod = {
@@ -130,7 +126,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     }, []);
 
-// ---- Load profile, billing address, and payment method ----
     useEffect(() => {
         if (!userProp) {
             setLoading(false);
@@ -139,7 +134,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
         setLoading(true);
 
-        // Base profile info from userProp
         const phone =
             userProp.homePhone ??
             userProp.raw?.phone ??
@@ -174,14 +168,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             phone,
             avatarUrl: userProp.avatarUrl ?? null,
             oauthPicture: userProp.oauthPicture ?? userProp.raw?.oauthPicture ?? userProp.picture ?? userProp.raw?.picture ?? null,
-            // role: userProp.role ?? (userProp.employeeId ? "EMPLOYEE" : userProp.customerId ? "CUSTOMER" : "GUEST"),
             role: normalizedRole,
             billing: { nextBillAmount: null, nextBillDate: null, paymentMethod: {}, address: {}, invoices: [] },
         };
 
         setProfile(prev => ({ ...prev, ...baseProfile }));
 
-        // ---- Load address and payment method ----
         const customerId = userProp.customerId;
         if (customerId) {
             loadAddress();
@@ -191,7 +183,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         setLoading(false);
     }, [userProp, loadAddress, loadPaymentMethod]);
 
-    // ---- Load address & payment method ----
     useEffect(() => {
         const customerId = userProp?.customerId;
         if (!customerId) return;
@@ -244,7 +235,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
     };
 
-    // ---- Top alert for incomplete profile / billing / payment info ----
     const isBlank = (v) => v == null || String(v).trim() === "" || v === "—";
 
     const needsCustomerRegistration =
@@ -253,11 +243,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const missingFields = useMemo(() => {
         const missing = [];
 
-        // Always check essential profile info
         if (isBlank(profile.email)) missing.push("Email");
         if (isBlank(profile.phone)) missing.push("Phone number");
 
-        // Only check billing/payment AFTER they are a customer
         if (!needsCustomerRegistration) {
             const addr = profile.billing?.address || {};
             if (
@@ -278,6 +266,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const billingAddress = profile.billing?.address || {};
     const paymentMethod = profile.billing?.paymentMethod || {};
 
+    const hasPlan =
+        profile?.plan?.status &&
+        profile.plan.status !== "Inactive" &&
+        profile.plan.name &&
+        profile.plan.name !== "—";
+
     const hasBillingAddress =
         !isBlank(billingAddress.street1) &&
         !isBlank(billingAddress.city) &&
@@ -290,35 +284,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         !isBlank(paymentMethod.last4);
 
     const hasCompletedBillingSetup = hasBillingAddress && hasPaymentMethod;
-    // const missingFields = useMemo(() => {
-    //     const missing = [];
-    //
-    //     // Check essential profile info
-    //     if (isBlank(profile.email)) missing.push("Email");
-    //     if (isBlank(profile.phone)) missing.push("Phone number");
-    //
-    //     // Check billing address
-    //     const addr = profile.billing?.address || {};
-    //     if (
-    //         isBlank(addr.street1) ||
-    //         isBlank(addr.city) ||
-    //         isBlank(addr.province) ||
-    //         isBlank(addr.postalCode) ||
-    //         isBlank(addr.country)
-    //     ) missing.push("Billing address");
-    //
-    //     // Check payment method
-    //     const pm = profile.billing?.paymentMethod || {};
-    //     if (
-    //         isBlank(pm.method) ||
-    //         // isBlank(pm.cardNumber) ||
-    //         // isBlank(pm.holderName) ||
-    //         // isBlank(pm.expiredDate) ||
-    //         isBlank(pm.last4)
-    //     ) missing.push("Payment method");
-    //
-    //     return missing;
-    // }, [profile]);
 
     if (loading) {
         return (
@@ -329,17 +294,11 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         );
     }
 
-    // if (!userProp) return <Navigate to="/login" replace />;
-    // if (!loading && !userProp) {
-    //     return <Navigate to="/login" replace />;
-    // }
-
     const hasAccount = !!userProp.customerId || !!userProp.employeeId;
     if (!hasAccount) return <Navigate to="/login" replace />;
 
     return (
         <Container className="py-4 py-md-5 px-4">
-            {/* ---- Page Header ---- */}
             <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
                 <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
                     My Profile
@@ -365,7 +324,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 </div>
             </div>
 
-            {/* ---- Global Error ---- */}
             {error && (
                 <Alert variant="danger">
                     <div className="fw-bold">Profile error</div>
@@ -373,7 +331,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 </Alert>
             )}
 
-            {/* ---- Top Alert for incomplete fields ---- */}
+            {/* ================= BILLING SETUP ALERTS ================= */}
             {needsCustomerRegistration ? (
                 <Alert
                     variant="info"
@@ -388,8 +346,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         </div>
 
                         <div className="mt-2">
-
-                            {needsCustomerRegistration && (
                             <Button
                                 size="sm"
                                 variant={darkMode ? "outline-light" : "outline-dark"}
@@ -398,50 +354,113 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             >
                                 Register as Customer
                             </Button>
-                                )}
                         </div>
                     </div>
                 </Alert>
-            ) : (
-                !hasCompletedBillingSetup && (
-                    <Alert
-                        variant="warning"
-                        className="d-flex align-items-start gap-2"
-                        style={{ borderRadius: 16 }}
-                    >
-                        <AlertTriangle size={18} className="mt-1" />
-                        <div>
-                            <div className="fw-bold">Complete your billing setup first</div>
-                            <div className="small">
-                                Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
-                            </div>
-
-                            <div className="mt-3 d-flex gap-2 flex-wrap">
-                                {!hasBillingAddress && (
-                                    <Button
-                                        size="sm"
-                                        variant="primary"
-                                        onClick={() => setShowBillingModal(true)}
-                                        style={{ borderRadius: 12 }}
-                                    >
-                                        Add Billing Address
-                                    </Button>
-                                )}
-
-                                {!hasPaymentMethod && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline-primary"
-                                        onClick={() => setShowPaymentModal(true)}
-                                        style={{ borderRadius: 12 }}
-                                    >
-                                        Add Payment Method
-                                    </Button>
-                                )}
-                            </div>
+            ) : !hasCompletedBillingSetup && (
+                <Alert
+                    variant="warning"
+                    className="d-flex align-items-start gap-2"
+                    style={{ borderRadius: 16 }}
+                >
+                    <AlertTriangle size={18} className="mt-1" />
+                    <div>
+                        <div className="fw-bold">Complete your billing setup first</div>
+                        <div className="small">
+                            Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
                         </div>
-                    </Alert>
-                )
+
+                        {/* Missing components section */}
+                        <div className="mt-3 d-flex gap-2 flex-wrap">
+
+                            {/* Missing billing address */}
+                            {!hasBillingAddress && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">Missing billing address</div>
+                                        <div className="small">
+                                            Please add your billing address to continue.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={() => setShowBillingModal(true)}
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Add Billing Address
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {/* Missing payment method */}
+                            {!hasPaymentMethod && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">Missing payment method</div>
+                                        <div className="small">
+                                            Please add a valid billing card to continue.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline-primary"
+                                                onClick={() => setShowPaymentModal(true)}
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Add Payment Method
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {/* Missing plan */}
+                            {!hasPlan && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">No active plan</div>
+                                        <div className="small">
+                                            You don’t have an active subscription plan yet.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="dark"
+                                                as={Link}
+                                                to="/plans"
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Choose Plan
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                        </div>
+                    </div>
+                </Alert>
             )}
 
             <Row className="g-4">
@@ -453,59 +472,88 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         onDeleteAvatar={deleteAvatar}
                     />
 
-                    {hasCompletedBillingSetup && (
-                        <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
-                            <Card.Body className="p-4">
-                                <div className="d-flex align-items-center justify-content-between">
-                                    <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                        Rewards Points
-                                    </div>
-                                    <Star size={18} />
-                                </div>
+                    {/*{hasCompletedBillingSetup && (*/}
+                    {/*    <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>*/}
+                    {/*        <Card.Body className="p-4">*/}
+                    {/*            <div className="d-flex align-items-center justify-content-between">*/}
+                    {/*                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>*/}
+                    {/*                    Rewards Points*/}
+                    {/*                </div>*/}
+                    {/*                <Star size={18} />*/}
+                    {/*            </div>*/}
 
-                                <div className="mt-3">
-                                    <div
-                                        className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
-                                        style={{ fontWeight: 900, fontSize: "2rem" }}
-                                    >
-                                        {Number(profile.points ?? 0).toLocaleString()} pts
-                                    </div>
-                                    <div className={mutedClass}>
-                                        Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}
-                                    </div>
-                                </div>
+                    {/*            <div className="mt-3">*/}
+                    {/*                <div*/}
+                    {/*                    className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}*/}
+                    {/*                    style={{ fontWeight: 900, fontSize: "2rem" }}*/}
+                    {/*                >*/}
+                    {/*                    {Number(profile.points ?? 0).toLocaleString()} pts*/}
+                    {/*                </div>*/}
+                    {/*                <div className={mutedClass}>*/}
+                    {/*                    Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}*/}
+                    {/*                </div>*/}
+                    {/*            </div>*/}
 
-                                <div className="mt-3">
-                                    <div className="d-flex justify-content-between small">
-                        <span className={mutedClass}>
-                            Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                        </span>
-                                        <span className={mutedClass}>{tierInfo.progress}%</span>
-                                    </div>
+                    {/*            <div className="mt-3">*/}
+                    {/*                <div className="d-flex justify-content-between small">*/}
+                    {/*    <span className={mutedClass}>*/}
+                    {/*        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)*/}
+                    {/*    </span>*/}
+                    {/*                    <span className={mutedClass}>{tierInfo.progress}%</span>*/}
+                    {/*                </div>*/}
 
-                                    <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
-                                        <div
-                                            className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
-                                            style={{ width: `${tierInfo.progress}%` }}
-                                        />
-                                    </div>
+                    {/*                <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>*/}
+                    {/*                    <div*/}
+                    {/*                        className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}*/}
+                    {/*                        style={{ width: `${tierInfo.progress}%` }}*/}
+                    {/*                    />*/}
+                    {/*                </div>*/}
 
-                                    {!tierInfo.isBronze ? (
-                                        <div className={`small mt-2 ${mutedClass}`}>
-                                            {tierInfo.remaining.toLocaleString()} pts to become Bronze.
-                                        </div>
-                                    ) : (
-                                        <div className="small mt-2 text-warning">
-                                            <Crown size={16} className="me-1" />
-                                            Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
-                                        </div>
-                                    )}
-                                </div>
-                            </Card.Body>
-                        </Card>
-                    )}
+                    {/*                {!tierInfo.isBronze ? (*/}
+                    {/*                    <div className={`small mt-2 ${mutedClass}`}>*/}
+                    {/*                        {tierInfo.remaining.toLocaleString()} pts to become Bronze.*/}
+                    {/*                    </div>*/}
+                    {/*                ) : (*/}
+                    {/*                    <div className="small mt-2 text-warning">*/}
+                    {/*                        <Crown size={16} className="me-1" />*/}
+                    {/*                        Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.*/}
+                    {/*                    </div>*/}
+                    {/*                )}*/}
+                    {/*            </div>*/}
+                    {/*        </Card.Body>*/}
+                    {/*    </Card>*/}
+                    {/*)}*/}
+
+                    <>
+                        {/* Plan section */}
+                        {hasPlan && (
+                            <SubscriptionPage user={profile} darkMode={darkMode} />
+                        )}
+
+                        {/* Payment card */}
+                        {hasPaymentMethod && (
+                            <BillingCard
+                                profile={profile}
+                                darkMode={darkMode}
+                                onEdit={(section) => {
+                                    if (section === "payment") setShowPaymentModal(true);
+                                    else setShowBillingModal(true);
+                                }}
+                                className="mt-4"
+                            />
+                        )}
+
+                        {/* Billing address */}
+                        {hasBillingAddress && (
+                            <BillingAddressCard
+                                address={profile.billing.address}
+                                darkMode={darkMode}
+                                onEdit={() => setShowBillingModal(true)}
+                                className="mt-3"
+                            />
+                        )}
+                    </>
                 </Col>
-
 
                 <Col lg={8}>
                     {hasCompletedBillingSetup && (

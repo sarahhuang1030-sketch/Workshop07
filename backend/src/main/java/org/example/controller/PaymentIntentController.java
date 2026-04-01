@@ -117,88 +117,48 @@ public class PaymentIntentController {
 //        }
 //    }
         @PostMapping("/payment-intent")
-        public ResponseEntity<?> createPaymentIntent(
-                @RequestBody Map<String, Object> payload
-        ) {
+        public ResponseEntity<?> createPaymentIntent(@RequestBody Map<String, Object> payload) {
             try {
 
-                // -----------------------------
-                // 1. Parse amount safely
-                // -----------------------------
-                Object amountObj = payload.get("amount");
-                if (amountObj == null) {
+                long amount = Long.parseLong(payload.get("amount").toString());
+                Boolean saveCard = (Boolean) payload.getOrDefault("saveCard", false);
+
+                String paymentMethodId = (String) payload.get("paymentMethodId");
+
+                if (paymentMethodId == null) {
                     return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Amount is required"));
+                            .body(Map.of("error", "paymentMethodId required"));
                 }
 
-                long amount;
-                try {
-                    amount = Long.parseLong(amountObj.toString());
-                } catch (NumberFormatException e) {
-                    return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Invalid amount format"));
-                }
+                PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
+                String customerId = pm.getCustomer();
 
-                // -----------------------------
-                // 2. Validate amount
-                // -----------------------------
-                if (amount <= 0) {
-                    return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Amount must be greater than 0"));
-                }
-
-                // Safety check (anti abuse)
-                if (amount > 1_000_000) {
-                    return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Amount too large"));
-                }
-
-                // -----------------------------
-                // 3. Optional customer (safe null handling)
-                // -----------------------------
-                String stripeCustomerId =
-                        payload.containsKey("stripeCustomerId")
-                                ? (String) payload.get("stripeCustomerId")
-                                : null;
-
-                // -----------------------------
-                // 4. Build PaymentIntent
-                // -----------------------------
                 PaymentIntentCreateParams.Builder builder =
                         PaymentIntentCreateParams.builder()
                                 .setAmount(amount)
                                 .setCurrency("cad")
-                                .setAutomaticPaymentMethods(
-                                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
-                                                .setEnabled(true)
-                                                .build()
-                                );
+                                .setPaymentMethod(paymentMethodId)
+                                .setConfirm(false);
 
-                // Attach customer only if exists
-                if (stripeCustomerId != null && !stripeCustomerId.isEmpty()) {
-                    builder.setCustomer(stripeCustomerId);
+                // 🟢 CASE 1: saved card (has customer)
+                if (saveCard || (customerId != null && !customerId.isEmpty())) {
+                    if (customerId == null || customerId.isEmpty()) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("error", "Card is not attached to customer"));
+                    }
+
+                    builder.setCustomer(customerId);
                 }
 
-                // -----------------------------
-                // 5. Create PaymentIntent
-                // -----------------------------
                 PaymentIntent intent = PaymentIntent.create(builder.build());
 
-                logger.info("PaymentIntent created: {}", intent.getId());
-
-                return ResponseEntity.ok(
-                        Map.of("clientSecret", intent.getClientSecret())
-                );
-
-            } catch (StripeException e) {
-                logger.error("Stripe error", e);
-                return ResponseEntity.status(400)
-                        .body(Map.of("error", e.getMessage()));
+                return ResponseEntity.ok(Map.of(
+                        "clientSecret", intent.getClientSecret()
+                ));
 
             } catch (Exception e) {
-                logger.error("Server error", e);
                 return ResponseEntity.status(500)
-                        .body(Map.of("error", "Internal server error"));
+                        .body(Map.of("error", e.getMessage()));
             }
         }
 }

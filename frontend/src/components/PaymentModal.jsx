@@ -113,16 +113,7 @@ export function PaymentModal({
                     }}>
                         <CardElement
                             options={{
-                                hidePostalCode: true,
-                                style: {
-                                    base: {
-                                        fontSize: "16px",
-                                        color: darkMode ? "#fff" : "#000",
-                                        "::placeholder": {
-                                            color: "#999",
-                                        },
-                                    },
-                                },
+                                hidePostalCode: true
                             }}
                         />
                     </div>
