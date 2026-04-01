@@ -30,7 +30,7 @@ public class AuthService {
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
     private final EmployeeRepository employeeRepository;
-  //  private final PasswordEncoder passwordEncoder;
+    //  private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JavaMailSender mailSender;
 
@@ -45,7 +45,7 @@ public class AuthService {
         this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.employeeRepository = employeeRepository;
-    //    this.passwordEncoder = passwordEncoder;
+        //    this.passwordEncoder = passwordEncoder;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.mailSender = mailSender;
     }
@@ -67,7 +67,10 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid username or password");
         }
 
-        if (Boolean.FALSE.equals(ua.getActive())) {
+//        if (Boolean.FALSE.equals(ua.getActive())) {
+//            throw new IllegalArgumentException("Account is inactive");
+//        }
+        if (!Boolean.TRUE.equals(ua.getIsActive())) {
             throw new IllegalArgumentException("Account is inactive");
         }
 

@@ -116,23 +116,51 @@ public class PaymentIntentController {
 //            return ResponseEntity.status(500).body(response);
 //        }
 //    }
+
         @PostMapping("/payment-intent")
         public ResponseEntity<?> createPaymentIntent(@RequestBody Map<String, Object> payload) {
+
             try {
-
-                long amount = Long.parseLong(payload.get("amount").toString());
-                Boolean saveCard = (Boolean) payload.getOrDefault("saveCard", false);
-
-                String paymentMethodId = (String) payload.get("paymentMethodId");
-
-                if (paymentMethodId == null) {
+                // ---------------------------
+                // Validate input safely
+                // ---------------------------
+                if (payload == null) {
                     return ResponseEntity.badRequest()
-                            .body(Map.of("error", "paymentMethodId required"));
+                            .body(Map.of("error", "Request body is missing"));
                 }
 
-                PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
-                String customerId = pm.getCustomer();
+                Object amountObj = payload.get("amount");
+                Object pmObj = payload.get("paymentMethodId");
 
+                if (amountObj == null || pmObj == null) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "amount and paymentMethodId are required"));
+                }
+
+                long amount;
+                try {
+                    amount = Long.parseLong(amountObj.toString());
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid amount format"));
+                }
+
+                if (amount <= 0) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Amount must be greater than 0"));
+                }
+
+                String paymentMethodId = pmObj.toString();
+                boolean saveCard = Boolean.TRUE.equals(payload.get("saveCard"));
+
+                // ---------------------------
+                // Retrieve PaymentMethod from Stripe
+                // ---------------------------
+                PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
+
+                // ---------------------------
+                // Build PaymentIntent
+                // ---------------------------
                 PaymentIntentCreateParams.Builder builder =
                         PaymentIntentCreateParams.builder()
                                 .setAmount(amount)
@@ -140,11 +168,15 @@ public class PaymentIntentController {
                                 .setPaymentMethod(paymentMethodId)
                                 .setConfirm(false);
 
-                // 🟢 CASE 1: saved card (has customer)
-                if (saveCard || (customerId != null && !customerId.isEmpty())) {
+                // ---------------------------
+                // Attach customer only if saving card
+                // ---------------------------
+                if (saveCard) {
+                    String customerId = pm.getCustomer();
+
                     if (customerId == null || customerId.isEmpty()) {
                         return ResponseEntity.badRequest()
-                                .body(Map.of("error", "Card is not attached to customer"));
+                                .body(Map.of("error", "Cannot save card without Stripe customer"));
                     }
 
                     builder.setCustomer(customerId);

@@ -63,7 +63,8 @@ public class EmployeeService {
         userAccount.setUsername(username);
         userAccount.setPasswordHash(passwordEncoder.encode(tempPassword));
         userAccount.setIsLocked(0);
-        userAccount.setActive(true);
+//        userAccount.setActive(true);
+        userAccount.setIsActive(true);
         userAccount.setMustChangePassword(true);
         userAccount.setTempPasswordExpiresAt(LocalDateTime.now().plusDays(3));
         userAccount.setPasswordChangedAt(null);

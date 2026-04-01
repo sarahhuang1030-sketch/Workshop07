@@ -16,16 +16,13 @@ public class UserAccount {
     private Integer customerId;
 
     @Column(name = "EmployeeId")
-    private Integer employeeId; // null for customers
+    private Integer employeeId;
 
     @Column(name = "Username", nullable = false)
     private String username;
 
     @Column(name = "PasswordHash")
     private String passwordHash;
-
-//    @Column(name = "Role", nullable = false)
-//    private String role;
 
     @ManyToOne
     @JoinColumn(name = "RoleId")
@@ -43,11 +40,6 @@ public class UserAccount {
     @Column(name = "stripe_customer_id")
     private String stripeCustomerId;
 
-    @PrePersist
-    public void prePersist() {
-        if (isLocked == null) isLocked = 0;
-    }
-
     @Column(name = "MustChangePassword", nullable = false)
     private Boolean mustChangePassword = false;
 
@@ -60,24 +52,55 @@ public class UserAccount {
     @Column(name = "IsActive", nullable = false)
     private Boolean isActive = true;
 
-    // ------------------- Getters & Setters -------------------
+    @Column(name = "points", nullable = false)
+    private Integer points = 0;
 
-    public Integer getUserId() { return userId; }
+    // ===================== JPA LIFECYCLE =====================
+    @PrePersist
+    public void prePersist() {
+        if (isLocked == null) isLocked = 0;
+        if (points == null) points = 0;
+        if (isActive == null) isActive = true;
+        if (mustChangePassword == null) mustChangePassword = false;
+    }
 
-    public Integer getCustomerId() { return customerId; }
-    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
+    // ===================== BASIC GETTERS / SETTERS =====================
 
-    public Integer getEmployeeId() { return employeeId; }
-    public void setEmployeeId(Integer employeeId) { this.employeeId = employeeId; }
+    public Integer getUserId() {
+        return userId;
+    }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public Integer getCustomerId() {
+        return customerId;
+    }
 
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
 
-//    public String getRole() { return role; }
-//    public void setRole(String role) { this.role = role; }
+    public Integer getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(Integer employeeId) {
+        this.employeeId = employeeId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 
     public Role getRole() {
         return role;
@@ -87,17 +110,37 @@ public class UserAccount {
         this.role = role;
     }
 
-    public Integer getIsLocked() { return isLocked; }
-    public void setIsLocked(Integer isLocked) { this.isLocked = isLocked; }
+    public Integer getIsLocked() {
+        return isLocked;
+    }
 
-    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
-    public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    public void setIsLocked(Integer isLocked) {
+        this.isLocked = isLocked;
+    }
 
-    public String getAvatarUrl() { return avatarUrl; }
-    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
 
-    public String getStripeCustomerId() { return stripeCustomerId; }
-    public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    public String getStripeCustomerId() {
+        return stripeCustomerId;
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
 
     public Boolean getMustChangePassword() {
         return mustChangePassword;
@@ -123,11 +166,27 @@ public class UserAccount {
         this.passwordChangedAt = passwordChangedAt;
     }
 
-    public Boolean getActive() {
-        return isActive;
+    public Boolean getIsActive() {
+        return isActive != null ? isActive : true;
     }
 
-    public void setActive(Boolean active) {
-        isActive = active;
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    // ===================== POINTS =====================
+
+    public Integer getPoints() {
+        return points != null ? points : 0;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
+    }
+
+    public void addPoints(Integer add) {
+        if (add == null) return;
+        if (this.points == null) this.points = 0;
+        this.points += add;
     }
 }

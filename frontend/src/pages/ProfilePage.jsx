@@ -54,30 +54,79 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const loadedBillingForRef = useRef(null);
 
+    const computedPoints = useMemo(() => {
+        const invoices = profile.billing?.invoices || [];
+
+        const totalSpentFromInvoices = invoices.reduce((sum, inv) => {
+            const itemsTotal = (inv.items || []).reduce((s, item) => {
+                return s + (Number(item.lineTotal) || 0);
+            }, 0);
+
+            return sum + itemsTotal;
+        }, 0);
+
+        return Math.floor(totalSpentFromInvoices * POINTS_PER_DOLLAR);
+    }, [profile.billing?.invoices]);
+
     const tierInfo = useMemo(() => {
-        const points = profile.points || 0;
+        const points = computedPoints || 0;
+
         const isBronze = points >= BRONZE_REQUIREMENT;
         const progress = Math.min(100, Math.round((points / BRONZE_REQUIREMENT) * 100));
         const remaining = Math.max(0, BRONZE_REQUIREMENT - points);
+
         return { isBronze, progress, remaining };
-    }, [profile.points]);
+    }, [computedPoints]);
+
+    const loadInvoices = useCallback(async () => {
+        try {
+            const res = await apiFetch("/api/invoices/user/all");
+
+            if (res.status === 401) return;
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            setProfile(prev => ({
+                ...prev,
+                billing: {
+                    ...prev.billing,
+                    invoices: Array.isArray(data) ? data : []
+                }
+            }));
+
+        } catch (err) {
+            console.error("Failed to load invoices", err);
+        }
+    }, []);
 
     const loadAddress = useCallback(async () => {
         try {
             const res = await apiFetch("/api/billing/address");
-            if (!res.ok || [204, 404, 409].includes(res.status)) {
+
+            if (res.status === 401) {
+                console.log("JWT invalid or missing");
+                return;
+            }
+
+            if ([404, 409].includes(res.status)) {
                 setProfile(prev => ({
                     ...prev,
                     billing: { ...prev.billing, address: {} },
                 }));
                 return;
             }
+
+            if (!res.ok) return;
+
             const data = await res.json();
             const address = data?.address ?? data ?? {};
+
             setProfile(prev => ({
                 ...prev,
                 billing: { ...prev.billing, address },
             }));
+
         } catch (err) {
             console.error("Failed to load billing address", err);
         }
@@ -86,6 +135,11 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const loadPaymentMethod = useCallback(async () => {
         try {
             const res = await apiFetch("/api/billing/payment/all");
+
+            if (res.status === 401) {
+                console.log("JWT invalid or missing");
+                return;
+            }
 
             if (!res.ok) {
                 setProfile(prev => ({
@@ -178,6 +232,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         if (customerId) {
             loadAddress();
             loadPaymentMethod();
+            loadInvoices();
         }
 
         setLoading(false);
@@ -294,7 +349,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         );
     }
 
-    const hasAccount = !!userProp.customerId || !!userProp.employeeId;
+    // const hasAccount = !!userProp.customerId || !!userProp.employeeId;
+    const hasAccount = !!userProp?.customerId || !!userProp?.employeeId;
     if (!hasAccount) return <Navigate to="/login" replace />;
 
     return (
@@ -487,10 +543,13 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                     className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
                                     style={{ fontWeight: 900, fontSize: "2rem" }}
                                 >
-                                    {Number(profile.points ?? 0).toLocaleString()} pts
+                                    {/*{Number(profile.points ?? 0).toLocaleString()} pts*/}
+                                    {(computedPoints || 0).toLocaleString()} pts
                                 </div>
                                 <div className={mutedClass}>
-                                    Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}
+                                    Earn {POINTS_PER_DOLLAR} point per $1 spent •
+                                    Spend tracked: {formatMoney(computedPoints)}
+                                    • {computedPoints} pts earned
                                 </div>
                             </div>
 

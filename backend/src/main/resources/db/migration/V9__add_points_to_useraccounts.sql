@@ -1,0 +1,2 @@
+ALTER TABLE useraccounts
+    ADD COLUMN points INT NOT NULL DEFAULT 0;

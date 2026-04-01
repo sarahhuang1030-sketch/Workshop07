@@ -118,15 +118,22 @@ public class CustomerController {
         String baseUsername = (req.firstName + "." + req.lastName)
                 .toLowerCase()
                 .replaceAll("\\s+", "")
-                .replaceAll("[^a-z0-9.]", ""); // remove special characters
+                .replaceAll("[^a-z0-9.]", "");
+
+        if (baseUsername.length() < 3) {
+            baseUsername = "user" + System.currentTimeMillis();
+        }
 
         String username = baseUsername;
         int counter = 1;
 
-        // Ensure uniqueness by appending numbers if needed
         while (userAccountRepo.existsByUsernameIgnoreCase(username)) {
-            username = baseUsername + counter;
+            username = baseUsername + "_" + counter;
             counter++;
+
+            if (counter > 100) {
+                throw new RuntimeException("Cannot generate unique username");
+            }
         }
 
         // =========================================================
@@ -144,7 +151,7 @@ public class CustomerController {
         ua.setPasswordHash(passwordEncoder.encode(tempPassword));
         ua.setMustChangePassword(true);
         ua.setIsLocked(0);
-        ua.setActive(true);
+        ua.setIsActive(true);
 
         userAccountRepo.save(ua);
 

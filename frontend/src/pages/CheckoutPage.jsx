@@ -1,18 +1,17 @@
 import React, { useState, useMemo } from "react";
 import { Container, Card, Button, Form, Alert } from "react-bootstrap";
+import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
 import PaymentCardUI from "../components/PaymentCardUI";
 import { useNavigate } from "react-router-dom";
-import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 // Province tax rates
 const PROVINCE_TAX = { ON: 0.13, BC: 0.12, AB: 0.05, QC: 0.14975 };
 
 export default function CheckoutPage() {
     const stripe = useStripe();
-    const elements = useElements();
-    const { plan, addOns, total, _clearCart } = useCart();
+    const { plan, addOns, total, clearCart } = useCart();
 
     const [paymentMethod, setPaymentMethod] = useState(null);
     const [submitted, setSubmitted] = useState(false);
@@ -20,7 +19,6 @@ export default function CheckoutPage() {
     const [billingCycle, setBillingCycle] = useState("monthly");
     const [province, setProvince] = useState("ON");
     const navigate = useNavigate();
-
 
     // -----------------------------
     // Compute subtotal, tax, final total
@@ -40,134 +38,87 @@ export default function CheckoutPage() {
         0
     );
 
-    const items = useMemo(() => {
-        const planItem = plan
-            ? [{
-                description: plan.name,
-                quantity: 1,
-                unitPrice: planMonthly,
-                lineTotal: planMonthly
-            }]
-            : [];
-
-        const addOnItems = addOns?.map(a => ({
-            description: a.addOnName,
-            quantity: 1,
-            unitPrice: a.monthlyPrice,
-            lineTotal: a.monthlyPrice
-        })) || [];
-
-        return [...planItem, ...addOnItems];
-    }, [plan, addOns, planMonthly]);
-
     // -----------------------------
     // Handle Checkout
     // -----------------------------
-    // const handleCheckout = async () => {
-    //     if (!paymentMethod) return alert("Please select a payment card.");
-    //
-    //     if (!paymentMethod.stripePaymentMethodId) {
-    //         return alert("Selected card is invalid.");
-    //     }
-    //
-    //     try {
-    //         const queryParams = new URLSearchParams();
-    //         if (paymentMethod.stripeCustomerId) {
-    //             queryParams.append("stripeCustomerId", paymentMethod.stripeCustomerId);
-    //         }
-    //         queryParams.append("paymentMethodId", paymentMethod.stripePaymentMethodId);
-    //
-    //         const intentRes = await apiFetch(`/api/payment-intent?${queryParams.toString()}`, {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({ amount: Math.round(pricing.finalTotal * 100) }),
-    //         });
-    //
-    //         const intentData = await intentRes.json();
-    //         if (!intentData.clientSecret) return alert("Payment setup failed.");
-    //
-    //         const result = await stripe.confirmCardPayment(intentData.clientSecret, {
-    //             payment_method: paymentMethod.stripePaymentMethodId,
-    //         });
-    //
-    //         if (result.error) return alert("Payment failed: " + result.error.message);
-    //
-    //         // -----------------------------
-    //         // FIXED invoice items
-    //         // -----------------------------
-    //         const invoiceRes = await apiFetch("/api/checkout", {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({
-    //                 paymentAccountId: paymentMethod.accountId || null,
-    //                 subtotal: pricing.subtotal,
-    //                 tax: pricing.tax,
-    //                 total: pricing.finalTotal,
-    //                 billingCycle,
-    //                 paymentIntentId: result.paymentIntent.id,
-    //                 promoCode: null,
-    //                 items: [
-    //                     {
-    //                         description: plan.name,
-    //                         quantity: 1,
-    //                         unitPrice: planMonthly,
-    //                         lineTotal: planMonthly,
-    //                     },
-    //                     ...addOns.map(a => ({
-    //                         description: a.addOnName,
-    //                         quantity: 1,
-    //                         unitPrice: a.monthlyPrice,
-    //                         lineTotal: a.monthlyPrice
-    //                     }))
-    //                 ],
-    //             }),
-    //         });
-    //
-    //         const invoice = await invoiceRes.json();
-    //         setOrderNumber(invoice.invoiceNumber);
-    //         setSubmitted(true);
-    //         clearCart();
-    //
-    //     } catch (err) {
-    //         console.error(err);
-    //         alert("Checkout failed.");
-    //     }
-    // };
     const handleCheckout = async () => {
-        if (!paymentMethod) {
-            alert("Please select a payment method");
-            return;
+        if (!paymentMethod) return alert("Please select a payment card.");
+        if (!paymentMethod.stripePaymentMethodId) {
+            return alert("Invalid payment method.");
         }
 
         try {
-            const res = await apiFetch("/api/payment-intent", {
+            const payload = {
+                paymentMethodId: paymentMethod.stripePaymentMethodId,
+                amount: Math.round(pricing.finalTotal * 100), // IMPORTANT: cents
+                saveCard: !paymentMethod.isTemporary
+            };
+
+            const intentRes = await apiFetch("/api/payment-intent", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+
+            const intentData = await intentRes.json();
+
+            if (!intentRes.ok) {
+                return alert(intentData.error || "Payment setup failed");
+            }
+
+            if (!intentData.clientSecret) {
+                return alert("Missing client secret");
+            }
+
+            const result = await stripe.confirmCardPayment(
+                intentData.clientSecret,
+                {
+                    payment_method: paymentMethod.stripePaymentMethodId,
+                }
+            );
+
+            if (result.error) {
+                return alert(result.error.message);
+            }
+
+            // -----------------------------
+            // FIXED invoice items
+            // -----------------------------
+            const invoiceRes = await apiFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: Math.round(pricing.finalTotal * 100),
-                    paymentMethodId: paymentMethod.stripePaymentMethodId,
-                    saveCard: isSaveCard
-                })
+                    paymentAccountId: paymentMethod.accountId || null,
+                    subtotal: pricing.subtotal,
+                    tax: pricing.tax,
+                    total: pricing.finalTotal,
+                    billingCycle,
+                    paymentIntentId: result.paymentIntent.id,
+                    promoCode: null,
+                    items: [
+                        {
+                            description: plan.name,
+                            quantity: 1,
+                            unitPrice: planMonthly,
+                            lineTotal: planMonthly,
+                        },
+                        ...addOns.map(a => ({
+                            description: a.addOnName,
+                            quantity: 1,
+                            unitPrice: a.monthlyPrice,
+                            lineTotal: a.monthlyPrice
+                        }))
+                    ],
+                }),
             });
 
-            const data = await res.json();
+            const invoice = await invoiceRes.json();
+            setOrderNumber(invoice.invoiceNumber);
+            setSubmitted(true);
+            clearCart();
 
-            const result = await stripe.confirmCardPayment(data.clientSecret, {
-                payment_method: {
-                    card: elements.getElement(CardElement),
-                    billing_details: {
-                        name: paymentMethod.holderName || "Customer"
-                    }
-                }
-            });
-
-            if (result.error) throw new Error(result.error.message);
-
-            alert("Payment successful!");
-
-        } catch (e) {
-            console.error(e);
-            alert(e.message);
+        } catch (err) {
+            console.error(err);
+            alert("Checkout failed.");
         }
     };
 

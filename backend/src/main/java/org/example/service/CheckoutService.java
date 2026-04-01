@@ -27,19 +27,22 @@ public class CheckoutService {
     private final PaymentAccountRepository accountRepo;
     private final UserAccountRepository userRepo;
     private final StripePaymentService stripePaymentService;
+    private final RewardService rewardService;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
             InvoiceItemRepository itemRepo,
             PaymentAccountRepository accountRepo,
             UserAccountRepository userRepo,
-            StripePaymentService stripePaymentService
+            StripePaymentService stripePaymentService,
+            RewardService rewardService
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
         this.accountRepo = accountRepo;
         this.userRepo = userRepo;
         this.stripePaymentService = stripePaymentService;
+        this.rewardService = rewardService;
     }
 
 //    @Transactional
@@ -164,12 +167,13 @@ public class CheckoutService {
             throw new Exception("Payment not completed");
         }
 
-        // 2. Get user
+        // 2. Get user (ONLY ONCE)
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
         UserAccount user = userRepo.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new Exception("User not found"));
 
-        // 3. Resolve payment account (optional)
+        // 3. Payment account
         PaymentAccounts account = null;
 
         if (paymentAccountId != null) {
@@ -191,6 +195,9 @@ public class CheckoutService {
         invoice.setStripePaymentIntentId(paymentIntentId);
 
         Invoices saved = invoiceRepo.save(invoice);
+
+        // reward points (NO duplicate user query)
+        rewardService.addPointsFromInvoice(user, total);
 
         // 5. Save items
         for (CheckoutItemDTO dto : items) {
