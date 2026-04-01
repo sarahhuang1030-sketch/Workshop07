@@ -192,6 +192,7 @@ export default function SalesDashboard({ darkMode = false }) {
             try {
                 setLoading(true);
 
+                // ================= API CALLS =================
                 const [custRes, quoteRes, invRes, managerRes] = await Promise.all([
                     apiFetch("/api/customers/all"),
                     apiFetch("/api/quotes"),
@@ -204,25 +205,59 @@ export default function SalesDashboard({ darkMode = false }) {
                 const invoices = await invRes.json();
                 const manager = await managerRes.json();
 
-                const c = Array.isArray(customers) ? customers : [];
-                const q = Array.isArray(quotes) ? quotes : [];
-                const i = Array.isArray(invoices) ? invoices : [];
+                // ================= SAFE NORMALIZATION =================
+                const c = Array.isArray(customers)
+                    ? customers
+                    : customers?.customers ?? [];
 
+                const q = Array.isArray(quotes)
+                    ? quotes
+                    : quotes?.quotes ?? [];
+
+                const i = Array.isArray(invoices)
+                    ? invoices
+                    : [];
+
+                // ================= DATE CONTEXT =================
                 const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
 
-                // Calculate current month revenue
-                const monthlyRevenue = i.reduce((sum, inv) => {
-                    const d = new Date(inv.issueDate);
-                    if (isNaN(d.getTime())) return sum;
-                    if (d.getMonth() !== now.getMonth()) return sum;
-                    return sum + (Number(inv.total) || 0);
-                }, 0);
+                // ================= REVENUE CALCULATION =================
+                // ================= REVENUE CALCULATION =================
+                let totalRevenue = 0;
+                let monthlyRevenue = 0;
 
+                console.log("INVOICES RAW:", invoices);
+                console.log("FIRST ITEM:", invoices?.[0]);
+
+                i.forEach(inv => {
+
+                    const amount =
+                        Number(inv?.total) ||
+                        (Number(inv?.subtotal || 0) + Number(inv?.taxTotal || 0));
+
+                    const dateStr = inv?.issueDate;
+
+                    const date = new Date(dateStr);
+
+                    if (!isFinite(amount)) return;
+
+                    totalRevenue += amount;
+
+                    if (dateStr && dateStr.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`)) {
+                        monthlyRevenue += amount;
+                    }
+                });
+
+                // ================= STATE UPDATE =================
                 setSummary({
                     customers: c.length,
                     invoices: i.length,
                     pendingQuotes: q.filter(x => x.status === "PENDING").length,
+
                     monthlyRevenue,
+                    revenue: totalRevenue,
 
                     activeSubs: manager?.activeSubs ?? 0,
                     addOns: manager?.addOns ?? 0,
@@ -230,8 +265,21 @@ export default function SalesDashboard({ darkMode = false }) {
                     pastDue: manager?.pastDue ?? 0,
                 });
 
-            } catch (e) {
-                console.error("SalesDashboard error:", e);
+            } catch (err) {
+                console.error("Dashboard load failed:", err);
+
+                setSummary({
+                    customers: 0,
+                    invoices: 0,
+                    pendingQuotes: 0,
+                    monthlyRevenue: 0,
+                    revenue: 0,
+                    activeSubs: 0,
+                    addOns: 0,
+                    planFeatures: 0,
+                    pastDue: 0,
+                });
+
             } finally {
                 setLoading(false);
             }
