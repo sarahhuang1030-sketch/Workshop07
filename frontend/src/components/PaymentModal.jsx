@@ -5,9 +5,9 @@
  Created on: March 2026
 **/
 
-
-import React, { useEffect, useState } from "react";
-import { Modal, Button, Form, Alert, Row, Col } from "react-bootstrap";
+import React, { useState } from "react";
+import { Modal, Button, Form, Alert } from "react-bootstrap";
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiFetch } from "../services/api";
 
 export function PaymentModal({
@@ -15,76 +15,59 @@ export function PaymentModal({
                                  onClose,
                                  onSaved,
                                  darkMode = false,
-                                 profileBilling = {},
                              }) {
+    const stripe = useStripe();
+    const elements = useElements();
+
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [confirmDefault, setConfirmDefault] = useState(false);
-
-    const [method, setMethod] = useState("");
-    const [cardNumber, setCardNumber] = useState("");
-    const [expiredDate, setExpiredDate] = useState(""); // YYYY-MM
     const [holderName, setHolderName] = useState("");
-    const [cvv, setCvv] = useState("");
 
-    const cardOptions = ["VISA", "MasterCard", "AMEX", "Discover"];
-
-    // ---- use profileBilling to pre-fill form ----
-    useEffect(() => {
-        if (!show) return;
-
-        setMethod(profileBilling.method ?? "");
-        // setCardNumber(profileBilling.last4 ? "**** **** **** " + profileBilling.last4 : ""); // secret num
-        setCardNumber(profileBilling.cardNumber ? formatCardNumber(profileBilling.cardNumber) : "");
-        setExpiredDate(profileBilling.expiredDate?.slice(0, 7) ?? "");
-        setHolderName(profileBilling.holderName ?? "");
-        setCvv(profileBilling.localCvv ?? "");
-    }, [show, profileBilling]);
-
-    const formatCardNumber = (value) => {
-        if (!value) return "";
-        return value.toString().replace(/\D/g, "").replace(/(\d{4})/g, "$1 ").trim();
-    };
-
-    const handleCardNumberChange = (e) => {
-        const raw = e.target.value.replace(/\D/g, "");
-        setCardNumber(formatCardNumber(raw));
-    };
-
+    /**
+     * Submit payment method securely using Stripe
+     */
     const save = async () => {
         setSaving(true);
         setError("");
 
         try {
-            if (!confirmDefault) {
-                throw new Error("Please confirm saving this card as your default payment method.");
+            if (!stripe || !elements) {
+                throw new Error("Stripe has not loaded yet.");
             }
 
-            if (!method) throw new Error("Please select a card type.");
-            if (!holderName.trim()) throw new Error("Please enter the cardholder name.");
-            if (!cardNumber.trim()) throw new Error("Please enter a card number.");
-            const rawCard = cardNumber.replace(/\s+/g, "");
-            if (!/^\d{16}$/.test(rawCard)) throw new Error("Card number must be 16 digits.");
-            if (!cvv.trim()) throw new Error("Please enter CVV.");
-            if (!/^\d{3,4}$/.test(cvv.trim())) throw new Error("CVV must be 3 or 4 digits.");
-            if (!expiredDate.trim()) throw new Error("Please enter expiry date.");
-            if (!/^\d{4}-\d{2}$/.test(expiredDate.trim())) throw new Error("Expiry date must be YYYY-MM");
+            if (!holderName.trim()) {
+                throw new Error("Please enter cardholder name.");
+            }
 
-            const [year, month] = expiredDate.split("-");
-            const expiredLocalDate = `${year}-${month}-01`;
+            if (!confirmDefault) {
+                throw new Error("Please confirm default payment method.");
+            }
 
-            const payload = {
-                method,
-                cardNumber: rawCard,
-                holderName,
-                expiredDate: expiredLocalDate,
-            };
+            // Create PaymentMethod via Stripe (SECURE)
+            const cardElement = elements.getElement(CardElement);
 
-            // ---- PUT to backend ----
-            const res = await apiFetch("/api/billing/payment", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+            const { error: stripeError, paymentMethod } =
+                await stripe.createPaymentMethod({
+                    type: "card",
+                    card: cardElement,
+                    billing_details: {
+                        name: holderName,
+                    },
+                });
+
+            if (stripeError) {
+                throw new Error(stripeError.message);
+            }
+
+            // Send ONLY paymentMethod.id to backend
+            const res = await apiFetch("/api/billing/payment/stripe", {
+                method: "POST",
+                body: JSON.stringify({
+                    stripePaymentMethodId: paymentMethod.id,
+                    holderName,
+                    setAsDefault: confirmDefault,
+                }),
             });
 
             if (!res.ok) {
@@ -94,7 +77,8 @@ export function PaymentModal({
 
             const data = await res.json();
 
-            onSaved?.(data ?? payload, cvv);
+            onSaved?.(data);
+            onClose?.();
         } catch (e) {
             setError(e.message || "Failed to save payment method");
         } finally {
@@ -103,93 +87,67 @@ export function PaymentModal({
     };
 
     return (
-        <Modal show={show} onHide={onClose} centered backdrop keyboard>
-            <Modal.Header closeButton className={darkMode ? "bg-dark text-light" : ""}>
+        <Modal show={show} onHide={onClose} centered>
+            <Modal.Header closeButton>
                 <Modal.Title>Payment Method</Modal.Title>
             </Modal.Header>
 
-            <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
+            <Modal.Body>
                 {error && <Alert variant="danger">{error}</Alert>}
 
-                <Row className="g-3">
-                    <Col md={6}>
-                        <Form.Group>
-                            <Form.Label>Method</Form.Label>
-                            <Form.Select value={method} onChange={(e) => setMethod(e.target.value)}>
-                                <option value="">Select a card type</option>
-                                {cardOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                            </Form.Select>
-                        </Form.Group>
-                    </Col>
+                <Form.Group className="mb-3">
+                    <Form.Label>Cardholder Name</Form.Label>
+                    <Form.Control
+                        value={holderName}
+                        onChange={(e) => setHolderName(e.target.value)}
+                        placeholder="Name on card"
+                    />
+                </Form.Group>
 
-                    <Col md={6}>
-                        <Form.Group>
-                            <Form.Label>Cardholder Name</Form.Label>
-                            <Form.Control value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Name on card" />
-                        </Form.Group>
-                    </Col>
+                <Form.Group className="mb-3">
+                    <Form.Label>Card Details</Form.Label>
+                    <div style={{
+                        padding: "10px",
+                        border: "1px solid #ccc",
+                        borderRadius: "6px"
+                    }}>
+                        <CardElement
+                            options={{
+                                hidePostalCode: true,
+                                style: {
+                                    base: {
+                                        fontSize: "16px",
+                                        color: darkMode ? "#fff" : "#000",
+                                        "::placeholder": {
+                                            color: "#999",
+                                        },
+                                    },
+                                },
+                            }}
+                        />
+                    </div>
+                </Form.Group>
 
-                    <Col md={8}>
-                        <Form.Group>
-                            <Form.Label>Card Number</Form.Label>
-                            <Form.Control
-                                value={cardNumber}
-                                onChange={handleCardNumberChange}
-                                placeholder="4111 1111 1111 1111"
-                                inputMode="numeric"
-                            />
-                        </Form.Group>
-                    </Col>
-
-                    <Col md={4}>
-                        <Form.Group>
-                            <Form.Label>CVV</Form.Label>
-                            <Form.Control
-                                value={cvv}
-                                onChange={(e) => setCvv(e.target.value)}
-                                placeholder="123"
-                                maxLength={4}
-                                inputMode="numeric"
-                            />
-                        </Form.Group>
-                    </Col>
-
-                    <Col md={6}>
-                        <Form.Group>
-                            <Form.Label>Expiry Date</Form.Label>
-                            <Form.Control
-                                type="month"
-                                value={expiredDate}
-                                onChange={(e) => setExpiredDate(e.target.value)}
-                            />
-                        </Form.Group>
-                    </Col>
-
-                    <Col md={12}>
-                        <Form.Group>
-                            <Form.Check
-                                type="checkbox"
-                                label="I confirm this card will be saved as my default payment method."
-                                checked={confirmDefault}
-                                onChange={(e) => setConfirmDefault(e.target.checked)}
-                            />
-                        </Form.Group>
-                    </Col>
-                </Row>
+                <Form.Check
+                    type="checkbox"
+                    label="Set as default payment method"
+                    checked={confirmDefault}
+                    onChange={(e) => setConfirmDefault(e.target.checked)}
+                />
             </Modal.Body>
 
-            <Modal.Footer className={darkMode ? "bg-dark" : ""}>
-                <Button variant={darkMode ? "outline-light" : "outline-secondary"} onClick={onClose} disabled={saving}>
+            <Modal.Footer>
+                <Button variant="secondary" onClick={onClose}>
                     Cancel
                 </Button>
                 <Button
                     variant="primary"
                     onClick={save}
-                    disabled={saving || !confirmDefault}>
+                    disabled={saving}
+                >
                     {saving ? "Saving..." : "Save"}
                 </Button>
-
-        </Modal.Footer>
+            </Modal.Footer>
         </Modal>
     );
 }

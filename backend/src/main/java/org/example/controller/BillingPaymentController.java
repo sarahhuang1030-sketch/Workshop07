@@ -26,10 +26,12 @@ public class BillingPaymentController {
     private final StripePaymentService stripeService;
     private final AuditService auditService;
 
-    public BillingPaymentController(UserAccountRepository userAccountRepo,
-                                    PaymentAccountRepository paymentAccountRepo,
-                                    StripePaymentService stripeService,
-                                    AuditService auditService) {
+    public BillingPaymentController(
+            UserAccountRepository userAccountRepo,
+            PaymentAccountRepository paymentAccountRepo,
+            StripePaymentService stripeService,
+            AuditService auditService
+    ) {
         this.userAccountRepo = userAccountRepo;
         this.paymentAccountRepo = paymentAccountRepo;
         this.stripeService = stripeService;
@@ -53,10 +55,89 @@ public class BillingPaymentController {
     }
 
     // ================= ADD NEW CARD =================
+//    @PostMapping("/stripe")
+//    @Transactional
+//    public ResponseEntity<BillingPaymentDTO> addCard(@RequestBody Map<String, Object> body,
+//                                                     Principal principal) throws Exception {
+//
+//        UserAccount user = getUserFromPrincipal(principal);
+//        if (user == null) return ResponseEntity.status(401).build();
+//
+//        String paymentMethodId = (String) body.get("stripePaymentMethodId");
+//        String holderName = (String) body.get("holderName");
+//        boolean setDefault = Boolean.TRUE.equals(body.get("setAsDefault"));
+//
+//        if (paymentMethodId == null || holderName == null) {
+//            return ResponseEntity.badRequest().build();
+//        }
+//
+//        // ===== Ensure Stripe customer =====
+//        String stripeCustomerId = user.getStripeCustomerId();
+//        if (stripeCustomerId == null) {
+//            stripeCustomerId = stripeService.createCustomer(user.getUsername());
+//            user.setStripeCustomerId(stripeCustomerId);
+//            userAccountRepo.save(user);
+//        }
+//
+//        // ===== Attach card =====
+//        PaymentMethod stripeCard =
+//                stripeService.attachPaymentMethodToCustomer(stripeCustomerId, paymentMethodId);
+//
+//        PaymentAccounts account = new PaymentAccounts();
+//        account.setCustomerId(user.getCustomerId());
+//        account.setHolderName(holderName);
+//        account.setMethod(stripeCard.getCard().getBrand());
+//        account.setLast4(stripeCard.getCard().getLast4());
+//        account.setStripePaymentMethodId(stripeCard.getId());
+//        account.setCreatedAt(LocalDateTime.now());
+//
+//        account.setIsDefault(setDefault ? 1 : 0);
+//
+//
+//        account.setExpiryMonth(
+//                stripeCard.getCard().getExpMonth() != null
+//                        ? stripeCard.getCard().getExpMonth().intValue()
+//                        : null
+//        );
+//
+//        account.setExpiryYear(
+//                stripeCard.getCard().getExpYear() != null
+//                        ? stripeCard.getCard().getExpYear().intValue()
+//                        : null
+//        );
+//
+//        // ===== Clear previous default =====
+//        if (setDefault) {
+//            List<PaymentAccounts> existing = paymentAccountRepo
+//                    .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+//
+//            for (PaymentAccounts c : existing) {
+//                c.setIsDefault(0);
+//                paymentAccountRepo.save(c);
+//            }
+//        }
+//
+//        paymentAccountRepo.save(account);
+//
+//        auditService.log(
+//                "PaymentMethod",
+//                "Add",
+//                "Customer " + user.getCustomerId() + " ••••" + account.getLast4(),
+//                user.getUsername()
+//        );
+//
+//        return ResponseEntity.ok(mapToDTO(account));
+//    }
+
+    /**
+     * Add Stripe payment method
+     */
     @PostMapping("/stripe")
     @Transactional
-    public ResponseEntity<BillingPaymentDTO> addCard(@RequestBody Map<String, Object> body,
-                                                     Principal principal) throws Exception {
+    public ResponseEntity<BillingPaymentDTO> addCard(
+            @RequestBody Map<String, Object> body,
+            Principal principal
+    ) throws Exception {
 
         UserAccount user = getUserFromPrincipal(principal);
         if (user == null) return ResponseEntity.status(401).build();
@@ -69,28 +150,43 @@ public class BillingPaymentController {
             return ResponseEntity.badRequest().build();
         }
 
-        // ===== Ensure Stripe customer =====
+        // Ensure Stripe customer exists
         String stripeCustomerId = user.getStripeCustomerId();
-        if (stripeCustomerId == null) {
+
+        if (stripeCustomerId == null || stripeCustomerId.isEmpty()) {
             stripeCustomerId = stripeService.createCustomer(user.getUsername());
             user.setStripeCustomerId(stripeCustomerId);
             userAccountRepo.save(user);
         }
 
-        // ===== Attach card =====
+        // Attach PaymentMethod to Stripe customer
         PaymentMethod stripeCard =
-                stripeService.attachPaymentMethodToCustomer(stripeCustomerId, paymentMethodId);
+                stripeService.attachPaymentMethodToCustomer(
+                        stripeCustomerId,
+                        paymentMethodId
+                );
 
+        // Reset default if needed
+        if (setDefault) {
+            List<PaymentAccounts> cards =
+                    paymentAccountRepo.findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+
+            for (PaymentAccounts c : cards) {
+                c.setIsDefault(0);
+            }
+
+            paymentAccountRepo.saveAll(cards);
+        }
+
+        // Save card metadata ONLY (NO PAN, NO CVV)
         PaymentAccounts account = new PaymentAccounts();
         account.setCustomerId(user.getCustomerId());
         account.setHolderName(holderName);
         account.setMethod(stripeCard.getCard().getBrand());
         account.setLast4(stripeCard.getCard().getLast4());
         account.setStripePaymentMethodId(stripeCard.getId());
-        account.setCreatedAt(LocalDateTime.now());
-
         account.setIsDefault(setDefault ? 1 : 0);
-
+        account.setCreatedAt(LocalDateTime.now());
 
         account.setExpiryMonth(
                 stripeCard.getCard().getExpMonth() != null
@@ -104,94 +200,119 @@ public class BillingPaymentController {
                         : null
         );
 
-        // ===== Clear previous default =====
-        if (setDefault) {
-            List<PaymentAccounts> existing = paymentAccountRepo
-                    .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
-
-            for (PaymentAccounts c : existing) {
-                c.setIsDefault(0);
-                paymentAccountRepo.save(c);
-            }
-        }
-
         paymentAccountRepo.save(account);
 
         auditService.log(
                 "PaymentMethod",
                 "Add",
-                "Customer " + user.getCustomerId() + " ••••" + account.getLast4(),
+                "Customer " + user.getCustomerId() + " ****" + account.getLast4(),
                 user.getUsername()
         );
 
         return ResponseEntity.ok(mapToDTO(account));
     }
 
-    // ================= DELETE CARD =================
-    @DeleteMapping("/{stripePaymentMethodId}")
+
+    /**
+     * Set default card (single endpoint only)
+     */
+    @PatchMapping("/default/{paymentMethodId}")
     @Transactional
-    public ResponseEntity<Void> deleteCard(@PathVariable String stripePaymentMethodId,
-                                           Principal principal) throws Exception {
+    public ResponseEntity<Void> setDefaultCard(
+            @PathVariable String paymentMethodId,
+            Principal principal
+    ) {
 
         UserAccount user = getUserFromPrincipal(principal);
         if (user == null) return ResponseEntity.status(401).build();
 
+        List<PaymentAccounts> cards =
+                paymentAccountRepo.findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+
+        for (PaymentAccounts c : cards) {
+            c.setIsDefault(
+                    c.getStripePaymentMethodId().equals(paymentMethodId) ? 1 : 0
+            );
+        }
+
+        paymentAccountRepo.saveAll(cards);
+
+        return ResponseEntity.ok().build();
+    }
+
+    // ================= DELETE CARD =================
+    @DeleteMapping("/{stripePaymentMethodId}")
+    @Transactional
+    public ResponseEntity<Void> deleteCard(
+            @PathVariable String stripePaymentMethodId,
+            Principal principal
+    ) throws Exception {
+
+        // =========================
+        // Validate user
+        // =========================
+        UserAccount user = getUserFromPrincipal(principal);
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        // =========================
+        // Find card in DB
+        // =========================
         Optional<PaymentAccounts> optCard = paymentAccountRepo
                 .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId())
                 .stream()
                 .filter(c -> stripePaymentMethodId.equals(c.getStripePaymentMethodId()))
                 .findFirst();
 
-        if (optCard.isEmpty()) return ResponseEntity.notFound().build();
+        if (optCard.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
 
         PaymentAccounts card = optCard.get();
 
+        // =========================
+        // Detach from Stripe
+        // =========================
         stripeService.detachPaymentMethod(stripePaymentMethodId);
+
+        // =========================
+        // Remove from database
+        // =========================
         paymentAccountRepo.delete(card);
 
+        // =========================
+        // Audit log
+        // =========================
         auditService.log(
                 "PaymentMethod",
                 "Delete",
-                "Customer " + user.getCustomerId() + " ••••" + card.getLast4(),
+                "Customer " + user.getCustomerId() + " ****" + card.getLast4(),
                 user.getUsername()
         );
 
-        // ===== Reassign default =====
+        // =========================
+        // Reassign default card if needed
+        // =========================
         if (card.getIsDefault() == 1) {
-            List<PaymentAccounts> remaining = paymentAccountRepo
-                    .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
 
-            if (!remaining.isEmpty()) {
-                PaymentAccounts first = remaining.get(0);
-                first.setIsDefault(1);
-                paymentAccountRepo.save(first);
+            List<PaymentAccounts> remainingCards =
+                    paymentAccountRepo.findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
+
+            if (!remainingCards.isEmpty()) {
+
+                // Choose the most recent card as new default
+                PaymentAccounts newDefault = remainingCards.get(0);
+
+                newDefault.setIsDefault(1);
+
+                paymentAccountRepo.save(newDefault);
             }
         }
 
         return ResponseEntity.ok().build();
     }
 
-    // ================= SET DEFAULT =================
-    @PatchMapping("/default/{stripePaymentMethodId}")
-    @Transactional
-    public ResponseEntity<Void> setDefaultCard(@PathVariable String stripePaymentMethodId,
-                                               Principal principal) {
-
-        UserAccount user = getUserFromPrincipal(principal);
-        if (user == null) return ResponseEntity.status(401).build();
-
-        List<PaymentAccounts> cards = paymentAccountRepo
-                .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
-
-        for (PaymentAccounts c : cards) {
-            c.setIsDefault(
-                    c.getStripePaymentMethodId().equals(stripePaymentMethodId) ? 1 : 0
-            );
-            paymentAccountRepo.save(c);
-        }
-
-        return ResponseEntity.ok().build();
-    }
 
     // ================= HELPERS =================
     private UserAccount getUserFromPrincipal(Principal principal) {
@@ -201,16 +322,28 @@ public class BillingPaymentController {
                 .orElse(null);
     }
 
-    private BillingPaymentDTO mapToDTO(PaymentAccounts account) {
-        BillingPaymentDTO dto = new BillingPaymentDTO();
-        dto.setHolderName(account.getHolderName());
-        dto.setMethod(account.getMethod());
-        dto.setLast4(account.getLast4());
-        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
-        dto.setIsDefault(account.getIsDefault() == 1);
-        dto.setExpiryMonth(account.getExpiryMonth());
-        dto.setExpiryYear(account.getExpiryYear());
-        dto.setDisplayCard("**** **** **** " + account.getLast4());
-        return dto;
-    }
+//    private BillingPaymentDTO mapToDTO(PaymentAccounts account) {
+//        BillingPaymentDTO dto = new BillingPaymentDTO();
+//        dto.setHolderName(account.getHolderName());
+//        dto.setMethod(account.getMethod());
+//        dto.setLast4(account.getLast4());
+//        dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
+//        dto.setIsDefault(account.getIsDefault() == 1);
+//        dto.setExpiryMonth(account.getExpiryMonth());
+//        dto.setExpiryYear(account.getExpiryYear());
+//        dto.setDisplayCard("**** **** **** " + account.getLast4());
+//        return dto;
+//    }
+        private BillingPaymentDTO mapToDTO(PaymentAccounts account) {
+            BillingPaymentDTO dto = new BillingPaymentDTO();
+            dto.setHolderName(account.getHolderName());
+            dto.setMethod(account.getMethod());
+            dto.setLast4(account.getLast4());
+            dto.setStripePaymentMethodId(account.getStripePaymentMethodId());
+            dto.setIsDefault(account.getIsDefault() == 1);
+            dto.setExpiryMonth(account.getExpiryMonth());
+            dto.setExpiryYear(account.getExpiryYear());
+            dto.setDisplayCard("**** **** **** " + account.getLast4());
+            return dto;
+        }
 }
