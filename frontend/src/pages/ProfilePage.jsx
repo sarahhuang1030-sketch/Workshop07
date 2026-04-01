@@ -472,87 +472,56 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         onDeleteAvatar={deleteAvatar}
                     />
 
-                    {/*{hasCompletedBillingSetup && (*/}
-                    {/*    <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>*/}
-                    {/*        <Card.Body className="p-4">*/}
-                    {/*            <div className="d-flex align-items-center justify-content-between">*/}
-                    {/*                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>*/}
-                    {/*                    Rewards Points*/}
-                    {/*                </div>*/}
-                    {/*                <Star size={18} />*/}
-                    {/*            </div>*/}
+                    {/* ===== LEFT SIDE: REWARD POINTS (RESTORED) ===== */}
+                    <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
+                        <Card.Body className="p-4">
+                            <div className="d-flex align-items-center justify-content-between">
+                                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                                    Rewards Points
+                                </div>
+                                <Star size={18} />
+                            </div>
 
-                    {/*            <div className="mt-3">*/}
-                    {/*                <div*/}
-                    {/*                    className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}*/}
-                    {/*                    style={{ fontWeight: 900, fontSize: "2rem" }}*/}
-                    {/*                >*/}
-                    {/*                    {Number(profile.points ?? 0).toLocaleString()} pts*/}
-                    {/*                </div>*/}
-                    {/*                <div className={mutedClass}>*/}
-                    {/*                    Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}*/}
-                    {/*                </div>*/}
-                    {/*            </div>*/}
+                            <div className="mt-3">
+                                <div
+                                    className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
+                                    style={{ fontWeight: 900, fontSize: "2rem" }}
+                                >
+                                    {Number(profile.points ?? 0).toLocaleString()} pts
+                                </div>
+                                <div className={mutedClass}>
+                                    Earn {POINTS_PER_DOLLAR} point per $1 spent • Spend tracked: {formatMoney(profile.totalSpent)}
+                                </div>
+                            </div>
 
-                    {/*            <div className="mt-3">*/}
-                    {/*                <div className="d-flex justify-content-between small">*/}
-                    {/*    <span className={mutedClass}>*/}
-                    {/*        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)*/}
-                    {/*    </span>*/}
-                    {/*                    <span className={mutedClass}>{tierInfo.progress}%</span>*/}
-                    {/*                </div>*/}
+                            <div className="mt-3">
+                                <div className="d-flex justify-content-between small">
+                <span className={mutedClass}>
+                    Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                </span>
+                                    <span className={mutedClass}>{tierInfo.progress}%</span>
+                                </div>
 
-                    {/*                <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>*/}
-                    {/*                    <div*/}
-                    {/*                        className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}*/}
-                    {/*                        style={{ width: `${tierInfo.progress}%` }}*/}
-                    {/*                    />*/}
-                    {/*                </div>*/}
+                                <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                    <div
+                                        className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
+                                        style={{ width: `${tierInfo.progress}%` }}
+                                    />
+                                </div>
 
-                    {/*                {!tierInfo.isBronze ? (*/}
-                    {/*                    <div className={`small mt-2 ${mutedClass}`}>*/}
-                    {/*                        {tierInfo.remaining.toLocaleString()} pts to become Bronze.*/}
-                    {/*                    </div>*/}
-                    {/*                ) : (*/}
-                    {/*                    <div className="small mt-2 text-warning">*/}
-                    {/*                        <Crown size={16} className="me-1" />*/}
-                    {/*                        Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.*/}
-                    {/*                    </div>*/}
-                    {/*                )}*/}
-                    {/*            </div>*/}
-                    {/*        </Card.Body>*/}
-                    {/*    </Card>*/}
-                    {/*)}*/}
-
-                    <>
-                        {/* Plan section */}
-                        {hasPlan && (
-                            <SubscriptionPage user={profile} darkMode={darkMode} />
-                        )}
-
-                        {/* Payment card */}
-                        {hasPaymentMethod && (
-                            <BillingCard
-                                profile={profile}
-                                darkMode={darkMode}
-                                onEdit={(section) => {
-                                    if (section === "payment") setShowPaymentModal(true);
-                                    else setShowBillingModal(true);
-                                }}
-                                className="mt-4"
-                            />
-                        )}
-
-                        {/* Billing address */}
-                        {hasBillingAddress && (
-                            <BillingAddressCard
-                                address={profile.billing.address}
-                                darkMode={darkMode}
-                                onEdit={() => setShowBillingModal(true)}
-                                className="mt-3"
-                            />
-                        )}
-                    </>
+                                {!tierInfo.isBronze ? (
+                                    <div className={`small mt-2 ${mutedClass}`}>
+                                        {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                    </div>
+                                ) : (
+                                    <div className="small mt-2 text-warning">
+                                        <Crown size={16} className="me-1" />
+                                        Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+                                    </div>
+                                )}
+                            </div>
+                        </Card.Body>
+                    </Card>
                 </Col>
 
                 <Col lg={8}>
