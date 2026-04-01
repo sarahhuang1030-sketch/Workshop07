@@ -97,4 +97,9 @@ public class ManagerAddOnController {
         String username = authentication.getName();
         auditService.log("AddOn", "Update", body.addOnName(), username);
     }
+
+    @GetMapping("/{id}")
+    public ManagerAddOnDTO getById(@PathVariable int id) {
+        return repo.findById(id);
+    }
 }

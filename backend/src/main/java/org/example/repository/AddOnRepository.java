@@ -48,4 +48,15 @@ public class AddOnRepository {
                 planId
         );
     }
+
+    public long countActiveAddons() {
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM AddOns
+                WHERE IsActive = TRUE
+                """, Long.class);
+
+        return count != null ? count : 0L;
+    }
+
 }

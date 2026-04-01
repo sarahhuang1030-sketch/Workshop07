@@ -175,4 +175,10 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
 
         auditService.log("Subscription", "Delete", target, username);
     }
+
+    @GetMapping("/{id}")
+    public Subscription getById(@PathVariable Integer id) {
+        return subscriptionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+    }
 }

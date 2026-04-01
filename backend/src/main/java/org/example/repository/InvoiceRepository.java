@@ -2,6 +2,8 @@ package org.example.repository;
 
 import org.example.entity.Invoices;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
 import java.util.List;
 
 // Repository for Invoices entity
@@ -18,4 +20,7 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
 
     // Find all invoices ordered by date**
     List<Invoices> findAllByOrderByIssueDateDesc();
+
+    @Query("SELECT COUNT(i) FROM Invoices i WHERE i.status = 'Pending'")
+    long countPendingInvoices();
 }

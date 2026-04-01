@@ -8,4 +8,6 @@ import java.util.List;
 public interface PlanFeatureRepository extends JpaRepository<PlanFeature, Integer> {
     List<PlanFeature> findByPlanIdOrderBySortOrderAscFeatureIdAsc(Integer planId);
 
+    long count();
+
 }

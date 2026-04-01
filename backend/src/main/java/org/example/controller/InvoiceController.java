@@ -5,6 +5,7 @@ import org.example.repository.UserAccountRepository;
 import org.example.dto.InvoiceDTO;
 import org.example.entity.Invoices;
 import org.example.service.InvoiceService;
+import org.example.dto.InvoiceRequestDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -152,5 +153,29 @@ public class InvoiceController {
                 .toList();
 
         return ResponseEntity.ok(result);
+    }
+
+    // ===== CRUD for manager =====
+
+    @PostMapping("/admin")
+    public ResponseEntity<InvoiceDTO> createInvoice(@RequestBody InvoiceRequestDTO body) {
+        Invoices saved = invoiceService.createInvoice(body);
+        return ResponseEntity.ok(invoiceService.convertToDTO(saved));
+    }
+
+    @PutMapping("/admin/{invoiceNumber}")
+    public ResponseEntity<InvoiceDTO> updateInvoice(@PathVariable String invoiceNumber,
+                                                    @RequestBody InvoiceRequestDTO body) {
+        Invoices saved = invoiceService.updateInvoice(invoiceNumber, body);
+        if (saved == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(invoiceService.convertToDTO(saved));
+    }
+
+    @DeleteMapping("/admin/{invoiceNumber}")
+    public ResponseEntity<Void> deleteInvoice(@PathVariable String invoiceNumber) {
+        boolean deleted = invoiceService.deleteInvoice(invoiceNumber);
+        return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 }

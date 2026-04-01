@@ -1,6 +1,7 @@
 package org.example.service;
 
 import org.example.dto.InvoiceDTO;
+import org.example.dto.InvoiceRequestDTO;
 import org.example.entity.Invoices;
 import org.example.model.Customer;
 import org.example.repository.InvoiceRepository;
@@ -8,6 +9,7 @@ import org.example.repository.CustomerRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -36,6 +38,48 @@ public class InvoiceService {
 
     public List<Invoices> findAllByCustomerId(Integer customerId) {
         return invoiceRepository.findByCustomerIdOrderByIssueDateDesc(customerId);
+    }
+
+//    added for workshop06 for doing CRUD on invoices
+public Invoices createInvoice(InvoiceRequestDTO body) {
+    Invoices invoice = new Invoices();
+    applyRequest(invoice, body);
+    return invoiceRepository.save(invoice);
+}
+
+    public Invoices updateInvoice(String invoiceNumber, InvoiceRequestDTO body) {
+        Invoices invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+        if (invoice == null) {
+            return null;
+        }
+        applyRequest(invoice, body);
+        return invoiceRepository.save(invoice);
+    }
+
+    public boolean deleteInvoice(String invoiceNumber) {
+        Invoices invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+        if (invoice == null) {
+            return false;
+        }
+        invoiceRepository.delete(invoice);
+        return true;
+    }
+
+    private void applyRequest(Invoices invoice, InvoiceRequestDTO body) {
+        invoice.setCustomerId(body.customerId);
+        invoice.setInvoiceNumber(body.invoiceNumber);
+        invoice.setStatus(body.status);
+
+        invoice.setIssueDate(body.issueDate != null && !body.issueDate.isBlank()
+                ? LocalDate.parse(body.issueDate)
+                : null);
+
+        if (body.dueDate != null && !body.dueDate.isBlank()) invoice.setDueDate(LocalDate.parse(body.dueDate));
+        else invoice.setDueDate(null);
+
+        invoice.setSubtotal(body.subtotal != null ? body.subtotal : 0.0);
+        invoice.setTaxTotal(body.taxTotal != null ? body.taxTotal : 0.0);
+        invoice.setTotal(body.total != null ? body.total : 0.0);
     }
 
     // =====================================================
@@ -113,4 +157,6 @@ public class InvoiceService {
 
         return dto;
     }
+
+
 }

@@ -73,6 +73,13 @@ public class ManagerLocationController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<ManagerLocationDTO> getLocationById(@PathVariable Integer id) {
+        return locationRepository.findById(id)
+                .map(location -> ResponseEntity.ok(toDTO(location)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     private void applyDtoToEntity(ManagerLocationDTO dto, Location location) {
         location.setLocationName(dto.getLocationName());
         location.setLocationType(dto.getLocationType());

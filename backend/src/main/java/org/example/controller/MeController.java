@@ -1,7 +1,9 @@
 package org.example.controller;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.security.Principal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -41,6 +43,8 @@ public class MeController {
     private final RoleRepository roleRepository;
     private final UserAccountRepository userAccountRepository;
     private final SubscriptionService subscriptionService;
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionAddOnRepository subscriptionAddOnRepository;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -53,7 +57,9 @@ public class MeController {
                         InvoiceService invoiceService,
                         RoleRepository roleRepository,
                         UserAccountRepository userAccountRepository,
-                        SubscriptionService subscriptionService) {
+                        SubscriptionService subscriptionService,
+                        SubscriptionRepository subscriptionRepository,
+                        SubscriptionAddOnRepository subscriptionAddOnRepository) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -66,6 +72,8 @@ public class MeController {
         this.roleRepository = roleRepository;
         this.subscriptionService = subscriptionService;
         this.userAccountRepository = userAccountRepository;
+        this.subscriptionRepository = subscriptionRepository;
+        this.subscriptionAddOnRepository = subscriptionAddOnRepository;
     }
 
     // -------------------- GET /api/me --------------------
@@ -435,5 +443,91 @@ public class MeController {
 
         return ResponseEntity.ok(plan);
     }
+
+        //workshop 06 - get all active plans for customer (including addons)
+
+    private BigDecimal toBigDecimal(Object val) {
+        if (val == null) return BigDecimal.ZERO;
+
+        if (val instanceof BigDecimal bd) return bd;
+
+        if (val instanceof Number n) {
+            return BigDecimal.valueOf(n.doubleValue());
+        }
+
+        return BigDecimal.ZERO;
+    }
+
+        @GetMapping("/api/me/plans")
+        public ResponseEntity<?> getMyPlans(Authentication authentication) {
+            String username = authentication.getName();
+
+            UserAccount ua = userAccountRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (ua.getCustomerId() == null) {
+                return ResponseEntity.badRequest().body("This account is not linked to a customer");
+            }
+
+            List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
+
+            List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
+                    ((Number) r[0]).intValue(),
+                    ((Number) r[1]).intValue(),
+                    (String) r[2],
+                    toBigDecimal(r[3]),
+                    toBigDecimal(r[4]),
+                    toBigDecimal(r[5]),
+                    null
+            )).toList();
+
+            return ResponseEntity.ok(result);
+        }
+
+    @GetMapping("/api/me/addons")
+    public ResponseEntity<?> getMyAddOns(Authentication authentication) {
+        String username = authentication.getName();
+
+        UserAccount ua = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (ua.getCustomerId() == null) {
+            return ResponseEntity.badRequest().body("This account is not linked to a customer");
+        }
+
+        List<Object[]> rows = subscriptionAddOnRepository.findActiveAddOnsByCustomerId(ua.getCustomerId());
+
+        List<MyAddonResponseDTO> result = rows.stream().map(r -> {
+            LocalDate startDate = null;
+            LocalDate endDate = null;
+
+            if (r[7] instanceof java.sql.Date d) {
+                startDate = d.toLocalDate();
+            } else if (r[7] instanceof java.sql.Timestamp ts) {
+                startDate = ts.toLocalDateTime().toLocalDate();
+            }
+
+            if (r[8] instanceof java.sql.Date d) {
+                endDate = d.toLocalDate();
+            } else if (r[8] instanceof java.sql.Timestamp ts) {
+                endDate = ts.toLocalDateTime().toLocalDate();
+            }
+
+            return new MyAddonResponseDTO(
+                    ((Number) r[0]).intValue(),
+                    ((Number) r[1]).intValue(),
+                    ((Number) r[2]).intValue(),
+                    (String) r[3],
+                    (String) r[4],
+                    toBigDecimal(r[5]),
+                    (String) r[6],
+                    startDate,
+                    endDate
+            );
+        }).toList();
+
+        return ResponseEntity.ok(result);
+    }
+
 
 }

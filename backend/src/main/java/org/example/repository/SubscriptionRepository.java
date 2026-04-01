@@ -154,4 +154,31 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
             ORDER BY s.StartDate DESC
         """, nativeQuery = true)
     List<Object[]> getEmployeeSalesDetails(@Param("employeeId") Integer employeeId);
+
+
+    @Query(value = """
+    SELECT
+        s.SubscriptionId,
+        p.PlanId,
+        p.PlanName,
+        p.MonthlyPrice,
+        COALESCE(SUM(a.MonthlyPrice), 0) AS addonTotal,
+        (p.MonthlyPrice + COALESCE(SUM(a.MonthlyPrice), 0)) AS totalMonthlyPrice,
+        s.StartDate
+    FROM subscriptions s
+    JOIN plans p
+        ON s.PlanId = p.PlanId
+    LEFT JOIN subscriptionaddons sa
+        ON sa.SubscriptionId = s.SubscriptionId
+        AND sa.Status = 'Active'
+    LEFT JOIN addons a
+        ON sa.AddOnId = a.AddOnId
+    WHERE s.CustomerId = :customerId
+      AND s.Status = 'Active'
+    GROUP BY s.SubscriptionId, p.PlanId, p.PlanName, p.MonthlyPrice, s.StartDate
+    """, nativeQuery = true)
+    List<Object[]> findActivePlansByCustomerId(@Param("customerId") Integer customerId);
+
+    @Query("SELECT COUNT(s) FROM Subscription s WHERE s.status = 'Active'")
+    long countActiveSubscriptions();
 }
