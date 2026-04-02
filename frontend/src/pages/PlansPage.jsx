@@ -84,6 +84,7 @@ export default function PlansPage() {
     const [serviceType, setServiceType] = useState("Mobile");
     const [sortBy, setSortBy] = useState("recommended");
     const [lineCount, setLineCount] = useState(1);
+    const [bundlePlans, setBundlePlans] = useState([]);
 
     const navigate = useNavigate();
 
@@ -130,6 +131,64 @@ export default function PlansPage() {
             cancelled = true;
         };
     }, [serviceType]);
+useEffect(() => {
+    let cancelled = false;
+
+    async function loadBundles() {
+        try {
+            const res = await apiFetch("/api/plans?type=Bundle");
+
+            if (!res.ok) {
+                throw new Error("Failed to load bundles");
+            }
+
+            const data = await res.json();
+
+            if (!cancelled) {
+                const mapped = (data ?? []).map((b) => ({
+                    id: b.planId,
+                    name: b.planName,
+                    price: Number(b.monthlyPrice),
+                    tagline: b.tagline,
+                   features: (b.features ?? []).map((f) => {
+                       const name = (f.featureName || "").toLowerCase();
+
+                       if (name === "speed" && f.unit) {
+                           return `${f.featureValue} ${f.unit} internet`;
+                       }
+
+                       if (name === "tv") {
+                           return `${f.featureValue} TV package`;
+                       }
+
+                       if (name === "internet") {
+                           return `${f.featureValue} internet`;
+                       }
+
+                       if (name === "mobile") {
+                           return `${f.featureValue} mobile service`;
+                       }
+
+                       return f.unit
+                           ? `${f.featureValue} ${f.unit}`
+                           : `${f.featureValue}`;
+                   }),
+                    perks: b.perks ?? [],
+                }));
+
+                setBundlePlans(mapped);
+            }
+        } catch (e) {
+            console.error("Bundle load failed:", e);
+        }
+    }
+
+    loadBundles();
+
+    return () => {
+        cancelled = true;
+    };
+}, []);
 
     useEffect(() => {
         if (serviceType !== "Mobile") {
@@ -175,7 +234,24 @@ export default function PlansPage() {
 
         navigate("/cart");
     };
+    const handlePickBundle = (bundle) => {
+        addPlan({
+            id: `Bundle-${bundle.id}`,
+            planId: bundle.id,
+            name: bundle.name,
+            serviceType: "Bundle",
+            basePrice: Number(bundle.price) || 0,
+            lines: 1,
+            discountPerLine: 0,
+            pricePerLine: Number(bundle.price) || 0,
+            totalPrice: Number(bundle.price) || 0,
+            tagline: bundle.tagline,
+            perks: bundle.perks ?? [],
+            features: bundle.features ?? [],
+        });
 
+        navigate("/cart");
+    };
     const FeatureTypeIcon = getFeatureIcon(serviceType);
     const includeItems = getTopIncludeItems(serviceType);
 
@@ -622,7 +698,182 @@ export default function PlansPage() {
                             );
                         })}
                     </Row>
+<div className="mt-5 mb-4">
+    <div
+        className={`text-center mb-3 ${darkMode ? "text-light" : "text-dark"}`}
+        style={{
+            fontSize: "2rem",
+            fontWeight: 800,
+        }}
+    >
+        Bundle and save more
+    </div>
 
+    <p
+        className={`text-center mx-auto mb-4 ${mutedClass}`}
+        style={{
+            maxWidth: "760px",
+            fontSize: "1rem",
+        }}
+    >
+        Explore popular home and mobile bundles, including TV options, for more value in one package.
+    </p>
+
+    <Row className="g-4 mb-5">
+        {bundlePlans.map((bundle, index) => {
+            const isFeatured = index === 1;
+
+            return (
+                <Col key={bundle.id} md={6} lg={3}>
+                    <Card
+                        className="h-100 shadow-sm border-0 overflow-hidden"
+                        style={{
+                            borderRadius: "18px",
+                            background: darkMode ? "#1f1f24" : "#ffffff",
+                            color: darkMode ? "#f5f5f5" : "#1f2430",
+                            border: isFeatured
+                                ? "2px solid #c86bff"
+                                : "1px solid rgba(0,0,0,0.08)",
+                        }}
+                    >
+                        {isFeatured && (
+                            <div
+                                style={{
+                                    background:
+                                        "linear-gradient(90deg, #8b5cf6, #ec4899)",
+                                    color: "#fff",
+                                    textAlign: "center",
+                                    fontSize: "0.8rem",
+                                    fontWeight: 700,
+                                    padding: "0.55rem 1rem",
+                                    textTransform: "uppercase",
+                                }}
+                            >
+                                Popular Bundle
+                            </div>
+                        )}
+
+                        <Card.Body className="d-flex flex-column p-4">
+                            <div className="d-flex align-items-center gap-2 mb-3">
+                                <div
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        borderRadius: "50%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: darkMode ? "#2a2a31" : "#f7ecff",
+                                        color: "#8b5cf6",
+                                    }}
+                                >
+                                    <Home size={18} />
+                                </div>
+
+                                <Badge bg="dark" pill>
+                                    Bundle
+                                </Badge>
+                            </div>
+
+                            <h5 className="fw-bold mb-2">{bundle.name}</h5>
+
+                            <div className="d-flex align-items-end gap-1 mb-2">
+                                <span
+                                    style={{
+                                        fontSize: "2.2rem",
+                                        fontWeight: 800,
+                                    }}
+                                >
+                                    ${bundle.price}
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize: "1rem",
+                                        color: darkMode ? "#cfcfd6" : "#6b7280",
+                                    }}
+                                >
+                                    /mo
+                                </span>
+                            </div>
+
+                            <p
+                                className="mb-3"
+                                style={{
+                                    color: darkMode ? "#d2d2da" : "#5f6777",
+                                    minHeight: "84px",
+                                }}
+                            >
+                                {bundle.tagline}
+                            </p>
+
+                            <div className="mb-3">
+                                {bundle.features.map((f, i) => (
+                                    <div key={i} className="d-flex gap-2 mb-1">
+                                        <CheckCircle2 size={16} color="#8b5cf6" />
+                                        <span>{f}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {bundle.perks?.length > 0 && (
+                                <div className="mb-4">
+                                    <div
+                                        style={{
+                                            fontSize: "0.78rem",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.05em",
+                                            fontWeight: 700,
+                                            color: darkMode ? "#a8a8b3" : "#7a8090",
+                                            marginBottom: "0.75rem",
+                                        }}
+                                    >
+                                        Perks
+                                    </div>
+
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {bundle.perks.map((perk, i) => (
+                                            <span
+                                                key={i}
+                                                className="d-inline-flex align-items-center gap-1"
+                                                style={{
+                                                    background: darkMode ? "#2c2235" : "#fff2fb",
+                                                    color: darkMode ? "#f3c5ff" : "#9d3f73",
+                                                    border: darkMode
+                                                        ? "1px solid #5d3f71"
+                                                        : "1px solid #f3c6e2",
+                                                    borderRadius: "999px",
+                                                    padding: "0.4rem 0.7rem",
+                                                    fontSize: "0.82rem",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                <Gift size={13} />
+                                                {perk}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                 
+
+                            <Button
+                                className="mt-auto"
+                                onClick={() => handlePickBundle(bundle)}
+                                style={{
+                                    borderRadius: "12px",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                Choose Bundle
+                            </Button>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            );
+        })}
+    </Row>
+</div>
                    <div
                        style={{
                            marginTop: " 7rem",
