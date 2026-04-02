@@ -3,7 +3,6 @@ import {
     Container,
     Card,
     Button,
-    ListGroup,
     Alert,
     Row,
     Col,
@@ -12,11 +11,11 @@ import {
 } from "react-bootstrap";
 import { useCart } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, Trash2, XCircle, Plus } from "lucide-react";
+import { ShoppingCart, XCircle } from "lucide-react";
 import { apiFetch } from "../services/api";
 
 export default function ShoppingCartPage() {
-    const { plan, addOns, addAddOn, removeAddOn, removePlan } = useCart();
+    const { plans, addOns, addAddOn, removeAddOn, removePlanAtIndex } = useCart();
     const navigate = useNavigate();
 
     const [allAddOns, setAllAddOns] = useState([]);
@@ -26,30 +25,26 @@ export default function ShoppingCartPage() {
     const token = localStorage.getItem("token");
     const isLoggedIn = !!token;
 
-    // ===============================
-    // 🔐 LOGIN GUARD (FIXED)
-    // ===============================
     useEffect(() => {
         if (!isLoggedIn) {
             navigate("/login", { replace: true });
         }
     }, [isLoggedIn, navigate]);
 
-    // ===============================
-    // PLAN TYPE DETECTION
-    // ===============================
+    const primaryPlan = plans[0] || null;
+
     const planServiceTypeId = useMemo(() => {
-        if (!plan) return null;
+        if (!primaryPlan) return null;
 
         const rawId =
-            plan.serviceTypeId ??
-            plan.ServiceTypeId ??
-            plan.serviceTypeID ??
-            plan.ServiceTypeID;
+            primaryPlan.serviceTypeId ??
+            primaryPlan.ServiceTypeId ??
+            primaryPlan.serviceTypeID ??
+            primaryPlan.ServiceTypeID;
 
         if (rawId != null && !isNaN(Number(rawId))) return Number(rawId);
 
-        const rawText = `${plan.serviceType ?? ""} ${plan.name ?? ""}`.toLowerCase();
+        const rawText = `${primaryPlan.serviceType ?? ""} ${primaryPlan.name ?? ""}`.toLowerCase();
 
         if (
             rawText.includes("internet") ||
@@ -60,16 +55,13 @@ export default function ShoppingCartPage() {
         }
 
         return 1;
-    }, [plan]);
+    }, [primaryPlan]);
 
-    // ===============================
-    // LOAD ADD-ONS
-    // ===============================
     useEffect(() => {
         let cancelled = false;
 
         async function loadAddOns() {
-            if (!plan) return;
+            if (!primaryPlan) return;
 
             try {
                 setLoadingAddOns(true);
@@ -96,13 +88,10 @@ export default function ShoppingCartPage() {
         return () => {
             cancelled = true;
         };
-    }, [plan]);
+    }, [primaryPlan]);
 
-    // ===============================
-    // FILTER ADD-ONS
-    // ===============================
     const availableAddOns = useMemo(() => {
-        if (!plan) return [];
+        if (!primaryPlan) return [];
 
         const mobileAddOns = [
             "Device Protection",
@@ -129,35 +118,27 @@ export default function ShoppingCartPage() {
         }
 
         return [];
-    }, [allAddOns, planServiceTypeId, plan]);
+    }, [allAddOns, planServiceTypeId, primaryPlan]);
 
-    // ===============================
-    // PRICING
-    // ===============================
     const pricing = useMemo(() => {
-        if (!plan) return null;
+        const plansTotal = plans.reduce(
+            (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
+            0
+        );
 
         const addOnsTotal = addOns.reduce(
-            (sum, a) => sum + Number(a.monthlyPrice ?? a.price ?? 0),
+            (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
             0
         );
 
-        const planMonthly = Number(
-            plan.totalPrice ??
-            plan.price ??
-            plan.monthlyPrice ??
-            0
-        );
+        return {
+            plansTotal,
+            addOnsTotal,
+            subtotal: plansTotal + addOnsTotal,
+        };
+    }, [plans, addOns]);
 
-        const subtotal = planMonthly + addOnsTotal;
-
-        return { addOnsTotal, planMonthly, subtotal };
-    }, [plan, addOns]);
-
-    // ===============================
-    // EMPTY CART
-    // ===============================
-    if (!plan) {
+    if (plans.length === 0) {
         return (
             <Container className="py-5">
                 <Alert variant="warning" className="text-center">
@@ -168,14 +149,9 @@ export default function ShoppingCartPage() {
         );
     }
 
-    // ===============================
-    // MAIN UI
-    // ===============================
     return (
         <div className="py-5" style={{ background: "#f8fafc", minHeight: "100vh" }}>
             <Container style={{ maxWidth: 900 }}>
-
-                {/* HEADER */}
                 <div className="mb-4 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
                     <div>
                         <h1 className="fw-black d-flex align-items-center gap-2 mb-1">
@@ -194,49 +170,65 @@ export default function ShoppingCartPage() {
                     </div>
                 </div>
 
-                {/* PLAN CARD */}
+                {plans.map((plan, idx) => (
+                    <Card key={`${plan.serviceType}-${idx}`} className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
+                        <Card.Body className="p-4">
+                            <Row className="align-items-center">
+                                <Col md={8}>
+                                    <Badge bg="info" className="mb-2">
+                                        {plan.serviceType || "Plan"}
+                                    </Badge>
+
+                                    <h4 className="fw-bold mb-1">{plan.name}</h4>
+
+                                    {plan.tagline && (
+                                        <div className="text-muted mb-2">{plan.tagline}</div>
+                                    )}
+
+                                   {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) > 1 && (
+                                       <div className="text-muted small mt-2">
+                                           {Array.from({ length: Number(plan.lines) }).map((_, i) => (
+                                               <div key={i}>
+                                                   Line {i + 1}: {plan.subscribers?.[i]?.fullName || `Line ${i + 1}`} • ${Number(plan.pricePerLine ?? 0).toFixed(2)}/mo
+                                               </div>
+                                           ))}
+                                       </div>
+                                   )}
+
+                                   {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) === 1 && (
+                                       <div className="text-muted small mt-2">
+                                           {plan.subscribers?.[0]?.fullName || "Line 1"} • ${Number(plan.pricePerLine ?? plan.totalPrice ?? 0).toFixed(2)}/mo
+                                       </div>
+                                   )}
+                                </Col>
+
+                                <Col md={4} className="text-md-end mt-3 mt-md-0">
+                                    <div className="fw-black fs-4">
+                                        ${Number(plan.totalPrice ?? plan.price ?? plan.monthlyPrice ?? 0).toFixed(2)}
+                                    </div>
+
+                                    <Button
+                                        variant="outline-danger"
+                                        size="sm"
+                                        className="mt-2"
+                                        onClick={() => removePlanAtIndex(idx)}
+                                    >
+                                        <XCircle size={14} className="me-1" />
+                                        Remove Plan
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </Card.Body>
+                    </Card>
+                ))}
+
                 <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
                     <Card.Body className="p-4">
-                        <Row className="align-items-center">
-                            <Col md={8}>
-                                <Badge bg="info" className="mb-2">
-                                    {plan.serviceType || (planServiceTypeId === 2 ? "Internet" : "Mobile")}
-                                </Badge>
-
-                                <h4 className="fw-bold mb-1">{plan.name}</h4>
-                            </Col>
-
-                            <Col md={4} className="text-md-end mt-3 mt-md-0">
-                                <div className="fw-black fs-4">
-                                    ${Number(pricing.planMonthly).toFixed(2)}
-                                </div>
-
-                                <Button
-                                    variant="outline-danger"
-                                    size="sm"
-                                    className="mt-2"
-                                    onClick={() => removePlan(plan.serviceType)}
-                                >
-                                    <XCircle size={14} /> Remove Plan
-                                </Button>
-                            </Col>
-                        </Row>
-                    </Card.Body>
-                </Card>
-
-                {/* ADD-ONS */}
-                <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
-                    <Card.Body className="p-4">
-
                         <h5 className="fw-bold mb-3">Available Add-ons</h5>
 
-                        {loadingAddOns && (
-                            <Spinner animation="border" size="sm" />
-                        )}
+                        {loadingAddOns && <Spinner animation="border" size="sm" />}
 
-                        {addOnsError && (
-                            <Alert variant="danger">{addOnsError}</Alert>
-                        )}
+                        {addOnsError && <Alert variant="danger">{addOnsError}</Alert>}
 
                         <Row className="g-3">
                             {availableAddOns.map((a) => {
@@ -270,19 +262,16 @@ export default function ShoppingCartPage() {
                                 );
                             })}
                         </Row>
-
                     </Card.Body>
                 </Card>
 
-                {/* SUMMARY */}
                 <Card className="shadow border-0" style={{ borderRadius: 20 }}>
                     <Card.Body className="p-4">
-
                         <h5 className="fw-bold mb-3">Order Summary</h5>
 
                         <div className="d-flex justify-content-between">
-                            <span>Plan</span>
-                            <span>${pricing.planMonthly.toFixed(2)}</span>
+                            <span>Plans</span>
+                            <span>${pricing.plansTotal.toFixed(2)}</span>
                         </div>
 
                         <div className="d-flex justify-content-between">
@@ -315,10 +304,8 @@ export default function ShoppingCartPage() {
                         >
                             Proceed to Checkout
                         </Button>
-
                     </Card.Body>
                 </Card>
-
             </Container>
         </div>
     );

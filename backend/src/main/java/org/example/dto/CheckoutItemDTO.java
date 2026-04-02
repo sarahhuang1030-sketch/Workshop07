@@ -1,5 +1,7 @@
 package org.example.dto;
 
+import java.util.List;
+
 public class CheckoutItemDTO {
 
     private String description;
@@ -7,8 +9,8 @@ public class CheckoutItemDTO {
     private Double unitPrice;
     private Double lineTotal;
     private Double discountAmount;
+    private List<String> subscribers;
 
-    // Getters & Setters
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
@@ -23,4 +25,7 @@ public class CheckoutItemDTO {
 
     public Double getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(Double discountAmount) { this.discountAmount = discountAmount; }
+
+    public List<String> getSubscribers() { return subscribers; }
+    public void setSubscribers(List<String> subscribers) { this.subscribers = subscribers; }
 }

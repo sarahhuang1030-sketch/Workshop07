@@ -27,8 +27,9 @@ function getCartKey() {
 
 export function CartProvider({ children }) {
     // Keep cart plans as an array so we can support:
-    // - one Mobile plan
+    // - multiple Mobile plans
     // - one Internet plan
+    // - one Bundle plan
     const [plans, setPlans] = useState([]);
     const [addOns, setAddOns] = useState([]);
 
@@ -125,8 +126,13 @@ export function CartProvider({ children }) {
         setPlans((prev) => {
             const serviceType = p?.serviceType ?? "Unknown";
 
-            // Replace only the same service type
-            // so Mobile and Internet can both exist in cart
+            // Allow multiple mobile plans in the same cart
+            if (serviceType === "Mobile") {
+                return [...prev, p];
+            }
+
+            // Replace only the same non-mobile service type
+            // so Internet and Bundle stay single-select
             const filtered = prev.filter(
                 (existing) => (existing?.serviceType ?? "Unknown") !== serviceType
             );
@@ -137,18 +143,27 @@ export function CartProvider({ children }) {
 
     // Backward-compatible removePlan:
     // - removePlan() clears all plans
-    // - removePlan("Mobile") removes only mobile
+    // - removePlan("Mobile") removes all mobile plans
     // - removePlan("Internet") removes only internet
+    // - removePlan("Bundle") removes only bundle
     const removePlan = (serviceType) => {
         if (!serviceType) {
             setPlans([]);
             setAddOns([]);
             return;
         }
+useEffect(() => {
+    if (plans.length === 0) {
+        setAddOns([]);
+    }
+}, [plans]);
 
         setPlans((prev) =>
             prev.filter((p) => (p?.serviceType ?? "Unknown") !== serviceType)
         );
+    };
+const removePlanAtIndex = (indexToRemove) => {
+        setPlans((prev) => prev.filter((_, index) => index !== indexToRemove));
     };
 
     const addAddOn = (a) => {
@@ -197,23 +212,24 @@ export function CartProvider({ children }) {
 
     return (
         <CartContext.Provider
-            value={{
-                // New shape
-                plans,
-                mobilePlan,
-                internetPlan,
+                    value={{
+                        // New shape
+                        plans,
+                        mobilePlan,
+                        internetPlan,
 
-                // Backward compatibility
-                plan,
+                        // Backward compatibility
+                        plan,
 
-                addOns,
-                total,
-                addPlan,
-                removePlan,
-                addAddOn,
-                removeAddOn,
-                clearCart,
-            }}
+                        addOns,
+                        total,
+                        addPlan,
+                        removePlan,
+                        removePlanAtIndex,
+                        addAddOn,
+                        removeAddOn,
+                        clearCart,
+                    }}
         >
             {children}
         </CartContext.Provider>

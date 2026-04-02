@@ -1,6 +1,8 @@
 package org.example.service;
 
 import com.stripe.exception.StripeException;
+import org.example.entity.InvoiceItemSubscriber;
+import org.example.repository.InvoiceItemSubscriberRepository;
 import com.stripe.model.PaymentIntent;
 import org.example.entity.InvoiceItems;
 import org.example.entity.Invoices;
@@ -22,6 +24,7 @@ import java.util.List;
 @Service
 public class CheckoutService {
 
+    private final InvoiceItemSubscriberRepository subscriberRepo;
     private final InvoiceRepository invoiceRepo;
     private final InvoiceItemRepository itemRepo;
     private final PaymentAccountRepository accountRepo;
@@ -29,9 +32,11 @@ public class CheckoutService {
     private final StripePaymentService stripePaymentService;
     private final RewardService rewardService;
 
+
     public CheckoutService(
             InvoiceRepository invoiceRepo,
             InvoiceItemRepository itemRepo,
+            InvoiceItemSubscriberRepository subscriberRepo,
             PaymentAccountRepository accountRepo,
             UserAccountRepository userRepo,
             StripePaymentService stripePaymentService,
@@ -39,6 +44,7 @@ public class CheckoutService {
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
+        this.subscriberRepo = subscriberRepo;
         this.accountRepo = accountRepo;
         this.userRepo = userRepo;
         this.stripePaymentService = stripePaymentService;
@@ -207,8 +213,26 @@ public class CheckoutService {
             item.setQuantity(dto.getQuantity());
             item.setUnitPrice(BigDecimal.valueOf(dto.getUnitPrice()));
             item.setLineTotal(BigDecimal.valueOf(dto.getLineTotal()));
-            item.setDiscountAmount(BigDecimal.ZERO);
-            itemRepo.save(item);
+            item.setDiscountAmount(
+                    dto.getDiscountAmount() != null
+                            ? BigDecimal.valueOf(dto.getDiscountAmount())
+                            : BigDecimal.ZERO
+            );
+
+            InvoiceItems savedItem = itemRepo.save(item);
+
+            if (dto.getSubscribers() != null && !dto.getSubscribers().isEmpty()) {
+                for (int i = 0; i < dto.getSubscribers().size(); i++) {
+                    String fullName = dto.getSubscribers().get(i);
+
+                    InvoiceItemSubscriber subscriber = new InvoiceItemSubscriber();
+                    subscriber.setInvoiceItem(savedItem);
+                    subscriber.setLineNumber(i + 1);
+                    subscriber.setFullName(fullName);
+
+                    subscriberRepo.save(subscriber);
+                }
+            }
         }
 
         return saved;

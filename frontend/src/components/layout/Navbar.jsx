@@ -18,9 +18,12 @@ import WeatherCard from "../WeatherCard";
 export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
 
-    const { plan, addOns } = useCart();
+  const { plans, addOns } = useCart();
 
-    const cartCount = (plan ? 1 : 0) + addOns.length;
+ const cartCount = plans.reduce(
+   (sum, p) => sum + (p.lines ?? 1),
+   0
+ );
 
     // Role-based UI config
     const roleKey = roleKeyFromUser(user);

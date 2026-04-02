@@ -217,8 +217,21 @@ useEffect(() => {
                       totalPrice: Number(plan.price) || 0,
                   };
 
+        let subscribers = [];
+
+        // ONLY for mobile → collect line info
+        if (serviceType === "Mobile") {
+            for (let i = 0; i < pricing.lines; i++) {
+                const name = prompt(`Enter name for Line ${i + 1}:`);
+
+                subscribers.push({
+                    fullName: name || `Line ${i + 1}`,
+                });
+            }
+        }
+
         addPlan({
-            id: `${serviceType}-${plan.id}`,
+            id: `${serviceType}-${plan.id}-${Date.now()}`, // ensure uniqueness
             planId: plan.id,
             name: plan.name,
             serviceType,
@@ -230,6 +243,7 @@ useEffect(() => {
             tagline: plan.tagline,
             perks: plan.perks ?? [],
             features: plan.features ?? [],
+            subscribers, // ✅ NEW FIELD
         });
 
         navigate("/cart");
@@ -855,7 +869,7 @@ useEffect(() => {
                                 </div>
                             )}
 
-                 
+
 
                             <Button
                                 className="mt-auto"
