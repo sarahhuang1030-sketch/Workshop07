@@ -14,6 +14,8 @@ public class CreateCustomerRequest {
     public String email;
     public String homePhone;
     public String customerType;
+    public String businessName;   //only for business customers
+    public String status;         // e.g. "Active", "Inactive"
 
     // -------- Billing address fields --------
     public String street1;
