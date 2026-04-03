@@ -1,7 +1,5 @@
 package org.example.dto;
 
-import org.springframework.core.SpringVersion;
-
 import java.math.BigDecimal;
 
 public class ManagerSummaryDTO {

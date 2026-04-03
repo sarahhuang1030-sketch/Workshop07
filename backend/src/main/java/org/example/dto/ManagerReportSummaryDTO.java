@@ -11,14 +11,9 @@ public class ManagerReportSummaryDTO {
     private long totalAddons;
     private long activeAddons;
     private long totalPlanFeatures;
+    private long totalLocations;
+    private long totalEmployees;
 
-    public long getTotalPlanFeatures() {
-        return totalPlanFeatures;
-    }
-
-    public void setTotalPlanFeatures(long totalPlanFeatures) {
-        this.totalPlanFeatures = totalPlanFeatures;
-    }
     public long getTotalCustomers() {
         return totalCustomers;
     }
@@ -74,5 +69,28 @@ public class ManagerReportSummaryDTO {
     public void setActiveAddons(long activeAddons) {
         this.activeAddons = activeAddons;
     }
-}
 
+    public long getTotalPlanFeatures() {
+        return totalPlanFeatures;
+    }
+
+    public void setTotalPlanFeatures(long totalPlanFeatures) {
+        this.totalPlanFeatures = totalPlanFeatures;
+    }
+
+    public long getTotalLocations() {
+        return totalLocations;
+    }
+
+    public void setTotalLocations(long totalLocations) {
+        this.totalLocations = totalLocations;
+    }
+
+    public long getTotalEmployees() {
+        return totalEmployees;
+    }
+
+    public void setTotalEmployees(long totalEmployees) {
+        this.totalEmployees = totalEmployees;
+    }
+}

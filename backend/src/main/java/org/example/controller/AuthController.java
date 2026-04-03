@@ -108,6 +108,7 @@ public class AuthController {
                 user.getCustomerId(),
                 user.getEmployeeId(),
                 user.getFirstName(),
+                user.getLastName(),
                 user.getUsername(),
                 user.getRole(),
                 user.getMustChangePassword()

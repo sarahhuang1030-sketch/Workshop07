@@ -18,6 +18,16 @@ public class ManagerReportRepository {
     public ManagerReportSummaryDTO getSummary() {
         ManagerReportSummaryDTO dto = new ManagerReportSummaryDTO();
 
+        Long totalLocations = jdbc.queryForObject("""
+            SELECT COUNT(*)
+            FROM locations
+            """, Long.class);
+
+        Long totalEmployees = jdbc.queryForObject("""
+            SELECT COUNT(*)
+            FROM employees
+            """, Long.class);
+
         Long totalPlanFeatures = jdbc.queryForObject("""
             SELECT COUNT(*)
             FROM planfeatures
@@ -89,6 +99,8 @@ public class ManagerReportRepository {
         dto.setTotalAddons(totalAddons != null ? totalAddons : 0);
         dto.setActiveAddons(activeAddons != null ? activeAddons : 0);
         dto.setTotalPlanFeatures(totalPlanFeatures != null ? totalPlanFeatures : 0);
+        dto.setTotalLocations(totalLocations != null ? totalLocations : 0);
+        dto.setTotalEmployees(totalEmployees != null ? totalEmployees : 0);
 
         return dto;
     }

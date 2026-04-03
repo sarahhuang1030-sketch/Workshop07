@@ -96,6 +96,7 @@ public class AuthService {
                     customer.getCustomerId(),
                     null,
                     customer.getFirstName(),
+                    customer.getLastName(),
                     ua.getUsername(),
                     ua.getRole() != null ? ua.getRole().getRoleName() : null,
                     ua.getMustChangePassword()
@@ -112,6 +113,7 @@ public class AuthService {
                     null,
                     emp.getEmployeeId(), // adjust if already Long
                     emp.getFirstName(),
+                    emp.getLastName(),
                     ua.getUsername(),
                     ua.getRole() != null ? ua.getRole().getRoleName() : null,
                     ua.getMustChangePassword()

@@ -133,6 +133,7 @@ public class CustomerRegistrationService {
                 saved.getCustomerId(),  // customerId
                 null,                   // employeeId (customers are not employees)
                 saved.getFirstName(),   // firstName
+                saved.getLastName(),
                 ua.getUsername(),       // username
                 "Customer",              // role
                 false

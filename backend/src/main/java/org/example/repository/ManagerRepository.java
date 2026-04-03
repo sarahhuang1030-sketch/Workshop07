@@ -54,6 +54,9 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
 long countAddOns();
 
 @Query(value = "SELECT COUNT(*) FROM locations", nativeQuery = true)
+long countLocations();
+
+@Query(value = "SELECT COUNT(*) FROM planfeatures", nativeQuery = true)
 long countPlanFeatures();
 
 @Query(value = "SELECT COUNT(*) FROM locations WHERE IsActive = 1", nativeQuery = true)
