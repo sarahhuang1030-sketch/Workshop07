@@ -140,6 +140,7 @@ public class SecurityConfig {
                         // Manager dashboard (FIXED: allow MANAGER + AGENT if needed)
                         .requestMatchers("/api/manager/**")
                         .hasAnyRole("MANAGER", "SALES_AGENT")
+                        .requestMatchers("/api/manager/**").hasRole("MANAGER")
 
                         // Agent APIs
                         .requestMatchers("/api/agent/**")

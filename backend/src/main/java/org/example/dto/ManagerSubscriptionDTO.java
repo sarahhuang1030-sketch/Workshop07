@@ -14,6 +14,25 @@ public class ManagerSubscriptionDTO {
     private String notes;
     private List<SubscriptionAddOnDTO> addons;
 
+    private String customerName;
+    private String planName;
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getPlanName() {
+        return planName;
+    }
+
+    public void setPlanName(String planName) {
+        this.planName = planName;
+    }
+
     public Integer getSubscriptionId() {
         return subscriptionId;
     }

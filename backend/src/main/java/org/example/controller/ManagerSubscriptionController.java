@@ -3,12 +3,11 @@ package org.example.controller;
 import org.example.dto.ManagerSubscriptionDTO;
 import org.example.dto.SubscriptionAddOnDTO;
 import org.example.dto.AddOnDTO;
+import org.example.model.Customer;
+import org.example.model.Plan;
 import org.example.model.Subscription;
 import org.example.model.UserAccount;
-import org.example.repository.AddOnRepository;
-import org.example.repository.SubscriptionAddOnRepository;
-import org.example.repository.SubscriptionRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.repository.*;
 import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -26,19 +25,25 @@ public class ManagerSubscriptionController {
     private final AddOnRepository addOnRepository;
     private final AuditService auditService;
     private final UserAccountRepository userAccountRepository;
+    private final CustomerRepository customerRepository;
+    private final PlanRepository planRepository;
 
     public ManagerSubscriptionController(
             SubscriptionRepository subscriptionRepository,
             SubscriptionAddOnRepository subscriptionAddOnRepository,
             AddOnRepository addOnRepository,
             AuditService auditService,
-            UserAccountRepository userAccountRepository
+            UserAccountRepository userAccountRepository,
+            CustomerRepository customerRepository,
+            PlanRepository planRepository
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.addOnRepository = addOnRepository;
         this.auditService = auditService;
         this.userAccountRepository=userAccountRepository;
+        this.customerRepository = customerRepository;
+        this.planRepository = planRepository;
     }
 
     @GetMapping
@@ -51,6 +56,36 @@ public class ManagerSubscriptionController {
             dto.setSubscriptionId(sub.getSubscriptionId());
             dto.setCustomerId(sub.getCustomerId());
             dto.setPlanId(sub.getPlanId());
+
+            // Customer Name
+            Customer customer = customerRepository.findById(sub.getCustomerId()).orElse(null);
+
+            if (customer != null) {
+                if (customer.getBusinessName() != null && !customer.getBusinessName().isBlank()) {
+                    dto.setCustomerName(customer.getBusinessName());
+                } else {
+                    String first = customer.getFirstName() != null ? customer.getFirstName() : "";
+                    String last = customer.getLastName() != null ? customer.getLastName() : "";
+                    dto.setCustomerName((first + " " + last).trim());
+                }
+            } else {
+                dto.setCustomerName(null);
+            }
+
+        // Plan Name
+            PlanRepository.PlanRow plan = planRepository.findPlanById(sub.getPlanId());
+
+            if (plan != null) {
+                dto.setPlanName(plan.planName());
+            } else {
+                dto.setPlanName(null);
+            }
+
+            if (plan != null) {
+                dto.setPlanName(plan.planName());
+            } else {
+                dto.setPlanName(null);
+            }
             dto.setStartDate(sub.getStartDate());
             dto.setEndDate(sub.getEndDate());
             dto.setStatus(sub.getStatus());

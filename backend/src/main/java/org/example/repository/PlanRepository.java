@@ -105,4 +105,21 @@ public class PlanRepository {
     public record PlanRow(int planId, String planName, double monthlyPrice, String tagline) {}
     public record PlanFeatureRow(int planId, String featureName, String featureValue, String unit, int sortOrder, int featureId) {}
     public record PlanAddOnRow(int planId, AddOnDTO addOn) {}
+    public PlanRow findPlanById(Integer planId) {
+        List<PlanRow> results = jdbc.query("""
+            SELECT p.PlanId, p.PlanName, p.MonthlyPrice, p.Description
+            FROM Plans p
+            WHERE p.PlanId = ?
+            """,
+                (rs, rowNum) -> new PlanRow(
+                        rs.getInt("PlanId"),
+                        rs.getString("PlanName"),
+                        rs.getDouble("MonthlyPrice"),
+                        rs.getString("Description")
+                ),
+                planId
+        );
+
+        return results.isEmpty() ? null : results.get(0);
+    }
 }
