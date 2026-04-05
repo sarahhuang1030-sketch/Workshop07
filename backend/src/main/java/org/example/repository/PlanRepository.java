@@ -88,7 +88,8 @@ public class PlanRepository {
                                 rs.getInt("AddOnId"),
                                 rs.getString("AddOnName"),
                                 rs.getDouble("MonthlyPrice"),
-                                rs.getString("Description")
+                                rs.getString("Description"),
+                                rs.getBoolean("isActive")
                         )
                 ),
                 planIds.toArray()

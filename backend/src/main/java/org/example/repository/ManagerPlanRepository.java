@@ -35,53 +35,109 @@ public class ManagerPlanRepository {
 
     public List<ManagerPlanDTO> findAll() {
         return jdbc.query("""
-                SELECT PlanId, ServiceTypeId, PlanName, MonthlyPrice, ContractTermMonths,
-                       Description, IsActive, Tagline, Badge, IconKey, ThemeKey, DataLabel
-                FROM Plans
-                ORDER BY PlanId
-                """,
+            SELECT
+                p.PlanId,
+                p.ServiceTypeId,
+                p.PlanName,
+                p.MonthlyPrice,
+                p.ContractTermMonths,
+                p.Description,
+                p.IsActive,
+                p.Tagline,
+                p.Badge,
+                p.IconKey,
+                p.ThemeKey,
+                p.DataLabel,
+                GROUP_CONCAT(a.AddOnName ORDER BY a.AddOnName SEPARATOR ', ') AS AddOnNames
+            FROM Plans p
+            LEFT JOIN PlanAddOns pa ON pa.PlanId = p.PlanId
+            LEFT JOIN AddOns a ON a.AddOnId = pa.AddOnId
+            GROUP BY
+                p.PlanId,
+                p.ServiceTypeId,
+                p.PlanName,
+                p.MonthlyPrice,
+                p.ContractTermMonths,
+                p.Description,
+                p.IsActive,
+                p.Tagline,
+                p.Badge,
+                p.IconKey,
+                p.ThemeKey,
+                p.DataLabel
+            ORDER BY p.PlanName
+            """,
                 (rs, rowNum) -> new ManagerPlanDTO(
-                        asInteger(rs.getObject("PlanId")),
-                        asInteger(rs.getObject("ServiceTypeId")),
+                        rs.getInt("PlanId"),
+                        rs.getInt("ServiceTypeId"),
                         rs.getString("PlanName"),
-                        asDouble(rs.getObject("MonthlyPrice")),
-                        asInteger(rs.getObject("ContractTermMonths")),
+                        rs.getDouble("MonthlyPrice"),
+                        rs.getObject("ContractTermMonths", Integer.class),
                         rs.getString("Description"),
-                        asInteger(rs.getObject("IsActive")),
+                        rs.getInt("IsActive"),
                         rs.getString("Tagline"),
                         rs.getString("Badge"),
                         rs.getString("IconKey"),
                         rs.getString("ThemeKey"),
-                        rs.getString("DataLabel")
+                        rs.getString("DataLabel"),
+                        rs.getString("AddOnNames")
                 )
         );
     }
 
-    public ManagerPlanDTO findById(int planId) {
-        List<ManagerPlanDTO> rows = jdbc.query("""
-                SELECT PlanId, ServiceTypeId, PlanName, MonthlyPrice, ContractTermMonths,
-                       Description, IsActive, Tagline, Badge, IconKey, ThemeKey, DataLabel
-                FROM Plans
-                WHERE PlanId = ?
-                """,
+    public ManagerPlanDTO findById(int id) {
+        List<ManagerPlanDTO> list = jdbc.query("""
+            SELECT
+                p.PlanId,
+                p.ServiceTypeId,
+                p.PlanName,
+                p.MonthlyPrice,
+                p.ContractTermMonths,
+                p.Description,
+                p.IsActive,
+                p.Tagline,
+                p.Badge,
+                p.IconKey,
+                p.ThemeKey,
+                p.DataLabel,
+                GROUP_CONCAT(a.AddOnName ORDER BY a.AddOnName SEPARATOR ', ') AS AddOnNames
+            FROM Plans p
+            LEFT JOIN PlanAddOns pa ON pa.PlanId = p.PlanId
+            LEFT JOIN AddOns a ON a.AddOnId = pa.AddOnId
+            WHERE p.PlanId = ?
+            GROUP BY
+                p.PlanId,
+                p.ServiceTypeId,
+                p.PlanName,
+                p.MonthlyPrice,
+                p.ContractTermMonths,
+                p.Description,
+                p.IsActive,
+                p.Tagline,
+                p.Badge,
+                p.IconKey,
+                p.ThemeKey,
+                p.DataLabel
+            """,
                 (rs, rowNum) -> new ManagerPlanDTO(
-                        asInteger(rs.getObject("PlanId")),
-                        asInteger(rs.getObject("ServiceTypeId")),
+                        rs.getInt("PlanId"),
+                        rs.getInt("ServiceTypeId"),
                         rs.getString("PlanName"),
-                        asDouble(rs.getObject("MonthlyPrice")),
-                        asInteger(rs.getObject("ContractTermMonths")),
+                        rs.getDouble("MonthlyPrice"),
+                        rs.getObject("ContractTermMonths", Integer.class),
                         rs.getString("Description"),
-                        asInteger(rs.getObject("IsActive")),
+                        rs.getInt("IsActive"),
                         rs.getString("Tagline"),
                         rs.getString("Badge"),
                         rs.getString("IconKey"),
                         rs.getString("ThemeKey"),
-                        rs.getString("DataLabel")
+                        rs.getString("DataLabel"),
+                        rs.getString("AddOnNames")
                 ),
-                planId
+                id
         );
 
-        return rows.isEmpty() ? null : rows.get(0);
+        return list.isEmpty() ? null : list.get(0);
     }
 
     public int create(SaveManagerPlanRequestDTO request) {

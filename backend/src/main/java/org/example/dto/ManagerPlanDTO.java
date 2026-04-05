@@ -12,5 +12,6 @@ public record ManagerPlanDTO(
         String badge,
         String iconKey,
         String themeKey,
-        String dataLabel
+        String dataLabel,
+        String addOnNames
 ) {}
