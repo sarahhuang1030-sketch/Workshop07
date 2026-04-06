@@ -201,8 +201,19 @@ public class CheckoutService {
         Invoices invoice = new Invoices();
         invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
         invoice.setCustomerId(user.getCustomerId());
-        invoice.setIssueDate(LocalDate.now());
-        invoice.setDueDate(LocalDate.now().plusDays(7));
+
+        LocalDate issueDate = LocalDate.now();
+        LocalDate dueDate;
+
+        if ("yearly".equalsIgnoreCase(billingCycle)) {
+            dueDate = issueDate.plusYears(1);
+        } else {
+            dueDate = issueDate.plusMonths(1);
+        }
+
+        invoice.setIssueDate(issueDate);
+        invoice.setDueDate(dueDate);
+
         invoice.setSubtotal(subtotal);
         invoice.setTaxTotal(tax);
         invoice.setTotal(total);
