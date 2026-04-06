@@ -9,10 +9,6 @@ import java.util.List;
 
 /**
  * Invoice Repository
- * FIXED VERSION:
- * - Added missing countPendingInvoices()
- * - Unified fetch join queries
- * - Prevents lazy loading issues for frontend DTO
  */
 public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
 
@@ -29,12 +25,9 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
     List<Invoices> findAllByOrderByIssueDateDesc();
 
     // ======================================================
-    // DASHBOARD QUERIES
+    // DASHBOARD
     // ======================================================
 
-    /**
-     * Count all pending invoices for dashboard
-     */
     @Query("""
         SELECT COUNT(i)
         FROM Invoices i
@@ -43,7 +36,7 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
     long countPendingInvoices();
 
     // ======================================================
-    // EMPLOYEE SALES (native queries)
+    // EMPLOYEE SALES (native SQL - FIXED)
     // ======================================================
 
     @Query(value = """
@@ -82,8 +75,10 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
        AND i.Status = 'Active'
     WHERE e.EmployeeId = :employeeId
     GROUP BY e.EmployeeId, e.FirstName, e.LastName
-    """)
-    List<Object[]> getEmployeeSalesByEmployeeIdFromInvoices(@Param("employeeId") Integer employeeId);
+    """, nativeQuery = true)
+    List<Object[]> getEmployeeSalesByEmployeeIdFromInvoices(
+            @Param("employeeId") Integer employeeId
+    );
 
     @Query(value = """
     SELECT
@@ -108,15 +103,14 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
       AND i.Status = 'Active'
     ORDER BY i.IssueDate DESC, i.InvoiceId DESC
     """, nativeQuery = true)
-    List<Object[]> getEmployeeSalesDetailsFromInvoices(@Param("employeeId") Integer employeeId);
+    List<Object[]> getEmployeeSalesDetailsFromInvoices(
+            @Param("employeeId") Integer employeeId
+    );
 
     // ======================================================
-    // FETCH JOIN QUERIES (SAFE FOR FRONTEND)
+    // FETCH JOIN QUERIES (JPQL - FIXED ENTITY NAMES)
     // ======================================================
 
-    /**
-     * Load invoice with payment account only
-     */
     @Query("""
         SELECT i
         FROM Invoices i
@@ -125,9 +119,6 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
     """)
     Invoices findWithPaymentByInvoiceNumber(@Param("invoiceNumber") String invoiceNumber);
 
-    /**
-     * Load FULL invoice (payment + items)
-     */
     @Query("""
         SELECT i
         FROM Invoices i
@@ -137,9 +128,6 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
     """)
     Invoices findFullByInvoiceNumber(@Param("invoiceNumber") String invoiceNumber);
 
-    /**
-     * Load invoices by customer with payment info
-     */
     @Query("""
         SELECT i
         FROM Invoices i
@@ -149,9 +137,6 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
     """)
     List<Invoices> findByCustomerIdWithPayment(@Param("customerId") Integer customerId);
 
-    /**
-     * Load all invoices with payment info
-     */
     @Query("""
         SELECT i
         FROM Invoices i
