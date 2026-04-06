@@ -11,10 +11,12 @@ import org.example.repository.RoleRepository;
 import org.example.repository.UserAccountRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class EmployeeService {
@@ -29,7 +31,7 @@ public class EmployeeService {
                            UserAccountRepository userAccountRepository,
                            PasswordEncoder passwordEncoder) {
         this.employeeRepository = employeeRepository;
-        this.roleRepository=roleRepository;
+        this.roleRepository = roleRepository;
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -48,6 +50,7 @@ public class EmployeeService {
         return toDTO(employee);
     }
 
+    @Transactional
     public CreateEmployeeResponseDTO createEmployee(SaveEmployeeRequestDTO request) {
         Employee employee = new Employee();
         apply(employee, request);
@@ -55,7 +58,7 @@ public class EmployeeService {
         Employee savedEmployee = employeeRepository.save(employee);
 
         String tempPassword = generateTemporaryPassword();
-        String username = generateUsername(savedEmployee);
+        String username = generateUniqueUsername(savedEmployee);
 
         UserAccount userAccount = new UserAccount();
         userAccount.setEmployeeId(savedEmployee.getEmployeeId());
@@ -63,7 +66,6 @@ public class EmployeeService {
         userAccount.setUsername(username);
         userAccount.setPasswordHash(passwordEncoder.encode(tempPassword));
         userAccount.setIsLocked(0);
-//        userAccount.setActive(true);
         userAccount.setIsActive(true);
         userAccount.setMustChangePassword(true);
         userAccount.setTempPasswordExpiresAt(LocalDateTime.now().plusDays(3));
@@ -76,6 +78,7 @@ public class EmployeeService {
         dto.setEmployeeId(savedEmployee.getEmployeeId());
         dto.setFirstName(savedEmployee.getFirstName());
         dto.setLastName(savedEmployee.getLastName());
+        dto.setEmail(savedEmployee.getEmail());
         dto.setRole(savedEmployee.getRole() != null ? savedEmployee.getRole().getRoleName() : null);
         dto.setUsername(username);
         dto.setTempPassword(tempPassword);
@@ -91,6 +94,7 @@ public class EmployeeService {
         return toDTO(employeeRepository.save(employee));
     }
 
+    @Transactional
     public void deleteEmployee(Integer id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + id));
@@ -103,12 +107,11 @@ public class EmployeeService {
 
     private void apply(Employee employee, SaveEmployeeRequestDTO request) {
         employee.setPrimaryLocationId(request.getPrimaryLocationId());
-
         employee.setFirstName(request.getFirstName());
         employee.setLastName(request.getLastName());
         employee.setEmail(request.getEmail());
         employee.setPhone(request.getPhone());
-//        employee.setRole(request.getRole());
+
         Role role = roleRepository.findByRoleName(request.getRole())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid role: " + request.getRole()));
 
@@ -116,7 +119,7 @@ public class EmployeeService {
         employee.setSalary(request.getSalary());
         employee.setHireDate(request.getHireDate());
         employee.setStatus(request.getStatus());
-        employee.setActive(request.getActive());
+        employee.setActive(request.getActive() != null ? request.getActive() : 1);
         employee.setManagerId(request.getManagerId());
     }
 
@@ -124,14 +127,11 @@ public class EmployeeService {
         EmployeeDTO dto = new EmployeeDTO();
         dto.setEmployeeId(employee.getEmployeeId());
         dto.setPrimaryLocationId(employee.getPrimaryLocationId());
-
         dto.setFirstName(employee.getFirstName());
         dto.setLastName(employee.getLastName());
         dto.setEmail(employee.getEmail());
         dto.setPhone(employee.getPhone());
-        dto.setRole(
-                employee.getRole() != null ? employee.getRole().getRoleName() : null
-        );
+        dto.setRole(employee.getRole() != null ? employee.getRole().getRoleName() : null);
         dto.setSalary(employee.getSalary());
         dto.setHireDate(employee.getHireDate());
         dto.setStatus(employee.getStatus());
@@ -140,26 +140,33 @@ public class EmployeeService {
         return dto;
     }
 
-//    helper to generate a temporary password and username generator
-        private String generateTemporaryPassword() {
-            String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!";
-            SecureRandom random = new SecureRandom();
-            StringBuilder sb = new StringBuilder();
+    private String generateTemporaryPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$!";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
 
-            for (int i = 0; i < 10; i++) {
-                sb.append(chars.charAt(random.nextInt(chars.length())));
-            }
-
-            return sb.toString();
+        for (int i = 0; i < 10; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
         }
 
-    private String generateUsername(Employee employee) {
-        String first = employee.getFirstName() != null ? employee.getFirstName().trim().toLowerCase() : "";
-        String last = employee.getLastName() != null ? employee.getLastName().trim().toLowerCase() : "";
-
-        return first + "." + last;
+        return sb.toString();
     }
 
+    private String generateUniqueUsername(Employee employee) {
+        String first = employee.getFirstName() != null ? employee.getFirstName().trim().toLowerCase(Locale.US) : "";
+        String last = employee.getLastName() != null ? employee.getLastName().trim().toLowerCase(Locale.US) : "";
 
+        String base = (first.isEmpty() ? "employee" : first) + "." + (last.isEmpty() ? "user" : last);
+        base = base.replaceAll("[^a-z0-9.]", "");
 
+        String candidate = base;
+        int counter = 1;
+
+        while (userAccountRepository.existsByUsernameIgnoreCase(candidate)) {
+            candidate = base + counter;
+            counter++;
+        }
+
+        return candidate;
+    }
 }

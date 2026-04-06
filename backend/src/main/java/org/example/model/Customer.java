@@ -49,6 +49,9 @@ public class Customer {
     @Column(name = "ExternalCustomerId", length = 64)
     private String externalCustomerId;
 
+    @Column(name = "AssignedEmployeeId")
+    private Integer AssignedEmployeeId;
+
 
     // exists in your table; can remain null if DB allows
     @Column(name = "PasswordHash", nullable = true)
@@ -58,6 +61,14 @@ public class Customer {
     public void prePersist() {
         if (CreatedAt == null) CreatedAt = LocalDateTime.now();
         if (Status == null) Status = "Active";
+    }
+
+    public Integer getAssignedEmployeeId() {
+        return AssignedEmployeeId;
+    }
+
+    public void setAssignedEmployeeId(Integer assignedEmployeeId) {
+        this.AssignedEmployeeId = assignedEmployeeId;
     }
 
     // getters/setters

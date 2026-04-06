@@ -4,6 +4,7 @@ import org.example.dto.EmployeeSalesDTO;
 import org.example.dto.EmployeeSalesDetailDTO;
 import org.example.dto.ManagerReportSummaryDTO;
 import org.example.model.UserAccount;
+import org.example.repository.InvoiceRepository;
 import org.example.repository.ManagerReportRepository;
 import org.example.repository.SubscriptionRepository;
 import org.example.repository.UserAccountRepository;
@@ -21,16 +22,16 @@ import java.util.List;
 public class ManagerReportController {
 
     private final ManagerReportRepository managerReportRepository;
-    private final SubscriptionRepository subscriptionRepository;
+    private final InvoiceRepository invoiceRepository;
     private final UserAccountRepository userAccountRepository;
 
     public ManagerReportController(
             ManagerReportRepository managerReportRepository,
-            SubscriptionRepository subscriptionRepository,
+            InvoiceRepository invoiceRepository,
             UserAccountRepository userAccountRepository
     ) {
         this.managerReportRepository = managerReportRepository;
-        this.subscriptionRepository = subscriptionRepository;
+        this.invoiceRepository = invoiceRepository;
         this.userAccountRepository = userAccountRepository;
     }
 
@@ -48,7 +49,7 @@ public class ManagerReportController {
     @GetMapping("/employee-sales")
     public List<EmployeeSalesDTO> getEmployeeSales() {
 
-        List<Object[]> rows = subscriptionRepository.getEmployeeSalesSummaryRaw();
+        List<Object[]> rows = invoiceRepository.getEmployeeSalesSummaryFromInvoices();
         List<EmployeeSalesDTO> result = new ArrayList<>();
 
         for (Object[] row : rows) {
@@ -105,7 +106,7 @@ public class ManagerReportController {
         Integer employeeId = ua.getEmployeeId();
 
         // Fetch employee sales summary
-        List<Object[]> rows = subscriptionRepository.getEmployeeSalesByEmployeeId(employeeId);
+        List<Object[]> rows = invoiceRepository.getEmployeeSalesByEmployeeIdFromInvoices(employeeId);
 
         // If no data exists, return safe empty DTO
         if (rows == null || rows.isEmpty()) {
@@ -165,7 +166,7 @@ public class ManagerReportController {
 
         Integer employeeId = ua.getEmployeeId();
 
-        List<Object[]> rows = subscriptionRepository.getEmployeeSalesDetails(employeeId);
+        List<Object[]> rows = invoiceRepository.getEmployeeSalesDetailsFromInvoices(employeeId);
 
         return rows.stream().map(row -> new EmployeeSalesDetailDTO(
                 ((Number) row[0]).intValue(),

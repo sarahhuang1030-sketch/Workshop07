@@ -7,6 +7,15 @@ public class CreateEmployeeResponseDTO {
     private String role;
     private String username;
     private String tempPassword;
+    private String email;
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
     public Integer getEmployeeId() {
         return employeeId;

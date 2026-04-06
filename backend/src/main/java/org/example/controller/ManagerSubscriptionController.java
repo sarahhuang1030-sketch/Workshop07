@@ -11,7 +11,8 @@ import org.example.repository.*;
 import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
+import org.example.model.SubscriptionAddOn;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -206,6 +207,12 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
                 + " (Customer " + sub.getCustomerId()
                 + ", Plan " + sub.getPlanId() + ")";
 
+        // delete child subscription add-ons first
+        List<SubscriptionAddOn> addOns = subscriptionAddOnRepository.findBySubscriptionId(id);
+        if (addOns != null && !addOns.isEmpty()) {
+            subscriptionAddOnRepository.deleteAll(addOns);
+        }
+
         subscriptionRepository.deleteById(id);
 
         auditService.log("Subscription", "Delete", target, username);
@@ -216,4 +223,83 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
         return subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
     }
+
+
+
+    // Additional endpoints for managing add-ons could be added here (e.g. add/remove add-on from subscription) workshop 6
+    @GetMapping("/{subscriptionId}/addons")
+    public List<SubscriptionAddOnDTO> getSubscriptionAddOns(@PathVariable Integer subscriptionId) {
+        Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns().stream()
+                .collect(Collectors.toMap(AddOnDTO::addOnId, AddOnDTO::addOnName));
+
+        return subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
+                .stream()
+                .map(sa -> {
+                    SubscriptionAddOnDTO dto = new SubscriptionAddOnDTO();
+                    dto.setSubscriptionAddOnId(sa.getSubscriptionAddOnId());
+                    dto.setAddOnId(sa.getAddOnId());
+                    dto.setAddOnName(addOnNameMap.get(sa.getAddOnId()));
+                    dto.setStartDate(sa.getStartDate());
+                    dto.setEndDate(sa.getEndDate());
+                    dto.setStatus(sa.getStatus());
+                    return dto;
+                })
+                .toList();
+    }
+
+    @PostMapping("/{subscriptionId}/addons/{addOnId}")
+    public void attachAddOnToSubscription(@PathVariable Integer subscriptionId,
+                                          @PathVariable Integer addOnId,
+                                          Authentication authentication) {
+
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+        boolean addOnExists = addOnRepository.findAllActiveAddOns().stream()
+                .anyMatch(a -> a.addOnId() == addOnId);
+
+        if (!addOnExists) {
+            throw new RuntimeException("Add-on not found");
+        }
+
+        boolean alreadyExists = subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
+                .stream()
+                .anyMatch(sa -> sa.getAddOnId() != null && sa.getAddOnId().equals(addOnId));
+
+        if (alreadyExists) {
+            return;
+        }
+
+        SubscriptionAddOn sa = new SubscriptionAddOn();
+        sa.setSubscriptionId(subscriptionId);
+        sa.setAddOnId(addOnId);
+        sa.setStartDate(subscription.getStartDate() != null ? subscription.getStartDate() : LocalDate.now());
+        sa.setEndDate(null);
+        sa.setStatus("Active");
+
+        subscriptionAddOnRepository.save(sa);
+
+        String username = authentication.getName();
+        String target = "Subscription " + subscriptionId + " -> Add-on " + addOnId;
+        auditService.log("SubscriptionAddOn", "Attach", target, username);
+    }
+
+    @DeleteMapping("/{subscriptionId}/addons/{addOnId}")
+    public void removeAddOnFromSubscription(@PathVariable Integer subscriptionId,
+                                            @PathVariable Integer addOnId,
+                                            Authentication authentication) {
+
+        SubscriptionAddOn existing = subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
+                .stream()
+                .filter(sa -> sa.getAddOnId() != null && sa.getAddOnId().equals(addOnId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Subscription add-on not found"));
+
+        subscriptionAddOnRepository.deleteById(existing.getSubscriptionAddOnId());
+
+        String username = authentication.getName();
+        String target = "Subscription " + subscriptionId + " -> Add-on " + addOnId;
+        auditService.log("SubscriptionAddOn", "Remove", target, username);
+    }
+
 }
