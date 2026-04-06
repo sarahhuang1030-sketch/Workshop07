@@ -45,6 +45,7 @@ public class MeController {
     private final SubscriptionService subscriptionService;
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
+    private final LocationRepository locationRepo;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -59,7 +60,8 @@ public class MeController {
                         UserAccountRepository userAccountRepository,
                         SubscriptionService subscriptionService,
                         SubscriptionRepository subscriptionRepository,
-                        SubscriptionAddOnRepository subscriptionAddOnRepository) {
+                        SubscriptionAddOnRepository subscriptionAddOnRepository,
+                        LocationRepository locationRepo) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -74,6 +76,7 @@ public class MeController {
         this.userAccountRepository = userAccountRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
+        this.locationRepo = locationRepo;
     }
 
     // -------------------- GET /api/me --------------------
@@ -190,11 +193,26 @@ public class MeController {
                 });
             } else if (ua.getEmployeeId() != null) {
                 out.put("userType", "EMPLOYEE");
+                out.put("username", ua.getUsername());
+
                 employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
                     out.put("firstName", emp.getFirstName());
                     out.put("lastName", emp.getLastName());
                     out.put("email", emp.getEmail());
                     out.put("phone", emp.getPhone());
+
+                    out.put("primaryLocationId", emp.getPrimaryLocationId());
+                    out.put("status", emp.getStatus());
+                    out.put("hireDate", emp.getHireDate());
+                    out.put("managerId", emp.getManagerId());
+
+                    String locationName = null;
+                    if (emp.getPrimaryLocationId() != null) {
+                        locationName = locationRepo.findById(emp.getPrimaryLocationId())
+                                .map(loc -> loc.getLocationName())
+                                .orElse(null);
+                    }
+                    out.put("locationName", locationName);
                 });
             } else {
                 out.put("userType", "Unknown");
@@ -237,23 +255,53 @@ public class MeController {
             String key = resolveLoginKey(principal, auth, oauthUser);
             UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key).orElse(null);
 
-            if (ua == null || ua.getCustomerId() == null) {
-                return ResponseEntity.status(404).body("Customer profile not found");
+            if (ua == null) {
+                return ResponseEntity.status(404).body("User account not found");
             }
 
-            Customer c = customerRepo.findById(ua.getCustomerId()).orElse(null);
-            if (c == null) {
-                return ResponseEntity.status(404).body("Customer not found");
+            // ---------------- CUSTOMER ----------------
+            if (ua.getCustomerId() != null) {
+                Customer c = customerRepo.findById(ua.getCustomerId()).orElse(null);
+
+                if (c == null) {
+                    return ResponseEntity.status(404).body("Customer not found");
+                }
+
+                c.setFirstName(req.getFirstName());
+                c.setLastName(req.getLastName());
+                c.setEmail(req.getEmail());
+                c.setHomePhone(req.getHomePhone());
+
+                customerRepo.save(c);
+
+                return ResponseEntity.ok("Customer profile updated successfully");
             }
 
-            c.setFirstName(req.getFirstName());
-            c.setLastName(req.getLastName());
-            c.setEmail(req.getEmail());
-            c.setHomePhone(req.getHomePhone());
+            // ---------------- EMPLOYEE ----------------
+            if (ua.getEmployeeId() != null) {
+                var emp = employeeRepo.findById(ua.getEmployeeId()).orElse(null);
 
-            customerRepo.save(c);
+                if (emp == null) {
+                    return ResponseEntity.status(404).body("Employee not found");
+                }
 
-            return ResponseEntity.ok("Profile updated successfully");
+                emp.setFirstName(req.getFirstName());
+                emp.setLastName(req.getLastName());
+                emp.setEmail(req.getEmail());
+
+                // Support both phone & homePhone
+                if (req.getPhone() != null) {
+                    emp.setPhone(req.getPhone());
+                } else if (req.getHomePhone() != null) {
+                    emp.setPhone(req.getHomePhone());
+                }
+
+                employeeRepo.save(emp);
+
+                return ResponseEntity.ok("Employee profile updated successfully");
+            }
+
+            return ResponseEntity.status(404).body("Profile owner not found");
 
         } catch (Exception e) {
             e.printStackTrace();

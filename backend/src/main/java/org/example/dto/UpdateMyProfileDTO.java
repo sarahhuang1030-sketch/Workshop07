@@ -12,8 +12,12 @@ package org.example.dto;
 
 public class UpdateMyProfileDTO {
     public String firstName;
+
+
+
     public String lastName;
-    public String homePhone; // keep naming consistent with DB
+    public String homePhone;
+    public String phone;
     public String email;
 
     public String getFirstName() {
@@ -46,5 +50,13 @@ public class UpdateMyProfileDTO {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 }

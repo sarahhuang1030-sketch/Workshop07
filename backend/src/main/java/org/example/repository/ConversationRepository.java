@@ -10,4 +10,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, Inte
     List<Conversation> findByUserHighIdOrUserLowIdOrderByLastMessageAtDesc(
             Integer high, Integer low
     );
+
+    List<Conversation> findByStatusOrderByCreatedAtDesc(String status);
 }

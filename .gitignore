@@ -43,3 +43,4 @@ backend/.env
 
 # Frontend env
 frontend/.env
+backend/env.properties
