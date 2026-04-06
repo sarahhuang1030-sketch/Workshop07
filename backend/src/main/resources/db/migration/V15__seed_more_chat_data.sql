@@ -90,7 +90,7 @@ VALUES
      '2026-04-01 08:55:00.000000',
      '2026-04-01 09:30:00.000000'),
 
-    (5, 4, 3, 4,
+    (5, 4, null, null,
      'Appointment Request',
      'Customer prefers a morning visit for the next technician appointment.',
      'PENDING',
