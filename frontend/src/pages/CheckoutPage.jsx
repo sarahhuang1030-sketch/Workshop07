@@ -101,16 +101,36 @@ export default function CheckoutPage() {
             /* -------------------------
                2. Confirm payment with Stripe
             ------------------------- */
-            const result = await stripe.confirmCardPayment(
-                intentData.clientSecret,
-                {
-                    payment_method: paymentMethod.stripePaymentMethodId,
-                }
-            );
+            // const result = await stripe.confirmCardPayment(
+            //     intentData.clientSecret,
+            //     {
+            //         payment_method: paymentMethod.stripePaymentMethodId,
+            //     }
+            // );
+            //
+            // if (result.error) {
+            //     return alert(result.error.message);
+            // }
+
+            const result = await stripe.confirmCardPayment(intentData.clientSecret, {
+                payment_method: paymentMethod.stripePaymentMethodId,
+            });
 
             if (result.error) {
-                return alert(result.error.message);
+                alert(result.error.message);
+                return;
             }
+
+            // if (result.paymentIntent.status === "succeeded") {
+            //     await apiFetch("/api/invoices/mark-paid", {
+            //         method: "POST",
+            //         body: JSON.stringify({
+            //             invoiceNumber,
+            //             paymentIntentId: result.paymentIntent.id,
+            //             paymentMethodId: result.paymentIntent.payment_method
+            //         })
+            //     });
+            // }
 
             /* -------------------------
                3. Build invoice items

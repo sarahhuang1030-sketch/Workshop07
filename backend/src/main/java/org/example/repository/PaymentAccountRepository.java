@@ -7,12 +7,22 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository for PaymentAccounts entity
+ */
 @Repository
 public interface PaymentAccountRepository extends JpaRepository<PaymentAccounts, Integer> {
 
     Optional<PaymentAccounts> findByAccountIdAndCustomerId(Integer accountId, Integer customerId);
+
     Optional<PaymentAccounts> findFirstByCustomerIdOrderByCreatedAtDesc(Integer customerId);
-    void deleteByCustomerId(Integer customerId);
+
     List<PaymentAccounts> findAllByCustomerIdOrderByCreatedAtDesc(Integer customerId);
-    Optional<PaymentAccounts> findByCustomerIdAndStripePaymentMethodId(Integer customerId, String stripePaymentMethodId);
+
+    void deleteByCustomerId(Integer customerId);
+
+    Optional<PaymentAccounts> findByCustomerIdAndStripePaymentMethodId(
+            Integer customerId,
+            String stripePaymentMethodId
+    );
 }

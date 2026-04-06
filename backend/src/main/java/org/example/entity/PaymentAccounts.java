@@ -23,10 +23,10 @@ public class PaymentAccounts {
     private LocalDateTime createdAt;
 
     @Column(name = "cardNumber")
-    private String cardNumber; // plaintext
+    private String cardNumber;
 
     @Column(name = "cvv")
-    private String cvv;        // plaintext
+    private String cvv;
 
     @Column(name = "expiredDate")
     private LocalDate expiredDate;
@@ -52,7 +52,19 @@ public class PaymentAccounts {
     @Column(name = "isDefault")
     private Integer isDefault = 0;
 
-    // --- getters & setters ---
+    // =====================================================
+    // FIX: automatically set CreatedAt before insert
+    // This ensures ORDER BY CreatedAt DESC always works
+    // =====================================================
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
+
+    // ===== getters & setters =====
+
     public Integer getAccountId() { return accountId; }
     public void setAccountId(Integer accountId) { this.accountId = accountId; }
 
@@ -90,9 +102,10 @@ public class PaymentAccounts {
     public void setLast4(String last4) { this.last4 = last4; }
 
     public String getStripePaymentMethodId() { return stripePaymentMethodId; }
-    public void setStripePaymentMethodId(String stripePaymentMethodId) { this.stripePaymentMethodId = stripePaymentMethodId; }
+    public void setStripePaymentMethodId(String stripePaymentMethodId) {
+        this.stripePaymentMethodId = stripePaymentMethodId;
+    }
 
     public Integer getIsDefault() { return isDefault; }
     public void setIsDefault(Integer isDefault) { this.isDefault = isDefault; }
-
 }

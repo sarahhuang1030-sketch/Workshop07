@@ -89,7 +89,6 @@ export default function CustomerBilling({ darkMode = false }) {
                     <p className="text-muted">Your latest invoice details</p>
                 </div>
 
-                {/* 🔥 NEW BUTTON */}
                 <Button
                     variant={darkMode ? "outline-light" : "outline-primary"}
                     onClick={() => nav("/customer/billing/history")}
@@ -107,7 +106,6 @@ export default function CustomerBilling({ darkMode = false }) {
                         <strong>Invoice #{invoice.invoiceNumber}</strong>
                     </div>
 
-                    {/* 🔥 NEW: CUSTOMER NAME */}
                     <div>
                         <strong>Customer:</strong>{" "}
                         {invoice.customerName || "N/A"}

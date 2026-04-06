@@ -9,6 +9,7 @@ public class InvoiceRequestDTO {
     public Double subtotal;
     public Double taxTotal;
     public Double total;
+    public Integer paymentAccountId;
 
     public Integer getCustomerId() {
         return customerId;

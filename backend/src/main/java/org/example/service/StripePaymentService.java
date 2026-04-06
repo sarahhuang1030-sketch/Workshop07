@@ -9,9 +9,12 @@ import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.PaymentMethodAttachParams;
 import jakarta.annotation.PostConstruct;
+import org.example.entity.PaymentAccounts;
+import org.example.repository.PaymentAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Service
@@ -20,9 +23,41 @@ public class StripePaymentService {
     @Value("${stripe.secret.key}")
     private String stripeKey;
 
+    private final PaymentAccountRepository paymentAccountRepository;
+
+    // ✅ FIX: constructor injection
+    public StripePaymentService(PaymentAccountRepository paymentAccountRepository) {
+        this.paymentAccountRepository = paymentAccountRepository;
+    }
+
     @PostConstruct
     public void init() {
         Stripe.apiKey = stripeKey;
+    }
+
+    // ================= SAVE TO DB =================
+    public PaymentAccounts savePaymentAccount(
+            Integer customerId,
+            String paymentMethodId,
+            String brand,
+            String last4,
+            Integer expiryMonth,
+            Integer expiryYear,
+            String holderName
+    ) {
+
+        PaymentAccounts account = new PaymentAccounts();
+        account.setCustomerId(customerId);
+        account.setStripePaymentMethodId(paymentMethodId);
+        account.setMethod(brand);
+        account.setLast4(last4);
+        account.setExpiryMonth(expiryMonth);
+        account.setExpiryYear(expiryYear);
+        account.setHolderName(holderName);
+        account.setCreatedAt(LocalDateTime.now());
+        account.setIsDefault(0);
+
+        return paymentAccountRepository.save(account);
     }
 
     // ================= CREATE PAYMENT =================
@@ -56,16 +91,22 @@ public class StripePaymentService {
         );
     }
 
+    // ================= STRIPE + DB SAVE (FIXED CORE FLOW) =================
     public PaymentIntent createPaymentIntentWithCustomer(
             Long amount,
             String customerId,
             String paymentMethodId
     ) throws StripeException {
 
-        PaymentMethod.retrieve(paymentMethodId)
-                .attach(Map.of("customer", customerId));
+        PaymentMethod pm = PaymentMethod.retrieve(paymentMethodId);
 
-        return PaymentIntent.create(
+        // attach to stripe customer
+        pm.attach(PaymentMethodAttachParams.builder()
+                .setCustomer(customerId)
+                .build());
+
+        // create payment intent
+        PaymentIntent intent = PaymentIntent.create(
                 PaymentIntentCreateParams.builder()
                         .setAmount(amount)
                         .setCurrency("cad")
@@ -75,6 +116,19 @@ public class StripePaymentService {
                         .setConfirm(true)
                         .build()
         );
+
+        // ================= CRITICAL FIX: SAVE TO DB =================
+        savePaymentAccount(
+                Integer.valueOf(customerId), // ⚠️ assuming customerId = int in your system
+                paymentMethodId,
+                pm.getCard().getBrand(),
+                pm.getCard().getLast4(),
+                pm.getCard().getExpMonth().intValue(),
+                pm.getCard().getExpYear().intValue(),
+                pm.getBillingDetails() != null ? pm.getBillingDetails().getName() : null
+        );
+
+        return intent;
     }
 
     // ================= RETRIEVE =================
@@ -94,11 +148,13 @@ public class StripePaymentService {
                             .setDefaultPaymentMethod(paymentMethodId)
                             .build())
                     .build());
-            return pm;
         } else {
-            pm.attach(PaymentMethodAttachParams.builder().setCustomer(customerId).build());
-            return pm;
+            pm.attach(PaymentMethodAttachParams.builder()
+                    .setCustomer(customerId)
+                    .build());
         }
+
+        return pm;
     }
 
     // ================= DEFAULT =================

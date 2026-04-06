@@ -36,14 +36,9 @@ public class Invoices {
     @Column(length = 255)
     private String stripePaymentIntentId;
 
-    // Many invoices can be paid by one account
-    @ManyToOne
-    @JoinColumn(name = "PaidByAccountId", referencedColumnName = "accountId")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "PaidByAccountId")
     private PaymentAccounts paidByAccount;
-//
-//    @ManyToOne(fetch = FetchType.EAGER)
-//    @JoinColumn(name = "payment_account_id")
-//    private PaymentAccounts paidByAccount;
 
     // One invoice can have many invoice items
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
