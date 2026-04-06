@@ -1,5 +1,7 @@
 package org.example.dto;
 
+import java.util.List;
+
 public class InvoiceRequestDTO {
     public Integer customerId;
     public String invoiceNumber;
@@ -10,6 +12,8 @@ public class InvoiceRequestDTO {
     public Double taxTotal;
     public Double total;
     public Integer paymentAccountId;
+
+    private List<ItemDTO> items;
 
     public Integer getCustomerId() {
         return customerId;
@@ -74,4 +78,21 @@ public class InvoiceRequestDTO {
     public void setTotal(Double total) {
         this.total = total;
     }
+
+    public Integer getPaymentAccountId() {
+        return paymentAccountId;
+    }
+
+    public void setPaymentAccountId(Integer paymentAccountId) {
+        this.paymentAccountId = paymentAccountId;
+    }
+
+    public List<ItemDTO> getItems() {
+        return items;
+    }
+
+    public void setItems(List<ItemDTO> items) {
+        this.items = items;
+    }
+
 }
