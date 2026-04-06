@@ -24,7 +24,18 @@ public class Quote {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "invoice_id")
+    private Integer invoiceId;
+
     // ===== GETTERS & SETTERS =====
+
+    public Double getTotal() {
+        return amount;
+    }
+
+    public void setTotal(Double total) {
+        this.amount = total;
+    }
 
     public Integer getId() {
         return id;
@@ -64,5 +75,13 @@ public class Quote {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getInvoiceId() {
+        return invoiceId;
+    }
+
+    public void setInvoiceId(Integer invoiceId) {
+        this.invoiceId = invoiceId;
     }
 }

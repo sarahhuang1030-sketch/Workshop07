@@ -36,9 +36,18 @@ public class Invoices {
     @Column(length = 255)
     private String stripePaymentIntentId;
 
+    @Column(name = "quote_id")
+    private Integer quoteId;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "PaidByAccountId")
     private PaymentAccounts paidByAccount;
+
+    @Column(name = "source")
+    private String source; // QUOTE / MANUAL / SUBSCRIPTION
+
+    @Column(name = "lifecycle_stage")
+    private String lifecycleStage; // PENDING / APPROVED / PAID
 
     // One invoice can have many invoice items
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -86,4 +95,27 @@ public class Invoices {
     public String getStripePaymentIntentId() {return stripePaymentIntentId; }
     public void setStripePaymentIntentId(String stripePaymentIntentId) { this.stripePaymentIntentId = stripePaymentIntentId; }
 
+    public Integer getQuoteId() {
+        return quoteId;
+    }
+
+    public void setQuoteId(Integer quoteId) {
+        this.quoteId = quoteId;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getLifecycleStage() {
+        return lifecycleStage;
+    }
+
+    public void setLifecycleStage(String lifecycleStage) {
+        this.lifecycleStage = lifecycleStage;
+    }
 }

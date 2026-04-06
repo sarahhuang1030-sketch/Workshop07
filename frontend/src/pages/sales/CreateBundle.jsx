@@ -123,16 +123,16 @@ export default function CreateBundle() {
                 status: "PENDING"
             };
 
-            const res = await apiFetch("/api/invoices/admin", {
+            const res = await apiFetch("/api/quotes", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
-                throw new Error("Create invoice failed");
+                throw new Error("Create quote failed");
             }
 
-            setSuccess("Bundle created （ sent to customer）");
+            setSuccess("Quote created successfully (sent for approval)");
             setSelectedItems([]);
             setTotal(0);
 

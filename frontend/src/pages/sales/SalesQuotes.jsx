@@ -11,8 +11,16 @@ export default function SalesQuotes() {
 
     async function load() {
         const res = await apiFetch("/api/quotes");
+
+        if (!res.ok) {
+            console.error("Failed to load quotes");
+            setQuotes([]);
+            return;
+        }
+
         const data = await res.json();
-        setQuotes(data);
+
+        setQuotes(Array.isArray(data) ? data : []);
     }
 
     async function approve(id) {
