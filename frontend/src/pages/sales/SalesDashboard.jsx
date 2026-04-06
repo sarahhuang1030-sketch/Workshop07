@@ -22,6 +22,7 @@ import {
     TrendingUp,
     ArrowRight
 } from "lucide-react";
+import { Box } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
@@ -393,6 +394,18 @@ export default function SalesDashboard({ darkMode = false }) {
                 {/*        darkMode={darkMode}*/}
                 {/*    />*/}
                 {/*</Col>*/}
+
+                <Col md={6}>
+                    <ManageCard
+                        title="Custom Bundle"
+                        desc="Create personalized bundle for customer"
+                        icon={Box}
+                        badge="New"
+                        to="/sales/bundle/create"
+                        onGo={go}
+                        darkMode={darkMode}
+                    />
+                </Col>
 
                 <Col md={6}>
                     <ManageCard

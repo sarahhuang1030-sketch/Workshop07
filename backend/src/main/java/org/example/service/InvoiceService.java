@@ -1,117 +1,149 @@
 package org.example.service;
 
+import jakarta.transaction.Transactional;
 import org.example.dto.InvoiceDTO;
 import org.example.dto.InvoiceRequestDTO;
 import org.example.entity.Invoices;
 import org.example.entity.PaymentAccounts;
 import org.example.model.Customer;
-import org.example.repository.InvoiceRepository;
-import org.example.repository.CustomerRepository;
-import org.example.repository.PaymentAccountRepository;
+import org.example.model.Subscription;
+import org.example.model.SubscriptionAddOn;
+import org.example.repository.*;
+
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
-/**
- * Invoice Service
- * FIXED: All read operations use FETCH JOIN queries to avoid lazy loading issues
- */
 @Service
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final CustomerRepository customerRepository;
     private final PaymentAccountRepository paymentAccountRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionAddOnRepository subscriptionAddOnRepository;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             CustomerRepository customerRepository,
-            PaymentAccountRepository paymentAccountRepository
+            PaymentAccountRepository paymentAccountRepository,
+            SubscriptionRepository subscriptionRepository,
+            SubscriptionAddOnRepository subscriptionAddOnRepository
     ) {
         this.invoiceRepository = invoiceRepository;
         this.customerRepository = customerRepository;
         this.paymentAccountRepository = paymentAccountRepository;
+        this.subscriptionRepository = subscriptionRepository;
+        this.subscriptionAddOnRepository = subscriptionAddOnRepository;
     }
 
     // ======================================================
-    // QUERY (FIXED)
+    // INVOICE NUMBER
     // ======================================================
-
-    /**
-     * FIX: use fetch join version to ensure payment is loaded
-     */
-    public Invoices findByInvoiceNumber(String invoiceNumber) {
-        return invoiceRepository.findFullByInvoiceNumber(invoiceNumber);
-    }
-
-    public List<Invoices> findAllInvoices() {
-        return invoiceRepository.findAllWithPayment();
-    }
-
-    public Invoices findLatestByCustomerId(Integer customerId) {
-        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDesc(customerId);
-    }
-
-    public List<Invoices> findAllByCustomerId(Integer customerId) {
-        return invoiceRepository.findByCustomerIdWithPayment(customerId);
+    private String generateInvoiceNumber() {
+        return "INV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     // ======================================================
-    // CREATE INVOICE
+    // CREATE INVOICE (PLAN + ADDON + SUBSCRIPTION)
     // ======================================================
-
+    @Transactional
     public Invoices createInvoice(InvoiceRequestDTO body) {
 
+        if (body.getItems() == null) {
+            body.setItems(List.of());
+        }
+
         Invoices invoice = new Invoices();
-        applyRequest(invoice, body);
+        invoice.setCustomerId(body.getCustomerId());
 
-        PaymentAccounts account = null;
+        invoice.setInvoiceNumber(
+                (body.getInvoiceNumber() == null || body.getInvoiceNumber().isBlank())
+                        ? generateInvoiceNumber()
+                        : body.getInvoiceNumber()
+        );
 
-        if (body.paymentAccountId != null) {
-            account = paymentAccountRepository.findById(body.paymentAccountId).orElse(null);
-        } else if (body.customerId != null) {
-            account = paymentAccountRepository
-                    .findFirstByCustomerIdOrderByCreatedAtDesc(body.customerId)
-                    .orElse(null);
+        invoice.setStatus("Pending");
+        invoice.setSubtotal(body.getSubtotal() == null ? 0.0 : body.getSubtotal());
+        invoice.setTaxTotal(body.getTaxTotal() == null ? 0.0 : body.getTaxTotal());
+        invoice.setTotal(body.getTotal() == null ? 0.0 : body.getTotal());
+
+        Invoices savedInvoice = invoiceRepository.save(invoice);
+
+        // =========================
+        // FIND PLAN ITEM
+        // =========================
+        Integer planId = body.getItems().stream()
+                .filter(i -> i != null && "plan".equalsIgnoreCase(i.getType()))
+                .map(i -> i.getId())
+                .findFirst()
+                .orElse(null);
+
+        if (planId == null) {
+            throw new IllegalArgumentException("Plan is required");
         }
 
-        if (account != null) {
-            invoice.setPaidByAccount(account);
+        // =========================
+        // CREATE SUBSCRIPTION
+        // =========================
+        Subscription subscription = new Subscription();
+        subscription.setCustomerId(body.getCustomerId());
+        subscription.setPlanId(planId);
+        subscription.setStartDate(LocalDate.now());
+        subscription.setStatus("Active");
+
+        Subscription savedSubscription = subscriptionRepository.save(subscription);
+
+        // =========================
+        // ADDONS ONLY
+        // =========================
+        body.getItems().stream()
+                .filter(i -> i != null && "addon".equalsIgnoreCase(i.getType()))
+                .forEach(item -> {
+
+                    SubscriptionAddOn addon = new SubscriptionAddOn();
+                    addon.setSubscriptionId(savedSubscription.getSubscriptionId());
+                    addon.setAddOnId(item.getId());
+                    addon.setStartDate(LocalDate.now());
+                    addon.setStatus("Active");
+
+                    subscriptionAddOnRepository.save(addon);
+                });
+
+        // =========================
+        // PAYMENT ACCOUNT
+        // =========================
+        if (body.getPaymentAccountId() != null) {
+            paymentAccountRepository.findById(body.getPaymentAccountId())
+                    .ifPresent(account -> {
+                        savedInvoice.setPaidByAccount(account);
+                        invoiceRepository.save(savedInvoice);
+                    });
         }
 
-        // SAVE
-        Invoices saved = invoiceRepository.save(invoice);
-
-        // IMPORTANT FIX:
-        // re-fetch using FETCH JOIN (not findById!)
-        return invoiceRepository.findFullByInvoiceNumber(saved.getInvoiceNumber());
+        return savedInvoice;
     }
 
     // ======================================================
     // UPDATE
     // ======================================================
-
     public Invoices updateInvoice(String invoiceNumber, InvoiceRequestDTO body) {
 
-        Invoices invoice =
-                invoiceRepository.findFullByInvoiceNumber(invoiceNumber);
-
+        Invoices invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
         if (invoice == null) return null;
 
         applyRequest(invoice, body);
-
         invoiceRepository.save(invoice);
 
-        // re-fetch safe version
-        return invoiceRepository.findFullByInvoiceNumber(invoiceNumber);
+        return invoiceRepository.findByInvoiceNumber(invoiceNumber);
     }
 
     // ======================================================
     // DELETE
     // ======================================================
-
     public boolean deleteInvoice(String invoiceNumber) {
 
         Invoices invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -122,36 +154,30 @@ public class InvoiceService {
     }
 
     // ======================================================
-    // APPLY REQUEST
+    // APPLY UPDATE
     // ======================================================
-
     private void applyRequest(Invoices invoice, InvoiceRequestDTO body) {
 
-        invoice.setCustomerId(body.customerId);
-        invoice.setInvoiceNumber(body.invoiceNumber);
-        invoice.setStatus(body.status);
+        invoice.setCustomerId(body.getCustomerId());
+        invoice.setStatus(body.getStatus());
 
-        invoice.setIssueDate(
-                body.issueDate != null && !body.issueDate.isBlank()
-                        ? LocalDate.parse(body.issueDate)
-                        : null
-        );
+        if (body.getInvoiceNumber() != null)
+            invoice.setInvoiceNumber(body.getInvoiceNumber());
 
-        invoice.setDueDate(
-                body.dueDate != null && !body.dueDate.isBlank()
-                        ? LocalDate.parse(body.dueDate)
-                        : null
-        );
+        if (body.getIssueDate() != null)
+            invoice.setIssueDate(LocalDate.parse(body.getIssueDate()));
 
-        invoice.setSubtotal(body.subtotal != null ? body.subtotal : 0.0);
-        invoice.setTaxTotal(body.taxTotal != null ? body.taxTotal : 0.0);
-        invoice.setTotal(body.total != null ? body.total : 0.0);
+        if (body.getDueDate() != null)
+            invoice.setDueDate(LocalDate.parse(body.getDueDate()));
+
+        invoice.setSubtotal(body.getSubtotal() == null ? 0.0 : body.getSubtotal());
+        invoice.setTaxTotal(body.getTaxTotal() == null ? 0.0 : body.getTaxTotal());
+        invoice.setTotal(body.getTotal() == null ? 0.0 : body.getTotal());
     }
 
     // ======================================================
     // DTO CONVERT
     // ======================================================
-
     public InvoiceDTO convertToDTO(Invoices invoice) {
 
         InvoiceDTO dto = new InvoiceDTO();
@@ -166,65 +192,51 @@ public class InvoiceService {
         dto.taxTotal = BigDecimal.valueOf(invoice.getTaxTotal() == null ? 0.0 : invoice.getTaxTotal());
         dto.total = BigDecimal.valueOf(invoice.getTotal() == null ? 0.0 : invoice.getTotal());
 
-        // ======================================================
-        // CUSTOMER (unchanged)
-        // ======================================================
-        Customer customer = null;
+        // customer name
+        Customer customer = invoice.getCustomerId() != null
+                ? customerRepository.findById(invoice.getCustomerId()).orElse(null)
+                : null;
 
-        if (invoice.getCustomerId() != null) {
-            customer = customerRepository.findById(invoice.getCustomerId()).orElse(null);
-        }
+        dto.setCustomerName(customer == null ? "—" :
+                ("Business".equalsIgnoreCase(customer.getCustomerType())
+                        ? customer.getBusinessName()
+                        : customer.getFirstName() + " " + customer.getLastName())
+        );
 
-        if (customer != null) {
-            if ("Business".equalsIgnoreCase(customer.getCustomerType())) {
-                dto.setCustomerName(customer.getBusinessName());
-            } else {
-                dto.setCustomerName(
-                        (customer.getFirstName() == null ? "" : customer.getFirstName()) + " " +
-                                (customer.getLastName() == null ? "" : customer.getLastName())
-                );
-            }
-        } else {
-            dto.setCustomerName("—");
-        }
-
-
+        // payment
         PaymentAccounts account = invoice.getPaidByAccount();
 
         InvoiceDTO.PaymentAccountDTO paid = new InvoiceDTO.PaymentAccountDTO();
-
         if (account != null) {
-
-            paid.setMethod(account.getMethod());   // Visa / MasterCard
+            paid.setMethod(account.getMethod());
             paid.setLast4(account.getLast4());
             paid.setAccountId(account.getAccountId());
-
         } else {
-
-            // fallback ONLY (never show Stripe as payment method)
             paid.setMethod("Online Payment");
-            paid.setLast4(null);
-            paid.setAccountId(null);
         }
 
         dto.paidByAccount = paid;
 
-        // ======================================================
-        // ITEMS
-        // ======================================================
-        dto.items = invoice.getItems() == null ? List.of()
-                : invoice.getItems().stream().map(item -> {
-
-            InvoiceDTO.InvoiceItemDTO i = new InvoiceDTO.InvoiceItemDTO();
-            i.description = item.getDescription();
-            i.quantity = item.getQuantity();
-            i.unitPrice = item.getUnitPrice();
-            i.discountAmount = item.getDiscountAmount();
-            i.lineTotal = item.getLineTotal();
-            return i;
-
-        }).toList();
-
         return dto;
+    }
+
+    // ======================================================
+    // REQUIRED METHODS (FIXED)
+    // ======================================================
+
+    public List<Invoices> findAllInvoices() {
+        return invoiceRepository.findAll();
+    }
+
+    public List<Invoices> findAllByCustomerId(Integer customerId) {
+        return invoiceRepository.findByCustomerIdOrderByIssueDateDesc(customerId);
+    }
+
+    public Invoices findByInvoiceNumber(String invoiceNumber) {
+        return invoiceRepository.findByInvoiceNumber(invoiceNumber);
+    }
+
+    public Invoices findLatestByCustomerId(Integer customerId) {
+        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDesc(customerId);
     }
 }

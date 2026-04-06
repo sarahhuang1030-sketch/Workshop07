@@ -40,10 +40,11 @@ import SalesBilling from "./pages/sales/SalesBilling";
 import SalesSubscriptions from "./pages/sales/SalesSubscription";
 import SalesAddons from "./pages/sales/SalesAddon";
 import SalesPlanFeatures from "./pages/sales/SalesPlanFeature";
-// import SalesPastDue from "./pages/sales/SalesPastDue";
 import SalesAudit from "./pages/sales/SalesAudit";
 import SalesEmployeeSales from "./pages/sales/SalesEmployeeSales";
 import SalesLocation from "./pages/sales/SalesLocation";
+// import SalesPastDue from "./pages/sales/SalesPastDue";
+import CreateBundle from "./pages/sales/CreateBundle";
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -446,7 +447,14 @@ export default function App() {
                         </RequireRole>
                     }
                 />
-
+                <Route
+                    path="/sales/bundle/create"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
+                            <CreateBundle />
+                        </RequireRole>
+                    }
+                />
                 <Route
                     path="/sales/subscriptions"
                     element={
