@@ -29,6 +29,7 @@ import CustomerPlan from "./pages/customer/CustomerPlan";
 import CustomerBilling from "./pages/customer/CustomerBilling";
 import CustomerSupport from "./pages/customer/CustomerSupport";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
+import CustomerInvoice from "./pages/customer/CustomerInvoice";
 
 // Sales
 import SalesDashboard from "./pages/sales/SalesDashboard";
@@ -386,6 +387,15 @@ export default function App() {
                         </RequireRole>
                     }
                 />
+                <Route
+                    path="/customer/invoice/:invoiceNumber"
+                    element={
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
+                            <CustomerInvoice />
+                        </RequireRole>
+                    }
+                />
+
                 {/* SALES ROUTES (NEW SECTION)*/}
                 <Route
                     path="/sales"

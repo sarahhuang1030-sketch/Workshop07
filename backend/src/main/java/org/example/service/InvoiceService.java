@@ -109,6 +109,7 @@ public Invoices createInvoice(InvoiceRequestDTO body) {
                     .orElse(null);
         }
 
+
         // =====================================================
         // BUILD CUSTOMER NAME SAFELY
         // =====================================================
@@ -138,6 +139,12 @@ public Invoices createInvoice(InvoiceRequestDTO body) {
             InvoiceDTO.PaidAccountDTO paid = new InvoiceDTO.PaidAccountDTO();
             paid.method = invoice.getPaidByAccount().getMethod();
             paid.last4 = invoice.getPaidByAccount().getLast4();
+            dto.paidByAccount = paid;
+
+        } else if (invoice.getStripePaymentIntentId() != null) {
+            InvoiceDTO.PaidAccountDTO paid = new InvoiceDTO.PaidAccountDTO();
+            paid.method = "Card (Stripe)";
+            paid.last4 = "****";
             dto.paidByAccount = paid;
         }
 

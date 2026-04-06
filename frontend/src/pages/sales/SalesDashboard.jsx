@@ -231,21 +231,37 @@ export default function SalesDashboard({ darkMode = false }) {
                 console.log("INVOICES RAW:", invoices);
                 console.log("FIRST ITEM:", invoices?.[0]);
 
+                // i.forEach(inv => {
+                //
+                //     const amount =
+                //         Number(inv?.total) ||
+                //         (Number(inv?.subtotal || 0) + Number(inv?.taxTotal || 0));
+                //
+                //     const dateStr = inv?.issueDate;
+                //
+                //     const date = new Date(dateStr);
+                //
+                //     if (!isFinite(amount)) return;
+                //
+                //     totalRevenue += amount;
+                //
+                //     if (dateStr && dateStr.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`)) {
+                //         monthlyRevenue += amount;
+                //     }
+                // });
                 i.forEach(inv => {
 
-                    const amount =
-                        Number(inv?.total) ||
-                        (Number(inv?.subtotal || 0) + Number(inv?.taxTotal || 0));
-
-                    const dateStr = inv?.issueDate;
-
-                    const date = new Date(dateStr);
-
+                    const amount = Number(inv?.total ?? 0);
                     if (!isFinite(amount)) return;
 
                     totalRevenue += amount;
 
-                    if (dateStr && dateStr.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`)) {
+                    const [year, month] = (inv?.issueDate || "").split("-").map(Number);
+
+                    if (
+                        year === currentYear &&
+                        (month - 1) === currentMonth
+                    ) {
                         monthlyRevenue += amount;
                     }
                 });

@@ -40,6 +40,10 @@ public class Invoices {
     @ManyToOne
     @JoinColumn(name = "PaidByAccountId", referencedColumnName = "accountId")
     private PaymentAccounts paidByAccount;
+//
+//    @ManyToOne(fetch = FetchType.EAGER)
+//    @JoinColumn(name = "payment_account_id")
+//    private PaymentAccounts paidByAccount;
 
     // One invoice can have many invoice items
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)

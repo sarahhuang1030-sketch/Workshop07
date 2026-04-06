@@ -180,10 +180,21 @@ public class CheckoutService {
                 .orElseThrow(() -> new Exception("User not found"));
 
         // 3. Payment account
+//        PaymentAccounts account = null;
+//
+//        if (paymentAccountId != null) {
+//            account = accountRepo.findById(paymentAccountId).orElse(null);
+//        }
         PaymentAccounts account = null;
 
         if (paymentAccountId != null) {
-            account = accountRepo.findById(paymentAccountId).orElse(null);
+            account = accountRepo.findById(paymentAccountId)
+                    .orElseThrow(() -> new RuntimeException("Payment method not found"));
+
+            // IMPORTANT: ensure it belongs to current user
+            if (!account.getCustomerId().equals(user.getCustomerId())) {
+                throw new RuntimeException("Unauthorized payment method");
+            }
         }
 
         // 4. Create invoice
