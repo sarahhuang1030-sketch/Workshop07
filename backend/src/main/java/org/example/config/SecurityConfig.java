@@ -127,7 +127,8 @@ public class SecurityConfig {
                                 "/api/weather",
                                 "/uploads/**",
                                 "/login/**",
-                                "/api/chat/**"
+                                "/api/chat/**",
+                                "/api/ai/**"
                         ).permitAll()
 
                         // Billing requires login

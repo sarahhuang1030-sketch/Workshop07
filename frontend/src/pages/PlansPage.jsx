@@ -13,6 +13,7 @@ import {
 } from "react-bootstrap";
 import { useTheme } from "../context/ThemeContext";
 import { useCart } from "../context/CartContext";
+import PlanAdvisorModal from "../components/ai/PlanAdvisorModal";
 import {
     Smartphone,
     Gift,
@@ -87,6 +88,7 @@ export default function PlansPage() {
     const [sortBy, setSortBy] = useState("recommended");
     const [lineCount, setLineCount] = useState(1);
     const [bundlePlans, setBundlePlans] = useState([]);
+    const [showAiModal, setShowAiModal] = useState(false);
 
     // NEW: modal state for line subscriber details
     const [showLineDetailsModal, setShowLineDetailsModal] = useState(false);
@@ -351,6 +353,15 @@ export default function PlansPage() {
                         </Form.Select>
                     </div>
 
+                    <div style={{ textAlign: "center", margin: "20px 0" }}>
+                        <button
+                            className="btn btn-outline-primary"
+                            onClick={() => setShowAiModal(true)}
+                        >
+                            ✨ Find My Best Plan (AI)
+                        </button>
+                    </div>
+
                     <div
                         className={`mb-4 ${darkMode ? "text-light" : "text-dark"}`}
                         style={{ fontSize: "1.6rem", fontWeight: 700 }}
@@ -464,9 +475,9 @@ export default function PlansPage() {
                                         {lineCount}
                                     </div>
 
-                                   <button
-                                       type="button"
-                                       onClick={() => setLineCount((prev) => Math.min(6, prev + 1))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setLineCount((prev) => Math.min(6, prev + 1))}
                                         style={{
                                             border: "none",
                                             background: "transparent",
@@ -989,17 +1000,17 @@ export default function PlansPage() {
                                                 when paired with eligible TeleConnect mobile plans.
                                             </p>
 
-                                           <Button
-                                               className="mt-auto align-self-start"
-                                               style={{
-                                                   borderRadius: "999px",
-                                                   padding: "0.75rem 1.25rem",
-                                                   fontWeight: 700,
-                                               }}
-                                               onClick={() => navigate("/phones")}
-                                           >
-                                               Browse Phones
-                                           </Button>
+                                            <Button
+                                                className="mt-auto align-self-start"
+                                                style={{
+                                                    borderRadius: "999px",
+                                                    padding: "0.75rem 1.25rem",
+                                                    fontWeight: 700,
+                                                }}
+                                                onClick={() => navigate("/phones")}
+                                            >
+                                                Browse Phones
+                                            </Button>
                                         </Card.Body>
                                     </Card>
                                 </Col>
@@ -1199,6 +1210,14 @@ export default function PlansPage() {
                     </Button>
                 </Modal.Footer>
             </Modal>
+
+            <PlanAdvisorModal
+                show={showAiModal}
+                onHide={() => setShowAiModal(false)}
+                darkMode={darkMode}
+                defaultServiceType={serviceType}
+                defaultLineCount={lineCount}
+            />
         </>
     );
 }
