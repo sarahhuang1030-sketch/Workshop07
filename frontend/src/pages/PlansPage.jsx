@@ -464,9 +464,9 @@ export default function PlansPage() {
                                         {lineCount}
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setLineCount((prev) => prev + 1)}
+                                   <button
+                                       type="button"
+                                       onClick={() => setLineCount((prev) => Math.min(6, prev + 1))}
                                         style={{
                                             border: "none",
                                             background: "transparent",
