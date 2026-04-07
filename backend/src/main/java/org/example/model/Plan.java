@@ -1,6 +1,7 @@
 package org.example.model;
 
 import jakarta.persistence.*;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.math.BigDecimal;
 

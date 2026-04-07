@@ -38,6 +38,7 @@ import CustomerInvoice from "./pages/customer/CustomerInvoice";
 import SalesDashboard from "./pages/sales/SalesDashboard";
 import SalesCustomers from "./pages/sales/SalesCustomers";
 import SalesQuotes from "./pages/sales/SalesQuotes.jsx";
+import EditQuote from "./pages/sales/EditQuote";
 import SalesActivations from "./pages/sales/SalesActivations";
 import SalesBilling from "./pages/sales/SalesBilling";
 import SalesSubscriptions from "./pages/sales/SalesSubscription";
@@ -431,6 +432,7 @@ export default function App() {
                         </RequireRole>
                     }
                 />
+                <Route path="/sales/quotes/:id/edit" element={<EditQuote />} />
                 <Route
                     path="/sales/activations"
                     element={

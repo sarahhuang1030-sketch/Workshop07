@@ -1,13 +1,34 @@
 package org.example.dto;
 
-import java.math.BigDecimal;
 import java.util.List;
 
-public class QuoteDTO {
+public class QuoteUpdateDTO {
 
-    public Integer customerId;
+    private Integer customerId;
+    private Integer planId;
+    private List<Integer> addonIds;
 
-    public Integer planId;
+    public Integer getCustomerId() {
+        return customerId;
+    }
 
-    public List<Integer> addonIds;
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
+    public Integer getPlanId() {
+        return planId;
+    }
+
+    public void setPlanId(Integer planId) {
+        this.planId = planId;
+    }
+
+    public List<Integer> getAddonIds() {
+        return addonIds;
+    }
+
+    public void setAddonIds(List<Integer> addonIds) {
+        this.addonIds = addonIds;
+    }
 }

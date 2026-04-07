@@ -2,6 +2,7 @@ package org.example.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Entity representing a sales quote (pre-invoice).
@@ -24,8 +25,14 @@ public class Quote {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "plan_id")
+    private Integer planId;
+
     @Column(name = "invoice_id")
     private Integer invoiceId;
+
+    @OneToMany(mappedBy = "quote", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QuoteAddOn> addons;
 
     // ===== GETTERS & SETTERS =====
 
@@ -83,5 +90,21 @@ public class Quote {
 
     public void setInvoiceId(Integer invoiceId) {
         this.invoiceId = invoiceId;
+    }
+
+    public Integer getPlanId() {
+        return planId;
+    }
+
+    public void setPlanId(Integer planId) {
+        this.planId = planId;
+    }
+
+    public List<QuoteAddOn> getAddons() {
+        return addons;
+    }
+
+    public void setAddons(List<QuoteAddOn> addons) {
+        this.addons = addons;
     }
 }

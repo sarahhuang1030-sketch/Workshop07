@@ -1,6 +1,7 @@
 package org.example.model;
 
 import jakarta.persistence.*;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 @Entity
 @Table(name = "addons")
@@ -31,6 +32,8 @@ public class AddOn {
 
     @Column(name = "ThemeKey")
     private String themeKey;
+
+    // ===== GETTERS =====
 
     public Integer getAddOnId() { return addOnId; }
     public void setAddOnId(Integer addOnId) { this.addOnId = addOnId; }

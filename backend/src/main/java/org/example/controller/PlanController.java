@@ -18,31 +18,45 @@ public class PlanController {
         this.repo = repo;
     }
 
+    // =========================
+    // GET PLANS (MAIN API)
+    // FIX: removed duplicate mapping
+    // =========================
     @GetMapping
     public List<PlanDTO> getPlans(
             @RequestParam(required = false, defaultValue = "Internet") String type,
             @RequestParam(defaultValue = "false") boolean includeAddOns
     ) {
+
         String normalized = (type == null) ? "" : type.trim();
 
         // alias support
-        if (normalized.equalsIgnoreCase("home")) normalized = "Internet";
+        if (normalized.equalsIgnoreCase("home")) {
+            normalized = "Internet";
+        }
 
         var planRows = repo.findPlansByServiceTypeName(normalized);
         if (planRows.isEmpty()) return List.of();
 
-        List<Integer> planIds = planRows.stream().map(PlanRepository.PlanRow::planId).toList();
+        List<Integer> planIds = planRows.stream()
+                .map(PlanRepository.PlanRow::planId)
+                .toList();
 
         var featuresByPlan = repo.findPlanFeaturesByPlanIds(planIds);
-        var addOnsByPlan = includeAddOns ? repo.findAddOnsByPlanIds(planIds) : Map.<Integer, List<AddOnDTO>>of();
+
+        var addOnsByPlan = includeAddOns
+                ? repo.findAddOnsByPlanIds(planIds)
+                : Map.<Integer, List<AddOnDTO>>of();
 
         List<PlanDTO> out = new ArrayList<>();
 
         for (var p : planRows) {
+
             List<String> perks = new ArrayList<>();
             List<PlanFeatureDTO> structured = new ArrayList<>();
 
             for (var f : featuresByPlan.getOrDefault(p.planId(), List.of())) {
+
                 if ("Perk".equalsIgnoreCase(f.featureName())) {
                     perks.add(f.featureValue());
                 } else {

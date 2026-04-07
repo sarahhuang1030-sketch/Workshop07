@@ -14,6 +14,7 @@ public class AddOnRepository {
         this.jdbc = jdbc;
     }
 
+    // FIND ALL ACTIVE ADDONS
     public List<AddOnDTO> findAllActiveAddOns() {
         return jdbc.query("""
                 SELECT AddOnId,
@@ -152,4 +153,5 @@ public class AddOnRepository {
                 planId, addOnId
         );
     }
+
 }

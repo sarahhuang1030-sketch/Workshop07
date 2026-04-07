@@ -1,66 +1,131 @@
-import React, { useEffect, useState } from "react";
-import { Container, Table, Button } from "react-bootstrap";
+import React, { useEffect, useState, useCallback } from "react";
+import { Container, Button, Spinner, Alert, Card, Accordion } from "react-bootstrap";
 import { apiFetch } from "../../services/api";
+import { useNavigate } from "react-router-dom";
 
 export default function SalesQuotes() {
+
     const [quotes, setQuotes] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const navigate = useNavigate();
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const res = await apiFetch("/api/quotes");
+
+            if (!res.ok) throw new Error();
+
+            const data = await res.json();
+            setQuotes(Array.isArray(data) ? data : []);
+        } catch (e) {
+            setError("Failed to load quotes");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         load();
-    }, []);
+    }, [load]);
 
-    async function load() {
-        const res = await apiFetch("/api/quotes");
-
-        if (!res.ok) {
-            console.error("Failed to load quotes");
-            setQuotes([]);
-            return;
-        }
-
-        const data = await res.json();
-
-        setQuotes(Array.isArray(data) ? data : []);
+    function edit(id) {
+        navigate(`/sales/quotes/${id}/edit`);
     }
 
-    async function approve(id) {
-        await apiFetch(`/api/quotes/${id}/approve`, { method: "PATCH" });
+    async function cancel(id) {
+        if (!window.confirm("Cancel this quote?")) return;
+
+        await apiFetch(`/api/quotes/${id}/cancel`, {
+            method: "PATCH",
+        });
+
         load();
     }
 
     return (
         <Container className="py-4">
-            <h3>Quotes</h3>
 
-            <Table>
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Customer</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-                </thead>
+            <h3 className="mb-4">Quotes</h3>
 
-                <tbody>
-                {quotes.map(q => (
-                    <tr key={q.id}>
-                        <td>{q.id}</td>
-                        <td>{q.customerId}</td>
-                        <td>${q.amount}</td>
-                        <td>{q.status}</td>
-                        <td>
-                            {q.status === "PENDING" && (
-                                <Button size="sm" onClick={() => approve(q.id)}>
-                                    Approve
-                                </Button>
-                            )}
-                        </td>
-                    </tr>
-                ))}
-                </tbody>
-            </Table>
+            {loading && <Spinner animation="border" />}
+            {error && <Alert variant="danger">{error}</Alert>}
+
+            {!loading && !error && (
+                <Accordion defaultActiveKey="0">
+
+                    {quotes.map((q, index) => (
+                        <Card key={q.id} className="mb-3 shadow-sm">
+
+                            <Accordion.Item eventKey={String(index)}>
+
+                                <Accordion.Header>
+                                    <div className="d-flex justify-content-between w-100 pe-3">
+                                        <div>
+                                            <strong>Quote #{q.id}</strong>
+                                            <div className="text-muted">
+                                                {q.customerName}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span className="badge bg-primary me-2">
+                                                ${Number(q.amount || 0).toFixed(2)}
+                                            </span>
+
+                                            <span className="badge bg-secondary">
+                                                {q.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </Accordion.Header>
+
+                                <Accordion.Body>
+
+                                    <div className="mb-3">
+                                        <strong>Customer:</strong> {q.customerName}
+                                    </div>
+
+                                    <div className="mb-3">
+                                        <strong>Total:</strong> ${q.amount}
+                                    </div>
+
+                                    <div className="d-flex gap-2">
+
+                                        <Button
+                                            size="sm"
+                                            variant="primary"
+                                            onClick={() => edit(q.id)}
+                                        >
+                                            Edit
+                                        </Button>
+
+                                        {q.status === "PENDING" && (
+                                            <Button
+                                                size="sm"
+                                                variant="danger"
+                                                onClick={() => cancel(q.id)}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+
+                                    </div>
+
+                                </Accordion.Body>
+
+                            </Accordion.Item>
+
+                        </Card>
+                    ))}
+
+                </Accordion>
+            )}
+
         </Container>
     );
 }
