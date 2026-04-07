@@ -989,22 +989,17 @@ export default function PlansPage() {
                                                 when paired with eligible TeleConnect mobile plans.
                                             </p>
 
-                                            <Button
-                                                className="mt-auto align-self-start"
-                                                style={{
-                                                    borderRadius: "999px",
-                                                    padding: "0.75rem 1.25rem",
-                                                    fontWeight: 700,
-                                                }}
-                                                onClick={() =>
-                                                    window.open(
-                                                        "https://www.rogers.com/phones?icid=R_WIR_CMH_GJJPYK",
-                                                        "_blank"
-                                                    )
-                                                }
-                                            >
-                                                Browse Phones
-                                            </Button>
+                                           <Button
+                                               className="mt-auto align-self-start"
+                                               style={{
+                                                   borderRadius: "999px",
+                                                   padding: "0.75rem 1.25rem",
+                                                   fontWeight: 700,
+                                               }}
+                                               onClick={() => navigate("/phones")}
+                                           >
+                                               Browse Phones
+                                           </Button>
                                         </Card.Body>
                                     </Card>
                                 </Col>

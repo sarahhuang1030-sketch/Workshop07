@@ -26,22 +26,19 @@ function getCartKey() {
 }
 
 export function CartProvider({ children }) {
-    // Keep cart plans as an array so we can support:
-    // - multiple Mobile plans
-    // - one Internet plan
-    // - one Bundle plan
     const [plans, setPlans] = useState([]);
     const [addOns, setAddOns] = useState([]);
+
+
+    const [devices, setDevices] = useState([]);
 
     const [sessionKey, setSessionKey] = useState(() => localStorage.getItem("tc_user") || "");
     const [hydrated, setHydrated] = useState(false);
 
-    // Remove legacy cart storage
     useEffect(() => {
         localStorage.removeItem("tc_cart");
     }, []);
 
-    // Watch for login/logout changes
     useEffect(() => {
         const onStorage = (e) => {
             if (e.key === "tc_user") {
@@ -62,7 +59,6 @@ export function CartProvider({ children }) {
         };
     }, []);
 
-    // Load cart for current user
     useEffect(() => {
         setHydrated(false);
 
@@ -71,6 +67,7 @@ export function CartProvider({ children }) {
         if (!key) {
             setPlans([]);
             setAddOns([]);
+            setDevices([]);
             setHydrated(true);
             return;
         }
@@ -81,9 +78,6 @@ export function CartProvider({ children }) {
             try {
                 const parsed = JSON.parse(saved);
 
-                // Backward compatibility:
-                // old cart shape = { plan, addOns }
-                // new cart shape = { plans, addOns }
                 if (Array.isArray(parsed.plans)) {
                     setPlans(parsed.plans);
                 } else if (parsed.plan) {
@@ -93,20 +87,24 @@ export function CartProvider({ children }) {
                 }
 
                 setAddOns(Array.isArray(parsed.addOns) ? parsed.addOns : []);
+
+
+                setDevices(Array.isArray(parsed.devices) ? parsed.devices : []);
             } catch {
                 localStorage.removeItem(key);
                 setPlans([]);
                 setAddOns([]);
+                setDevices([]);
             }
         } else {
             setPlans([]);
             setAddOns([]);
+            setDevices([]);
         }
 
         setHydrated(true);
     }, [sessionKey]);
 
-    // Persist cart whenever it changes
     useEffect(() => {
         if (!hydrated) return;
 
@@ -118,21 +116,19 @@ export function CartProvider({ children }) {
             JSON.stringify({
                 plans,
                 addOns,
+                devices,
             })
         );
-    }, [plans, addOns, sessionKey, hydrated]);
+    }, [plans, addOns, devices, sessionKey, hydrated]);
 
     const addPlan = (p) => {
         setPlans((prev) => {
             const serviceType = p?.serviceType ?? "Unknown";
 
-            // Allow multiple mobile plans in the same cart
             if (serviceType === "Mobile") {
                 return [...prev, p];
             }
 
-            // Replace only the same non-mobile service type
-            // so Internet and Bundle stay single-select
             const filtered = prev.filter(
                 (existing) => (existing?.serviceType ?? "Unknown") !== serviceType
             );
@@ -141,28 +137,20 @@ export function CartProvider({ children }) {
         });
     };
 
-    // Backward-compatible removePlan:
-    // - removePlan() clears all plans
-    // - removePlan("Mobile") removes all mobile plans
-    // - removePlan("Internet") removes only internet
-    // - removePlan("Bundle") removes only bundle
     const removePlan = (serviceType) => {
         if (!serviceType) {
             setPlans([]);
             setAddOns([]);
+            setDevices([]);
             return;
         }
-useEffect(() => {
-    if (plans.length === 0) {
-        setAddOns([]);
-    }
-}, [plans]);
 
         setPlans((prev) =>
             prev.filter((p) => (p?.serviceType ?? "Unknown") !== serviceType)
         );
     };
-const removePlanAtIndex = (indexToRemove) => {
+
+    const removePlanAtIndex = (indexToRemove) => {
         setPlans((prev) => prev.filter((_, index) => index !== indexToRemove));
     };
 
@@ -176,26 +164,31 @@ const removePlanAtIndex = (indexToRemove) => {
         setAddOns((prev) => prev.filter((a) => a.addOnId !== id));
     };
 
+
+    const addDevice = (device) => {
+        setDevices((prev) => [...prev, device]);
+    };
+
+    const removeDevice = (cartDeviceId) => {
+        setDevices((prev) =>
+            prev.filter((d) => d.cartDeviceId !== cartDeviceId)
+        );
+    };
+
     const clearCart = () => {
         const key = getCartKey();
         if (key) localStorage.removeItem(key);
 
         setPlans([]);
         setAddOns([]);
+        setDevices([]);
     };
 
-    // Helpful derived values
     const mobilePlan = plans.find((p) => p?.serviceType === "Mobile") || null;
     const internetPlan = plans.find((p) => p?.serviceType === "Internet") || null;
 
-    // Backward compatibility for older pages that still expect a single "plan"
-    // Priority:
-    // 1. mobilePlan
-    // 2. internetPlan
-    // 3. first available plan
     const plan = mobilePlan || internetPlan || plans[0] || null;
 
-    // Calculate total price
     const total = useMemo(() => {
         const plansTotal = plans.reduce(
             (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
@@ -207,29 +200,40 @@ const removePlanAtIndex = (indexToRemove) => {
             0
         );
 
-        return plansTotal + addOnsTotal;
-    }, [plans, addOns]);
+
+        const devicesTotal = devices.reduce(
+            (sum, d) => sum + Number(d?.totalPrice ?? 0),
+            0
+        );
+
+        return plansTotal + addOnsTotal + devicesTotal;
+    }, [plans, addOns, devices]);
 
     return (
         <CartContext.Provider
-                    value={{
-                        // New shape
-                        plans,
-                        mobilePlan,
-                        internetPlan,
+            value={{
+                plans,
+                mobilePlan,
+                internetPlan,
+                plan,
+                addOns,
 
-                        // Backward compatibility
-                        plan,
+                // ✅ NEW
+                devices,
 
-                        addOns,
-                        total,
-                        addPlan,
-                        removePlan,
-                        removePlanAtIndex,
-                        addAddOn,
-                        removeAddOn,
-                        clearCart,
-                    }}
+                total,
+                addPlan,
+                removePlan,
+                removePlanAtIndex,
+                addAddOn,
+                removeAddOn,
+
+
+                addDevice,
+                removeDevice,
+
+                clearCart,
+            }}
         >
             {children}
         </CartContext.Provider>

@@ -11,6 +11,11 @@ public class CheckoutItemDTO {
     private Double discountAmount;
     private List<String> subscribers;
 
+    // NEW FIELDS
+    private String itemType;   // "plan", "addon", "device"
+    private Integer phoneId;
+    private String pricingType;
+
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
@@ -28,4 +33,14 @@ public class CheckoutItemDTO {
 
     public List<String> getSubscribers() { return subscribers; }
     public void setSubscribers(List<String> subscribers) { this.subscribers = subscribers; }
+
+    // NEW GETTERS/SETTERS
+    public String getItemType() { return itemType; }
+    public void setItemType(String itemType) { this.itemType = itemType; }
+
+    public Integer getPhoneId() { return phoneId; }
+    public void setPhoneId(Integer phoneId) { this.phoneId = phoneId; }
+
+    public String getPricingType() { return pricingType; }
+    public void setPricingType(String pricingType) { this.pricingType = pricingType; }
 }

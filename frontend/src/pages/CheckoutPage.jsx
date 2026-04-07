@@ -18,7 +18,7 @@ const PROVINCE_TAX = {
 
 export default function CheckoutPage() {
     const stripe = useStripe();
-    const { plans, addOns, total, clearCart } = useCart();
+    const { plans, addOns, devices, clearCart } = useCart();
 
     const [paymentMethod, setPaymentMethod] = useState(null);
     const [submitted, setSubmitted] = useState(false);
@@ -30,43 +30,62 @@ export default function CheckoutPage() {
 
     /* =========================
        PRICING CALCULATION
-       Clear breakdown:
-       Base → Discount → Subtotal → Tax → Total
+       Separate recurring vs one-time
     ========================= */
     const pricing = useMemo(() => {
         const taxRate = PROVINCE_TAX[province] || 0.13;
 
-        // Base monthly price (sum of cart)
-        const baseMonthly = total;
+        const recurringPlans = plans.reduce(
+            (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
+            0
+        );
 
-        // Yearly base (12 months before discount)
-        const yearlyBase = baseMonthly * 12;
+        const recurringAddOns = addOns.reduce(
+            (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
+            0
+        );
 
-        // Yearly discount (10% off)
-        const yearlyDiscount =
-            billingCycle === "yearly" ? yearlyBase * 0.1 : 0;
+        const financedDevices = devices
+            .filter((d) => d.pricingType === "monthly")
+            .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
 
-        // Subtotal after discount
-        const subtotal =
+        const outrightDevices = devices
+            .filter((d) => d.pricingType === "full")
+            .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
+
+        const recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
+
+        const yearlyBase = recurringMonthly * 12;
+        const yearlyDiscount = billingCycle === "yearly" ? yearlyBase * 0.1 : 0;
+
+        const recurringSubtotal =
             billingCycle === "yearly"
                 ? yearlyBase - yearlyDiscount
-                : baseMonthly;
+                : recurringMonthly;
 
-        // Tax calculation
+        const oneTimeSubtotal = outrightDevices;
+
+        const subtotal = recurringSubtotal + oneTimeSubtotal;
         const tax = subtotal * taxRate;
-
-        // Final total
         const finalTotal = subtotal + tax;
 
         return {
-            baseMonthly,
+            recurringPlans,
+            recurringAddOns,
+            financedDevices,
+            outrightDevices,
+            recurringMonthly,
             yearlyBase,
             yearlyDiscount,
+            recurringSubtotal,
+            oneTimeSubtotal,
             subtotal,
             tax,
             finalTotal,
+            hasRecurringItems: recurringMonthly > 0,
+            hasOneTimeItems: outrightDevices > 0,
         };
-    }, [billingCycle, province, total]);
+    }, [plans, addOns, devices, billingCycle, province]);
 
     /* =========================
        HANDLE CHECKOUT
@@ -78,12 +97,9 @@ export default function CheckoutPage() {
         }
 
         try {
-            /* -------------------------
-               1. Create Stripe PaymentIntent
-            ------------------------- */
             const payload = {
                 paymentMethodId: paymentMethod.stripePaymentMethodId,
-                amount: Math.round(pricing.finalTotal * 100), // cents
+                amount: Math.round(pricing.finalTotal * 100),
                 saveCard: !paymentMethod.isTemporary,
             };
 
@@ -98,20 +114,6 @@ export default function CheckoutPage() {
                 return alert(intentData.error || "Payment setup failed");
             }
 
-            /* -------------------------
-               2. Confirm payment with Stripe
-            ------------------------- */
-            // const result = await stripe.confirmCardPayment(
-            //     intentData.clientSecret,
-            //     {
-            //         payment_method: paymentMethod.stripePaymentMethodId,
-            //     }
-            // );
-            //
-            // if (result.error) {
-            //     return alert(result.error.message);
-            // }
-
             const result = await stripe.confirmCardPayment(intentData.clientSecret, {
                 payment_method: paymentMethod.stripePaymentMethodId,
             });
@@ -121,22 +123,6 @@ export default function CheckoutPage() {
                 return;
             }
 
-            // if (result.paymentIntent.status === "succeeded") {
-            //     await apiFetch("/api/invoices/mark-paid", {
-            //         method: "POST",
-            //         body: JSON.stringify({
-            //             invoiceNumber,
-            //             paymentIntentId: result.paymentIntent.id,
-            //             paymentMethodId: result.paymentIntent.payment_method
-            //         })
-            //     });
-            // }
-
-            /* -------------------------
-               3. Build invoice items
-               IMPORTANT:
-               Include discount per item (for invoice page)
-            ------------------------- */
             const invoiceItems = [
                 ...plans.map((plan) => {
                     const basePrice = Number(
@@ -147,7 +133,6 @@ export default function CheckoutPage() {
                     );
 
                     const isYearly = billingCycle === "yearly";
-
                     const yearlyBase = basePrice * 12;
                     const discount = isYearly ? yearlyBase * 0.1 : 0;
 
@@ -155,43 +140,61 @@ export default function CheckoutPage() {
                         description:
                             plan.serviceType === "Mobile"
                                 ? `${plan.name} - ${(
-                                    plan.subscribers
-                                        ?.map((s) => s.fullName)
-                                        .filter(Boolean)
-                                        .join(", ")
-                                ) || `${plan.lines ?? 1} line(s)`}`
+                                      plan.subscribers
+                                          ?.map((s) => s.fullName)
+                                          .filter(Boolean)
+                                          .join(", ")
+                                  ) || `${plan.lines ?? 1} line(s)`}`
                                 : plan.name,
-
                         quantity: 1,
-
-                        // unit price before discount
                         unitPrice: isYearly ? yearlyBase : basePrice,
-
-                        // discount amount
                         discountAmount: discount,
-
-                        // final line total
-                        lineTotal: isYearly
-                            ? yearlyBase - discount
-                            : basePrice,
-
-                        subscribers:
-                            plan.subscribers?.map((s) => s.fullName) || [],
+                        lineTotal: isYearly ? yearlyBase - discount : basePrice,
+                        subscribers: plan.subscribers?.map((s) => s.fullName) || [],
+                        itemType: "plan",
                     };
                 }),
 
-                ...addOns.map((a) => ({
-                    description: a.addOnName,
-                    quantity: 1,
-                    unitPrice: Number(a.monthlyPrice ?? a.price ?? 0),
-                    discountAmount: 0,
-                    lineTotal: Number(a.monthlyPrice ?? a.price ?? 0),
-                })),
+                ...addOns.map((a) => {
+                    const basePrice = Number(a.monthlyPrice ?? a.price ?? 0);
+                    const isYearly = billingCycle === "yearly";
+                    const yearlyBase = basePrice * 12;
+                    const discount = isYearly ? yearlyBase * 0.1 : 0;
+
+                    return {
+                        description: a.addOnName,
+                        quantity: 1,
+                        unitPrice: isYearly ? yearlyBase : basePrice,
+                        discountAmount: discount,
+                        lineTotal: isYearly ? yearlyBase - discount : basePrice,
+                        itemType: "addon",
+                    };
+                }),
+
+                ...devices.map((d) => {
+                    const isMonthly = d.pricingType === "monthly";
+
+                    return {
+                        description:
+                            `${d.brand} ${d.model} (${d.storage})` +
+                            (isMonthly
+                                ? ` - Financed (${d.assignedSubscriberName})`
+                                : " - Device Purchase"),
+                        quantity: 1,
+                        unitPrice: isMonthly
+                            ? Number(d.monthlyPrice ?? 0)
+                            : Number(d.fullPrice ?? 0),
+                        discountAmount: 0,
+                        lineTotal: isMonthly
+                            ? Number(d.monthlyPrice ?? 0)
+                            : Number(d.fullPrice ?? 0),
+                        itemType: "device",
+                        phoneId: d.phoneId,
+                        pricingType: d.pricingType,
+                    };
+                }),
             ];
 
-            /* -------------------------
-               4. Call backend checkout
-            ------------------------- */
             const invoiceRes = await apiFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -200,7 +203,7 @@ export default function CheckoutPage() {
                     subtotal: pricing.subtotal,
                     tax: pricing.tax,
                     total: pricing.finalTotal,
-                    billingCycle,
+                    billingCycle: pricing.hasRecurringItems ? billingCycle : "one-time",
                     paymentIntentId: result.paymentIntent.id,
                     promoCode: null,
                     items: invoiceItems,
@@ -218,9 +221,6 @@ export default function CheckoutPage() {
         }
     };
 
-    /* =========================
-       SUCCESS PAGE
-    ========================= */
     if (submitted) {
         return (
             <Container className="py-5 text-center">
@@ -234,9 +234,7 @@ export default function CheckoutPage() {
                     variant="primary"
                     size="lg"
                     className="mt-3"
-                    onClick={() =>
-                        navigate(`/customer/invoice/${orderNumber}`)
-                    }
+                    onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
                 >
                     View Invoice
                 </Button>
@@ -244,29 +242,30 @@ export default function CheckoutPage() {
         );
     }
 
-    /* =========================
-       UI
-    ========================= */
     return (
         <Container style={{ maxWidth: 700 }} className="py-5">
             <h2 className="mb-4">Checkout</h2>
 
-            {/* Billing Cycle */}
-            <Card className="mb-3 p-3">
-                <h5>Billing Cycle</h5>
-                <Form.Check
-                    label="Monthly"
-                    checked={billingCycle === "monthly"}
-                    onChange={() => setBillingCycle("monthly")}
-                />
-                <Form.Check
-                    label="Yearly (10% OFF)"
-                    checked={billingCycle === "yearly"}
-                    onChange={() => setBillingCycle("yearly")}
-                />
-            </Card>
+            {pricing.hasRecurringItems && (
+                <Card className="mb-3 p-3">
+                    <h5>Billing Cycle</h5>
+                    <Form.Check
+                        type="radio"
+                        name="billingCycle"
+                        label="Monthly"
+                        checked={billingCycle === "monthly"}
+                        onChange={() => setBillingCycle("monthly")}
+                    />
+                    <Form.Check
+                        type="radio"
+                        name="billingCycle"
+                        label="Yearly (10% OFF)"
+                        checked={billingCycle === "yearly"}
+                        onChange={() => setBillingCycle("yearly")}
+                    />
+                </Card>
+            )}
 
-            {/* Province */}
             <Card className="mb-3 p-3">
                 <h5>Province</h5>
                 <Form.Select
@@ -281,45 +280,45 @@ export default function CheckoutPage() {
                 </Form.Select>
             </Card>
 
-            {/* Payment */}
             <PaymentCardUI onCardSelect={setPaymentMethod} />
 
-            {/* Order Summary */}
             <Card className="mt-3 p-3">
                 <h5>Order Summary</h5>
-
                 <hr />
 
-                {/* Monthly view */}
-                {billingCycle === "monthly" && (
+                {pricing.hasRecurringItems && billingCycle === "monthly" && (
                     <div className="d-flex justify-content-between">
-                        <span>Monthly Subtotal</span>
-                        <span>${pricing.baseMonthly.toFixed(2)}</span>
+                        <span>Monthly Services</span>
+                        <span>${pricing.recurringMonthly.toFixed(2)}</span>
                     </div>
                 )}
 
-                {/* Yearly breakdown */}
-                {billingCycle === "yearly" && (
+                {pricing.hasRecurringItems && billingCycle === "yearly" && (
                     <>
                         <div className="d-flex justify-content-between">
-                            <span>Yearly Base (12 × monthly)</span>
+                            <span>Yearly Services Base</span>
                             <span>${pricing.yearlyBase.toFixed(2)}</span>
                         </div>
 
                         <div className="d-flex justify-content-between text-success">
-                            <span>Yearly Discount (10%)</span>
+                            <span>Service Discount (10%)</span>
                             <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
                         </div>
                     </>
                 )}
 
-                {/* Subtotal */}
+                {pricing.hasOneTimeItems && (
+                    <div className="d-flex justify-content-between">
+                        <span>One-time Device Charges</span>
+                        <span>${pricing.oneTimeSubtotal.toFixed(2)}</span>
+                    </div>
+                )}
+
                 <div className="d-flex justify-content-between">
                     <span>Subtotal</span>
                     <span>${pricing.subtotal.toFixed(2)}</span>
                 </div>
 
-                {/* Tax */}
                 <div className="d-flex justify-content-between">
                     <span>
                         Tax ({(PROVINCE_TAX[province] * 100).toFixed(0)}%)
@@ -329,14 +328,12 @@ export default function CheckoutPage() {
 
                 <hr />
 
-                {/* Total */}
                 <div className="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
                     <span>${pricing.finalTotal.toFixed(2)}</span>
                 </div>
             </Card>
 
-            {/* Pay button */}
             <Button
                 className="mt-4 w-100"
                 size="lg"

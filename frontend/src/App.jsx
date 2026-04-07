@@ -10,6 +10,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 
+import PhonesPage from "./pages/PhonesPage";
+import PhoneDetailsPage from "./pages/PhoneDetailsPage";
 import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -62,9 +64,9 @@ import ManagerReport from "./pages/manager/ManagerReport";
 import ManagerSubscription from "./pages/manager/ManagerSubscription";
 import ManagerAudit from "./pages/manager/ManagerAudit";
 import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature";
-import ManagerLocation from "./pages/manager/ManagerLocation"
-import ManagerServices from "./pages/manager/ManagerServices"
-import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales"
+import ManagerLocation from "./pages/manager/ManagerLocation";
+import ManagerServices from "./pages/manager/ManagerServices";
+import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales";
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
@@ -97,10 +99,10 @@ function mapMeToUser(meResponse) {
 
     const dbRole = dbRoleRaw
         ? String(dbRoleRaw)
-            .replace(/^ROLE_/i, "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, "")
+              .replace(/^ROLE_/i, "")
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, "")
         : null;
 
     const attrs = meResponse?.attributes ?? {};
@@ -161,7 +163,6 @@ export default function App() {
     const didHydrateRef = useRef(false);
     const refreshInFlightRef = useRef(null);
 
-    // const [user, setUser] = useState(null);
     const [user, setUser] = useState(() => {
         try {
             const raw = localStorage.getItem("tc_user");
@@ -250,8 +251,6 @@ export default function App() {
         return request;
     }, [isLoggingOut]);
 
-
-
     useEffect(() => {
         if (didHydrateRef.current) return;
         didHydrateRef.current = true;
@@ -261,7 +260,6 @@ export default function App() {
             setAuthReady(true);
         })();
     }, [refreshMe]);
-
 
     useEffect(() => {
         if (!user) return;
@@ -284,7 +282,6 @@ export default function App() {
             navigate("/profile", { replace: true });
         }
     }, [user, location.pathname, navigate]);
-
 
     const finishOAuthLogin = useCallback(async () => {
         await refreshMe();
@@ -326,18 +323,20 @@ export default function App() {
                     path="/profile"
                     element={
                         <RequireAuth user={user} authReady={authReady}>
-                        <ProfilePage
-                            user={user}
-                            onLogout={logout}
-                            needsRegistration={needsRegistration}
-                            setNeedsRegistration={setNeedsRegistration}
-                            refreshMe={refreshMe}
-                        />
+                            <ProfilePage
+                                user={user}
+                                onLogout={logout}
+                                needsRegistration={needsRegistration}
+                                setNeedsRegistration={setNeedsRegistration}
+                                refreshMe={refreshMe}
+                            />
                         </RequireAuth>
                     }
                 />
 
                 <Route path="/plans" element={<PlansPage />} />
+                <Route path="/phones" element={<PhonesPage />} />
+                <Route path="/phones/:id" element={<PhoneDetailsPage />} />
                 <Route path="/cart" element={<ShoppingCartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/login" element={<LoginPage refreshMe={refreshMe} />} />
@@ -400,7 +399,6 @@ export default function App() {
                     }
                 />
 
-                {/* SALES ROUTES (NEW SECTION)*/}
                 <Route
                     path="/sales"
                     element={
@@ -484,7 +482,6 @@ export default function App() {
                         </RequireRole>
                     }
                 />
-
 
                 <Route
                     path="/sales/audit"
@@ -606,9 +603,9 @@ export default function App() {
                     path="/manager/planfeatures"
                     element={
                         <RequireRole user={user} allow={["manager"]} authReady={authReady}>
-                            <ManagerPlanFeature  />
+                            <ManagerPlanFeature />
                         </RequireRole>
-                        }
+                    }
                 />
                 <Route
                     path="/manager/location"

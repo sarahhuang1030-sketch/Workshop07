@@ -15,7 +15,16 @@ import { ShoppingCart, XCircle } from "lucide-react";
 import { apiFetch } from "../services/api";
 
 export default function ShoppingCartPage() {
-    const { plans, addOns, addAddOn, removeAddOn, removePlanAtIndex } = useCart();
+    const {
+        plans,
+        addOns,
+        devices,
+        removeDevice,
+        addAddOn,
+        removeAddOn,
+        removePlanAtIndex,
+    } = useCart();
+
     const navigate = useNavigate();
 
     const [allAddOns, setAllAddOns] = useState([]);
@@ -131,19 +140,25 @@ export default function ShoppingCartPage() {
             0
         );
 
+        const devicesTotal = devices.reduce(
+            (sum, d) => sum + Number(d?.totalPrice ?? 0),
+            0
+        );
+
         return {
             plansTotal,
             addOnsTotal,
-            subtotal: plansTotal + addOnsTotal,
+            devicesTotal,
+            subtotal: plansTotal + addOnsTotal + devicesTotal,
         };
-    }, [plans, addOns]);
+    }, [plans, addOns, devices]);
 
-    if (plans.length === 0) {
+    if (plans.length === 0 && devices.length === 0 && addOns.length === 0) {
         return (
             <Container className="py-5">
                 <Alert variant="warning" className="text-center">
                     <ShoppingCart size={20} className="me-2" />
-                    Your cart is empty. Please select a plan first.
+                    Your cart is empty. Add a plan or a device to get started.
                 </Alert>
             </Container>
         );
@@ -171,7 +186,11 @@ export default function ShoppingCartPage() {
                 </div>
 
                 {plans.map((plan, idx) => (
-                    <Card key={`${plan.serviceType}-${idx}`} className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
+                    <Card
+                        key={`${plan.serviceType}-${idx}`}
+                        className="mb-4 shadow-sm border-0"
+                        style={{ borderRadius: 18 }}
+                    >
                         <Card.Body className="p-4">
                             <Row className="align-items-center">
                                 <Col md={8}>
@@ -185,21 +204,24 @@ export default function ShoppingCartPage() {
                                         <div className="text-muted mb-2">{plan.tagline}</div>
                                     )}
 
-                                   {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) > 1 && (
-                                       <div className="text-muted small mt-2">
-                                           {Array.from({ length: Number(plan.lines) }).map((_, i) => (
-                                               <div key={i}>
-                                                   Line {i + 1}: {plan.subscribers?.[i]?.fullName || `Line ${i + 1}`} • ${Number(plan.pricePerLine ?? 0).toFixed(2)}/mo
-                                               </div>
-                                           ))}
-                                       </div>
-                                   )}
+                                    {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) > 1 && (
+                                        <div className="text-muted small mt-2">
+                                            {Array.from({ length: Number(plan.lines) }).map((_, i) => (
+                                                <div key={i}>
+                                                    Line {i + 1}:{" "}
+                                                    {plan.subscribers?.[i]?.fullName || `Line ${i + 1}`} • $
+                                                    {Number(plan.pricePerLine ?? 0).toFixed(2)}/mo
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
-                                   {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) === 1 && (
-                                       <div className="text-muted small mt-2">
-                                           {plan.subscribers?.[0]?.fullName || "Line 1"} • ${Number(plan.pricePerLine ?? plan.totalPrice ?? 0).toFixed(2)}/mo
-                                       </div>
-                                   )}
+                                    {plan.serviceType === "Mobile" && Number(plan.lines ?? 1) === 1 && (
+                                        <div className="text-muted small mt-2">
+                                            {plan.subscribers?.[0]?.fullName || "Line 1"} • $
+                                            {Number(plan.pricePerLine ?? plan.totalPrice ?? 0).toFixed(2)}/mo
+                                        </div>
+                                    )}
                                 </Col>
 
                                 <Col md={4} className="text-md-end mt-3 mt-md-0">
@@ -221,6 +243,63 @@ export default function ShoppingCartPage() {
                         </Card.Body>
                     </Card>
                 ))}
+
+                {devices.length > 0 && (
+                    <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
+                        <Card.Body className="p-4">
+                            <h5 className="fw-bold mb-3">Devices</h5>
+
+                            {devices.map((device) => (
+                                <Card
+                                    key={device.cartDeviceId}
+                                    className="mb-3 border-0 shadow-sm"
+                                >
+                                    <Card.Body>
+                                        <Row className="align-items-center">
+                                            <Col md={8}>
+                                                <div className="fw-bold">
+                                                    {device.brand} {device.model}
+                                                </div>
+
+                                                <div className="text-muted small">
+                                                    {device.storage} • {device.color}
+                                                </div>
+
+                                                <div className="text-muted small mt-1">
+                                                    Assigned to:{" "}
+                                                    <strong>{device.assignedSubscriberName}</strong>
+                                                </div>
+
+                                                <div className="text-muted small">
+                                                    Pricing:{" "}
+                                                    {device.pricingType === "monthly"
+                                                        ? `$${Number(device.monthlyPrice ?? 0).toFixed(2)}/mo`
+                                                        : `$${Number(device.fullPrice ?? 0).toFixed(2)} one-time`}
+                                                </div>
+                                            </Col>
+
+                                            <Col md={4} className="text-md-end mt-3 mt-md-0">
+                                                <div className="fw-black fs-5">
+                                                    ${Number(device.totalPrice ?? 0).toFixed(2)}
+                                                </div>
+
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    className="mt-2"
+                                                    onClick={() => removeDevice(device.cartDeviceId)}
+                                                >
+                                                    <XCircle size={14} className="me-1" />
+                                                    Remove
+                                                </Button>
+                                            </Col>
+                                        </Row>
+                                    </Card.Body>
+                                </Card>
+                            ))}
+                        </Card.Body>
+                    </Card>
+                )}
 
                 <Card className="mb-4 shadow-sm border-0" style={{ borderRadius: 18 }}>
                     <Card.Body className="p-4">
@@ -277,6 +356,11 @@ export default function ShoppingCartPage() {
                         <div className="d-flex justify-content-between">
                             <span>Add-ons</span>
                             <span>${pricing.addOnsTotal.toFixed(2)}</span>
+                        </div>
+
+                        <div className="d-flex justify-content-between">
+                            <span>Devices</span>
+                            <span>${pricing.devicesTotal.toFixed(2)}</span>
                         </div>
 
                         <hr />
