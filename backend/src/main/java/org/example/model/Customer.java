@@ -50,7 +50,7 @@ public class Customer {
     private String externalCustomerId;
 
     @Column(name = "AssignedEmployeeId")
-    private Integer AssignedEmployeeId;
+    private Integer assignedEmployeeId;
 
 
     // exists in your table; can remain null if DB allows
@@ -64,11 +64,11 @@ public class Customer {
     }
 
     public Integer getAssignedEmployeeId() {
-        return AssignedEmployeeId;
+        return assignedEmployeeId;
     }
 
     public void setAssignedEmployeeId(Integer assignedEmployeeId) {
-        this.AssignedEmployeeId = assignedEmployeeId;
+        this.assignedEmployeeId = assignedEmployeeId;
     }
 
     // getters/setters

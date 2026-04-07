@@ -2,6 +2,7 @@ package org.example.service;
 
 
 
+import org.example.dto.CustomerDTO;
 import org.example.model.Customer;
 import org.example.repository.CustomerAddressRepository;
 import org.example.repository.CustomerRepository;
@@ -33,6 +34,7 @@ public class CustomerService {
 
     public Customer createCustomer(Customer customer) {
         customer.setCreatedAt(null); // let @PrePersist handle it
+        customer.setAssignedEmployeeId(customer.getAssignedEmployeeId());
         if (customer.getStatus() == null || customer.getStatus().isBlank()) {
             customer.setStatus("Active");
         }
@@ -49,6 +51,8 @@ public class CustomerService {
         existing.setEmail(updatedCustomer.getEmail());
         existing.setHomePhone(updatedCustomer.getHomePhone());
         existing.setStatus(updatedCustomer.getStatus());
+        existing.setAssignedEmployeeId(updatedCustomer.getAssignedEmployeeId());
+
 
         // usually keep these untouched in manager CRUD
         // existing.setExternalProvider(existing.getExternalProvider());
@@ -66,5 +70,12 @@ public class CustomerService {
         customerAddressRepository.deleteAllByCustomerId(id);
 
         customerRepository.delete(existing);
+    }
+
+    public List<CustomerDTO> getCustomersForTechnician(String username) {
+        return customerRepository.findAll()
+                .stream()
+                .map(CustomerDTO::fromEntity)
+                .toList();
     }
 }

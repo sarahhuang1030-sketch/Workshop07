@@ -66,7 +66,7 @@ public class CustomerController {
         result.put("email", customer.getEmail());
         result.put("homePhone", customer.getHomePhone());
         result.put("customerType", customer.getCustomerType());
-
+        result.put("assignedEmployeeId", customer.getAssignedEmployeeId());
         if (billing != null) {
             result.put("street1", billing.getStreet1());
             result.put("street2", billing.getStreet2());
@@ -123,6 +123,7 @@ public class CustomerController {
         c.setEmail(req.email);
         c.setHomePhone(req.homePhone);
         c.setCustomerType(req.customerType);
+        c.setAssignedEmployeeId(req.assignedEmployeeId);
 
         // default status if missing
         c.setStatus((req.status == null || req.status.isBlank())
@@ -272,7 +273,7 @@ public class CustomerController {
         c.setEmail(req.email);
         c.setHomePhone(req.homePhone);
         c.setCustomerType(req.customerType);
-
+        c.setAssignedEmployeeId(req.assignedEmployeeId);
         // keep existing status if not provided
         if (req.status != null && !req.status.isBlank()) {
             c.setStatus(req.status);
