@@ -23,6 +23,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import ChangePasswordFirstLogin from "./pages/ChangePasswordFirstLogin";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./style/style.css";
+import DeviceFinancing from "./pages/DeviceFinancing";
 
 // Customer
 import CustomerPlan from "./pages/customer/CustomerPlan";
@@ -318,6 +319,8 @@ export default function App() {
         <Routes>
             <Route element={<Layout user={user} setUser={setUser} onLogout={logout} />}>
                 <Route path="/" element={<HomePage />} />
+
+                <Route path="/device-financing" element={<DeviceFinancing />} />
 
                 <Route
                     path="/profile"
