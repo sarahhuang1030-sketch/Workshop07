@@ -11,6 +11,7 @@ import org.example.model.Customer;
 import org.example.model.Subscription;
 import org.example.model.SubscriptionAddOn;
 import org.example.repository.*;
+import org.example.entity.InvoiceItems;
 
 import org.springframework.stereotype.Service;
 
@@ -35,19 +36,23 @@ public class InvoiceService {
     private final PaymentAccountRepository paymentAccountRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
+    private final InvoiceItemRepository invoiceItemRepository;
+
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             CustomerRepository customerRepository,
             PaymentAccountRepository paymentAccountRepository,
             SubscriptionRepository subscriptionRepository,
-            SubscriptionAddOnRepository subscriptionAddOnRepository
+            SubscriptionAddOnRepository subscriptionAddOnRepository,
+            InvoiceItemRepository invoiceItemRepository
     ) {
         this.invoiceRepository = invoiceRepository;
         this.customerRepository = customerRepository;
         this.paymentAccountRepository = paymentAccountRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
+        this.invoiceItemRepository = invoiceItemRepository;
     }
 
     // ======================================================
@@ -89,7 +94,7 @@ public class InvoiceService {
         Invoices savedInvoice = invoiceRepository.save(invoice);
 
         // =========================
-        // PLAN ITEM (REQUIRED)
+        // PLAN REQUIRED
         // =========================
         Integer planId = body.getItems().stream()
                 .filter(i -> i != null && "plan".equalsIgnoreCase(i.getType()))
@@ -99,6 +104,36 @@ public class InvoiceService {
 
         if (planId == null) {
             throw new IllegalArgumentException("Plan is required in invoice items");
+        }
+
+        // =========================
+        // SAVE ITEMS
+        // =========================
+        for (ItemDTO item : body.getItems()) {
+
+            if (item == null) continue;
+
+            InvoiceItems entity = new InvoiceItems();
+
+            // correct relation mapping
+            entity.setInvoice(savedInvoice);
+
+            // We only store description + price info
+            entity.setDescription(item.getName());
+            entity.setQuantity(item.getQuantity() == null ? 1 : item.getQuantity());
+
+            // convert Double -> BigDecimal
+            if (item.getPrice() != null) {
+                entity.setUnitPrice(BigDecimal.valueOf(item.getPrice()));
+                entity.setLineTotal(
+                        BigDecimal.valueOf(item.getPrice())
+                                .multiply(BigDecimal.valueOf(entity.getQuantity()))
+                );
+            }
+
+            entity.setDiscountAmount(BigDecimal.ZERO);
+
+            invoiceItemRepository.save(entity);
         }
 
         // =========================
@@ -278,6 +313,24 @@ public class InvoiceService {
                         ? customer.getBusinessName()
                         : customer.getFirstName() + " " + customer.getLastName())
         );
+
+        // =========================
+        // LOAD INVOICE ITEMS (CRITICAL FIX)
+        // =========================
+        dto.items = invoiceItemRepository.findByInvoice_InvoiceId(invoice.getInvoiceId())
+                .stream()
+                        .map(i -> {
+                            InvoiceDTO.InvoiceItemDTO itemDTO = new InvoiceDTO.InvoiceItemDTO();
+
+                            itemDTO.description = i.getDescription();
+                            itemDTO.quantity = i.getQuantity();
+                            itemDTO.unitPrice = i.getUnitPrice();
+                            itemDTO.discountAmount = i.getDiscountAmount();
+                            itemDTO.lineTotal = i.getLineTotal();
+
+                            return itemDTO;
+                        })
+                        .toList();
 
         PaymentAccounts account = invoice.getPaidByAccount();
 

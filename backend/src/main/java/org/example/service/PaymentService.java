@@ -63,8 +63,11 @@ public class PaymentService {
             throw new RuntimeException("Invoice not found");
         }
 
-        // 3. bind FK
+        // 3. bind payment account
         invoice.setPaidByAccount(savedAccount);
+        // use status
+        invoice.setStatus("PAID");
+
         invoice.setStripePaymentIntentId(paymentIntentId);
 
         invoiceRepository.save(invoice);

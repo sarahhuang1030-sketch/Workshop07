@@ -26,6 +26,7 @@ public class Subscription {
 
     @Column(name = "Status")
     private String status;
+//    private String lifecycleStage;
 
     @Column(name = "BillingCycleDay")
     private Integer billingCycleDay;
@@ -87,13 +88,9 @@ public class Subscription {
         this.endDate = endDate;
     }
 
-    public String getStatus() {
-        return status;
-    }
+    public String getStatus() { return status; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    public void setStatus(String status) { this.status = status; }
 
     public Integer getBillingCycleDay() {
         return billingCycleDay;
@@ -110,4 +107,12 @@ public class Subscription {
     public void setNotes(String notes) {
         this.notes = notes;
     }
+
+//    public String getLifecycleStage() {
+//        return lifecycleStage;
+//    }
+//
+//    public void setLifecycleStage(String lifecycleStage) {
+//        this.lifecycleStage = lifecycleStage;
+//    }
 }

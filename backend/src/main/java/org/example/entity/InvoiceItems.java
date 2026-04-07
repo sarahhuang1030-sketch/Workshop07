@@ -14,10 +14,8 @@ public class InvoiceItems {
 
         @ManyToOne
         @JoinColumn(name = "InvoiceId")
-        @JsonBackReference
         private Invoices invoice;
 
-        @Column(length = 255)
         private String description;
 
         private Integer quantity;
@@ -28,7 +26,7 @@ public class InvoiceItems {
 
         private BigDecimal lineTotal;
 
-        // ===== Getters and Setters =====
+        // ================= getters/setters =================
 
         public Integer getInvoiceItemId() { return invoiceItemId; }
         public void setInvoiceItemId(Integer invoiceItemId) { this.invoiceItemId = invoiceItemId; }

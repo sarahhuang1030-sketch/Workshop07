@@ -1,7 +1,6 @@
 package org.example.model;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDate;
 
 @Entity
@@ -25,39 +24,21 @@ public class SubscriptionAddOn {
     @Column(name = "EndDate")
     private LocalDate endDate;
 
+    /**
+     * SaaS lifecycle status:
+     * ACTIVE / PAUSED / CANCELED
+     */
     @Column(name = "Status")
     private String status;
 
-    public String getStatus() {
-        return status;
+    // ================= getters/setters =================
+
+    public Integer getSubscriptionAddOnId() {
+        return subscriptionAddOnId;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public Integer getAddOnId() {
-        return addOnId;
-    }
-
-    public void setAddOnId(Integer addOnId) {
-        this.addOnId = addOnId;
+    public void setSubscriptionAddOnId(Integer subscriptionAddOnId) {
+        this.subscriptionAddOnId = subscriptionAddOnId;
     }
 
     public Integer getSubscriptionId() {
@@ -68,15 +49,35 @@ public class SubscriptionAddOn {
         this.subscriptionId = subscriptionId;
     }
 
-    public Integer getSubscriptionAddOnId() {
-        return subscriptionAddOnId;
+    public Integer getAddOnId() {
+        return addOnId;
     }
 
-    public void setSubscriptionAddOnId(Integer subscriptionAddOnId) {
-        this.subscriptionAddOnId = subscriptionAddOnId;
+    public void setAddOnId(Integer addOnId) {
+        this.addOnId = addOnId;
     }
 
+    public LocalDate getStartDate() {
+        return startDate;
+    }
 
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
 
+    public LocalDate getEndDate() {
+        return endDate;
+    }
 
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 }
