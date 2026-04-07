@@ -13,9 +13,9 @@ export default function PlanAdvisorModal({
     const getInitialFormData = () => ({
         serviceType: defaultServiceType,
         monthlyBudget: "50",
-        numberOfLines: defaultServiceType === "Mobile" ? defaultLineCount : 1,
-        estimatedDataGb: 40,
-        estimatedInternetSpeedMbps: 300,
+        numberOfLines: defaultServiceType === "Mobile" ? String(defaultLineCount) : "1",
+        estimatedDataGb: "40",
+        estimatedInternetSpeedMbps: "300",
         needsInternationalCalling: false,
         needsHotspot: defaultServiceType === "Mobile",
         heavyStreaming: true,
@@ -42,9 +42,9 @@ export default function PlanAdvisorModal({
         }));
     };
 
-    const handleBudgetChange = (value) => {
+    const handleNumericChange = (field, value) => {
         const cleaned = value.replace(/[^\d]/g, "");
-        handleChange("monthlyBudget", cleaned);
+        handleChange(field, cleaned);
     };
 
     const handleSubmit = async (e) => {
@@ -62,6 +62,10 @@ export default function PlanAdvisorModal({
                 estimatedDataGb:
                     formData.serviceType === "Mobile"
                         ? Number(formData.estimatedDataGb || 0)
+                        : 0,
+                estimatedInternetSpeedMbps:
+                    formData.serviceType === "Internet"
+                        ? Number(formData.estimatedInternetSpeedMbps || 0)
                         : 0,
                 needsInternationalCalling:
                     formData.serviceType === "Mobile"
@@ -144,7 +148,7 @@ export default function PlanAdvisorModal({
                                 inputMode="numeric"
                                 placeholder="Enter your budget"
                                 value={formData.monthlyBudget}
-                                onChange={(e) => handleBudgetChange(e.target.value)}
+                                onChange={(e) => handleNumericChange("monthlyBudget", e.target.value)}
                             />
                         </Form.Group>
 
@@ -153,12 +157,12 @@ export default function PlanAdvisorModal({
                                 <Form.Group className="mb-3">
                                     <Form.Label>Number of Lines</Form.Label>
                                     <Form.Control
-                                        type="number"
-                                        min="1"
-                                        max="6"
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="Enter number of lines"
                                         value={formData.numberOfLines}
                                         onChange={(e) =>
-                                            handleChange("numberOfLines", Number(e.target.value))
+                                            handleNumericChange("numberOfLines", e.target.value)
                                         }
                                     />
                                 </Form.Group>
@@ -166,11 +170,12 @@ export default function PlanAdvisorModal({
                                 <Form.Group className="mb-3">
                                     <Form.Label>Estimated Data Usage (GB)</Form.Label>
                                     <Form.Control
-                                        type="number"
-                                        min="0"
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="Enter estimated data usage"
                                         value={formData.estimatedDataGb}
                                         onChange={(e) =>
-                                            handleChange("estimatedDataGb", Number(e.target.value))
+                                            handleNumericChange("estimatedDataGb", e.target.value)
                                         }
                                     />
                                 </Form.Group>
@@ -206,13 +211,14 @@ export default function PlanAdvisorModal({
                             <Form.Group className="mb-3">
                                 <Form.Label>Preferred Internet Speed (Mbps)</Form.Label>
                                 <Form.Control
-                                    type="number"
-                                    min="0"
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="Enter preferred speed"
                                     value={formData.estimatedInternetSpeedMbps}
                                     onChange={(e) =>
-                                        handleChange(
+                                        handleNumericChange(
                                             "estimatedInternetSpeedMbps",
-                                            Number(e.target.value)
+                                            e.target.value
                                         )
                                     }
                                 />
