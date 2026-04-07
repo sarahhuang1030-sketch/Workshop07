@@ -5,6 +5,9 @@ import java.util.List;
 /**
  * Quote DTO (for frontend display)
  */
+/**
+ * Quote DTO (for frontend display)
+ */
 public class QuoteDTO {
 
     private Integer id;
@@ -12,9 +15,30 @@ public class QuoteDTO {
     private String customerName;
     private Double amount;
     private String status;
+    private Integer planId;
+    private List<Integer> addonIds;
+
     private List<QuoteItemDTO> items;
 
     public QuoteDTO() {}
+
+    // getters & setters
+
+    public Integer getPlanId() {
+        return planId;
+    }
+
+    public void setPlanId(Integer planId) {
+        this.planId = planId;
+    }
+
+    public List<Integer> getAddonIds() {
+        return addonIds;
+    }
+
+    public void setAddonIds(List<Integer> addonIds) {
+        this.addonIds = addonIds;
+    }
 
     public Integer getId() {
         return id;

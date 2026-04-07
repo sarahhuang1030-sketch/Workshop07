@@ -67,8 +67,11 @@ export default function SalesQuotes() {
                                     <div className="d-flex justify-content-between w-100 pe-3">
                                         <div>
                                             <strong>Quote #{q.id}</strong>
+
                                             <div className="text-muted">
-                                                {q.customerName}
+                                                <span className="text-muted">
+                                                    {q.customerName || "Unknown Customer"}
+                                                </span>
                                             </div>
                                         </div>
 

@@ -52,10 +52,10 @@ export default function EditQuote() {
         const data = await res.json();
 
         setQuote({
-            customerId: data.customerId,
-            planId: data.planId,
+            customerId: data.customerId || "",
+            planId: data.planId || "",
             addons: data.addonIds || [],
-            amount: data.amount
+            amount: data.amount || 0
         });
     }
 

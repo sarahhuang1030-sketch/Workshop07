@@ -55,6 +55,7 @@ public class QuoteController {
             QuoteDTO dto = new QuoteDTO();
             dto.setId(q.getId());
             dto.setCustomerId(q.getCustomerId());
+            dto.setPlanId(q.getPlanId());
             dto.setAmount(q.getAmount());
             dto.setStatus(q.getStatus());
 
@@ -72,9 +73,37 @@ public class QuoteController {
     // GET SINGLE QUOTE
     // ======================================================
     @GetMapping("/{id}")
-    public Quote getOne(@PathVariable Integer id) {
-        return repo.findById(id)
+    public QuoteDTO getOne(@PathVariable Integer id) {
+
+        Quote q = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Quote not found"));
+
+        QuoteDTO dto = new QuoteDTO();
+
+        dto.setId(q.getId());
+        dto.setCustomerId(q.getCustomerId());
+        dto.setPlanId(q.getPlanId());
+        dto.setAmount(q.getAmount());
+        dto.setStatus(q.getStatus());
+
+        // customer name resolution
+        String name = customerRepo.findById(q.getCustomerId())
+                .map(c -> c.getFirstName() + " " + c.getLastName())
+                .orElse("Unknown");
+
+        dto.setCustomerName(name);
+
+        // addonIds mapping
+        if (q.getAddons() != null) {
+            dto.setAddonIds(
+                    q.getAddons()
+                            .stream()
+                            .map(a -> a.getAddonId())
+                            .toList()
+            );
+        }
+
+        return dto;
     }
 
     // ======================================================
