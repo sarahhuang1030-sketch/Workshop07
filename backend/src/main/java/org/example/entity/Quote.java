@@ -18,8 +18,10 @@ public class Quote {
     @Column(name = "customer_id")
     private Integer customerId;
 
+    @Column(name = "amount")
     private Double amount;
 
+    @Column(name = "status")
     private String status;
 
     @Column(name = "created_at")
