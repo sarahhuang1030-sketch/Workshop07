@@ -102,13 +102,14 @@ public class BillingController {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
+                out.put("email", emp.getEmail());
             });
         } else {
             out.put("firstName", customer.getFirstName());
             out.put("lastName", customer.getLastName());
+            out.put("email", customer.getEmail());
         }
 
-        out.put("email", customer.getEmail());
         out.put("homePhone", customer.getHomePhone());
 
         var addr = customerAddressRepo
@@ -166,7 +167,14 @@ public class BillingController {
             customer.setEmail(req.email().trim());
         }
 
-        if (!isEmployee) {
+        if (isEmployee) {
+            employeeRepo.findById(employeeId).ifPresent(emp -> {
+                if (req.firstName() != null) emp.setFirstName(req.firstName().trim());
+                if (req.lastName() != null) emp.setLastName(req.lastName().trim());
+                if (req.email() != null) emp.setEmail(req.email().trim());
+                employeeRepo.save(emp);
+            });
+        } else {
             if (req.firstName() != null) {
                 customer.setFirstName(req.firstName().trim());
             }
@@ -205,7 +213,6 @@ public class BillingController {
         var out = new LinkedHashMap<String, Object>();
 
         out.put("customerId", customerId);
-        out.put("email", customer.getEmail());
         out.put("homePhone", customer.getHomePhone());
 
         out.put("street1", addr.getStreet1());
@@ -219,10 +226,12 @@ public class BillingController {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
+                out.put("email", emp.getEmail());
             });
         } else {
             out.put("firstName", customer.getFirstName());
             out.put("lastName", customer.getLastName());
+            out.put("email", customer.getEmail());
         }
 
         auditService.log(
@@ -245,11 +254,23 @@ public class BillingController {
         }
 
         Customer c = new Customer();
-        c.setFirstName("");
-        c.setLastName("");
-        c.setEmail(ua.getUsername());
-        c.setHomePhone("");
         c.setCustomerType("Individual");
+        c.setHomePhone("");
+
+        if (ua.getEmployeeId() != null) {
+            employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                c.setFirstName(emp.getFirstName());
+                c.setLastName(emp.getLastName());
+                c.setEmail(emp.getEmail());
+                c.setHomePhone(emp.getPhone());
+            });
+        }
+
+        if (c.getEmail() == null || c.getEmail().isBlank()) {
+            c.setFirstName("");
+            c.setLastName("");
+            c.setEmail(ua.getUsername());
+        }
 
         Customer saved = customerRepo.save(c);
 
