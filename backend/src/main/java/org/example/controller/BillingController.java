@@ -84,44 +84,51 @@ public class BillingController {
             return ResponseEntity.status(401).body("Not authenticated");
         }
 
-        Customer customer = ensureCustomer(ua);
-        if (customer == null) {
-            return ResponseEntity.status(500).body("Failed to create customer");
-        }
-
-        Integer customerId = customer.getCustomerId();
+        Integer customerId = ua.getCustomerId();
         Integer employeeId = ua.getEmployeeId();
         boolean isEmployee = employeeId != null;
 
         var out = new LinkedHashMap<String, Object>();
-
         out.put("customerId", customerId);
         out.put("employeeId", employeeId);
 
-        if (isEmployee) {
-            employeeRepo.findById(employeeId).ifPresent(emp -> {
-                out.put("firstName", emp.getFirstName());
-                out.put("lastName", emp.getLastName());
-            });
+        if (customerId != null) {
+            Customer customer = customerRepo.findById(customerId).orElse(null);
+            if (customer != null) {
+                if (isEmployee) {
+                    employeeRepo.findById(employeeId).ifPresent(emp -> {
+                        out.put("firstName", emp.getFirstName());
+                        out.put("lastName", emp.getLastName());
+                    });
+                } else {
+                    out.put("firstName", customer.getFirstName());
+                    out.put("lastName", customer.getLastName());
+                }
+
+                out.put("email", customer.getEmail());
+                out.put("homePhone", customer.getHomePhone());
+
+                customerAddressRepo
+                        .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
+                        .ifPresent(addr -> {
+                            out.put("street1", addr.getStreet1());
+                            out.put("street2", addr.getStreet2());
+                            out.put("city", addr.getCity());
+                            out.put("province", addr.getProvince());
+                            out.put("postalCode", addr.getPostalCode());
+                            out.put("country", addr.getCountry());
+                        });
+            }
         } else {
-            out.put("firstName", customer.getFirstName());
-            out.put("lastName", customer.getLastName());
-        }
-
-        out.put("email", customer.getEmail());
-        out.put("homePhone", customer.getHomePhone());
-
-        var addr = customerAddressRepo
-                .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
-                .orElse(null);
-
-        if (addr != null) {
-            out.put("street1", addr.getStreet1());
-            out.put("street2", addr.getStreet2());
-            out.put("city", addr.getCity());
-            out.put("province", addr.getProvince());
-            out.put("postalCode", addr.getPostalCode());
-            out.put("country", addr.getCountry());
+            // No customer yet - providing defaults from UA/Employee if possible
+            out.put("email", ua.getUsername());
+            if (isEmployee) {
+                employeeRepo.findById(employeeId).ifPresent(emp -> {
+                    out.put("firstName", emp.getFirstName());
+                    out.put("lastName", emp.getLastName());
+                    out.put("homePhone", emp.getPhone());
+                });
+            }
         }
 
         return ResponseEntity.ok(out);
