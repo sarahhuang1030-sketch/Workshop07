@@ -23,6 +23,7 @@ export default function ShoppingCartPage() {
         addAddOn,
         removeAddOn,
         removePlanAtIndex,
+        clearCart,
     } = useCart();
 
     const navigate = useNavigate();
@@ -179,6 +180,9 @@ export default function ShoppingCartPage() {
                     </div>
 
                     <div className="d-flex gap-2">
+                        <Button variant="outline-danger" onClick={clearCart}>
+                            Clear Cart
+                        </Button>
                         <Button variant="outline-secondary" onClick={() => navigate("/plans")}>
                             ← Change Plan
                         </Button>

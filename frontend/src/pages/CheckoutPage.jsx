@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Container, Card, Button, Form, Alert, Spinner } from "react-bootstrap";
+import { Container, Card, Button, Form, Alert, Spinner, Row, Col } from "react-bootstrap";
 import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
@@ -28,6 +28,15 @@ export default function CheckoutPage() {
 
     const [externalInvoice, setExternalInvoice] = useState(null);
     const [loadingInvoice, setLoadingInvoice] = useState(false);
+    const [billingAddress, setBillingAddress] = useState({
+        street1: "",
+        street2: "",
+        city: "",
+        province: "ON",
+        postalCode: "",
+        country: "Canada"
+    });
+    const [isAddressVerified, setIsAddressVerified] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -39,7 +48,28 @@ export default function CheckoutPage() {
         if (invoiceNum) {
             loadInvoice(invoiceNum);
         }
+        loadBillingAddress();
     }, [invoiceNum]);
+
+    const loadBillingAddress = async () => {
+        try {
+            const res = await apiFetch("/api/billing/address");
+            if (res.ok) {
+                const data = await res.json();
+                setBillingAddress({
+                    street1: data.street1 || "",
+                    street2: data.street2 || "",
+                    city: data.city || "",
+                    province: data.province || "ON",
+                    postalCode: data.postalCode || "",
+                    country: data.country || "Canada"
+                });
+                if (data.province) setProvince(data.province);
+            }
+        } catch (err) {
+            console.error("Failed to load address", err);
+        }
+    };
 
     const loadInvoice = async (num) => {
         try {
@@ -272,6 +302,7 @@ export default function CheckoutPage() {
                         invoiceNumber: externalInvoice.invoiceNumber,
                         promoCode: null,
                         items: items,
+                        ...billingAddress
                     }),
                 });
                 invoice = await invoiceRes.json();
@@ -288,6 +319,7 @@ export default function CheckoutPage() {
                         paymentIntentId: result.paymentIntent.id,
                         promoCode: null,
                         items: invoiceItems,
+                        ...billingAddress
                     }),
                 });
                 invoice = await invoiceRes.json();
@@ -295,7 +327,9 @@ export default function CheckoutPage() {
 
             setOrderNumber(invoice.invoiceNumber);
             setSubmitted(true);
-            clearCart();
+            if (!pricing.isExternal) {
+                clearCart();
+            }
         } catch (err) {
             console.error(err);
             alert("Checkout failed.");
@@ -348,17 +382,82 @@ export default function CheckoutPage() {
             )}
 
             <Card className="mb-3 p-3">
-                <h5>Province</h5>
-                <Form.Select
-                    value={province}
-                    onChange={(e) => setProvince(e.target.value)}
-                >
-                    {Object.keys(PROVINCE_TAX).map((p) => (
-                        <option key={p} value={p}>
-                            {p}
-                        </option>
-                    ))}
-                </Form.Select>
+                <h5>Billing Address Verification</h5>
+                <Form.Group className="mb-2">
+                    <Form.Label>Street 1</Form.Label>
+                    <Form.Control
+                        type="text"
+                        value={billingAddress.street1}
+                        onChange={(e) => setBillingAddress({...billingAddress, street1: e.target.value})}
+                    />
+                </Form.Group>
+                <Form.Group className="mb-2">
+                    <Form.Label>Street 2</Form.Label>
+                    <Form.Control
+                        type="text"
+                        value={billingAddress.street2}
+                        onChange={(e) => setBillingAddress({...billingAddress, street2: e.target.value})}
+                    />
+                </Form.Group>
+                <Row>
+                    <Col md={6}>
+                        <Form.Group className="mb-2">
+                            <Form.Label>City</Form.Label>
+                            <Form.Control
+                                type="text"
+                                value={billingAddress.city}
+                                onChange={(e) => setBillingAddress({...billingAddress, city: e.target.value})}
+                            />
+                        </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                        <Form.Group className="mb-2">
+                            <Form.Label>Province</Form.Label>
+                            <Form.Select
+                                value={billingAddress.province}
+                                onChange={(e) => {
+                                    setProvince(e.target.value);
+                                    setBillingAddress({...billingAddress, province: e.target.value});
+                                }}
+                            >
+                                {Object.keys(PROVINCE_TAX).map((p) => (
+                                    <option key={p} value={p}>
+                                        {p}
+                                    </option>
+                                ))}
+                            </Form.Select>
+                        </Form.Group>
+                    </Col>
+                </Row>
+                <Row>
+                    <Col md={6}>
+                        <Form.Group className="mb-2">
+                            <Form.Label>Postal Code</Form.Label>
+                            <Form.Control
+                                type="text"
+                                value={billingAddress.postalCode}
+                                onChange={(e) => setBillingAddress({...billingAddress, postalCode: e.target.value})}
+                            />
+                        </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                        <Form.Group className="mb-2">
+                            <Form.Label>Country</Form.Label>
+                            <Form.Control
+                                type="text"
+                                value={billingAddress.country}
+                                onChange={(e) => setBillingAddress({...billingAddress, country: e.target.value})}
+                            />
+                        </Form.Group>
+                    </Col>
+                </Row>
+                <Form.Check
+                    type="checkbox"
+                    label="Verify this is my current billing address"
+                    checked={isAddressVerified}
+                    onChange={(e) => setIsAddressVerified(e.target.checked)}
+                    className="mt-2"
+                />
             </Card>
 
             <PaymentCardUI onCardSelect={setPaymentMethod} />
@@ -367,32 +466,49 @@ export default function CheckoutPage() {
                 <h5>Order Summary</h5>
                 <hr />
 
-                {pricing.hasRecurringItems && billingCycle === "monthly" && (
-                    <div className="d-flex justify-content-between">
-                        <span>Monthly Services</span>
-                        <span>${pricing.recurringMonthly.toFixed(2)}</span>
-                    </div>
-                )}
-
-                {pricing.hasRecurringItems && billingCycle === "yearly" && (
+                {pricing.isExternal ? (
                     <>
-                        <div className="d-flex justify-content-between">
-                            <span>Yearly Services Base</span>
-                            <span>${pricing.yearlyBase.toFixed(2)}</span>
+                        <div className="mb-2 text-muted small">
+                            Paying for Invoice #{externalInvoice?.invoiceNumber}
                         </div>
-
-                        <div className="d-flex justify-content-between text-success">
-                            <span>Service Discount (10%)</span>
-                            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
-                        </div>
+                        {externalInvoice?.items?.map((item, idx) => (
+                            <div key={idx} className="d-flex justify-content-between small mb-1">
+                                <span>{item.description} (x{item.quantity})</span>
+                                <span>${Number(item.lineTotal).toFixed(2)}</span>
+                            </div>
+                        ))}
+                        <hr />
                     </>
-                )}
+                ) : (
+                    <>
+                        {pricing.hasRecurringItems && billingCycle === "monthly" && (
+                            <div className="d-flex justify-content-between">
+                                <span>Monthly Services</span>
+                                <span>${pricing.recurringMonthly.toFixed(2)}</span>
+                            </div>
+                        )}
 
-                {pricing.hasOneTimeItems && (
-                    <div className="d-flex justify-content-between">
-                        <span>One-time Device Charges</span>
-                        <span>${pricing.oneTimeSubtotal.toFixed(2)}</span>
-                    </div>
+                        {pricing.hasRecurringItems && billingCycle === "yearly" && (
+                            <>
+                                <div className="d-flex justify-content-between">
+                                    <span>Yearly Services Base</span>
+                                    <span>${pricing.yearlyBase.toFixed(2)}</span>
+                                </div>
+
+                                <div className="d-flex justify-content-between text-success">
+                                    <span>Service Discount (10%)</span>
+                                    <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
+                                </div>
+                            </>
+                        )}
+
+                        {pricing.hasOneTimeItems && (
+                            <div className="d-flex justify-content-between">
+                                <span>One-time Device Charges</span>
+                                <span>${pricing.oneTimeSubtotal.toFixed(2)}</span>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 <div className="d-flex justify-content-between">
@@ -419,8 +535,9 @@ export default function CheckoutPage() {
                 className="mt-4 w-100"
                 size="lg"
                 onClick={handleCheckout}
+                disabled={!isAddressVerified}
             >
-                Pay ${pricing.finalTotal.toFixed(2)}
+                {isAddressVerified ? `Pay $${pricing.finalTotal.toFixed(2)}` : "Please verify address"}
             </Button>
         </Container>
     );

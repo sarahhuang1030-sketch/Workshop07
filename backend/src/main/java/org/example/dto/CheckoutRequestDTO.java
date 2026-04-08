@@ -14,6 +14,14 @@ public class CheckoutRequestDTO {
     private String invoiceNumber; // For paying existing invoices
     private List<CheckoutItemDTO> items;  // List of item DTOs
 
+    // Optional address fields for verification/update
+    private String street1;
+    private String street2;
+    private String city;
+    private String province;
+    private String postalCode;
+    private String country;
+
     // Getters & Setters
     public Integer getPaymentAccountId() { return paymentAccountId; }
     public void setPaymentAccountId(Integer paymentAccountId) { this.paymentAccountId = paymentAccountId; }
@@ -41,4 +49,22 @@ public class CheckoutRequestDTO {
 
     public List<CheckoutItemDTO> getItems() { return items; }
     public void setItems(List<CheckoutItemDTO> items) { this.items = items; }
+
+    public String getStreet1() { return street1; }
+    public void setStreet1(String street1) { this.street1 = street1; }
+
+    public String getStreet2() { return street2; }
+    public void setStreet2(String street2) { this.street2 = street2; }
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+
+    public String getProvince() { return province; }
+    public void setProvince(String province) { this.province = province; }
+
+    public String getPostalCode() { return postalCode; }
+    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
 }

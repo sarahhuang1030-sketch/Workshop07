@@ -1,6 +1,7 @@
 package org.example.service;
 
 import org.example.entity.*;
+import org.example.model.CustomerAddress;
 import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.example.dto.CheckoutItemDTO;
@@ -25,6 +26,7 @@ public class CheckoutService {
     private final StripePaymentService stripePaymentService;
     private final RewardService rewardService;
     private final PaymentRepository paymentRepo;
+    private final CustomerAddressRepository addressRepo;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
@@ -35,7 +37,8 @@ public class CheckoutService {
             PhoneRepository phoneRepository,
             StripePaymentService stripePaymentService,
             RewardService rewardService,
-            PaymentRepository paymentRepo
+            PaymentRepository paymentRepo,
+            CustomerAddressRepository addressRepo
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
@@ -46,6 +49,7 @@ public class CheckoutService {
         this.stripePaymentService = stripePaymentService;
         this.rewardService = rewardService;
         this.paymentRepo = paymentRepo;
+        this.addressRepo = addressRepo;
     }
 
     @Transactional
@@ -58,7 +62,13 @@ public class CheckoutService {
             String billingCycle,
             String paymentIntentId,
             String invoiceNumber,
-            List<CheckoutItemDTO> items
+            List<CheckoutItemDTO> items,
+            String street1,
+            String street2,
+            String city,
+            String province,
+            String postalCode,
+            String country
     ) throws Exception {
 
         // 1. Verify Stripe payment success
@@ -73,6 +83,24 @@ public class CheckoutService {
 
         UserAccount user = userRepo.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new Exception("User not found"));
+
+        // 2b. Update/Verify address if provided
+        if (street1 != null && !street1.isEmpty() && user.getCustomerId() != null) {
+            CustomerAddress address = addressRepo.findByCustomerIdAndAddressType(user.getCustomerId(), "Billing")
+                    .orElse(new CustomerAddress());
+
+            address.setCustomerId(user.getCustomerId());
+            address.setAddressType("Billing");
+            address.setStreet1(street1);
+            address.setStreet2(street2);
+            address.setCity(city);
+            address.setProvince(province);
+            address.setPostalCode(postalCode);
+            address.setCountry(country);
+            address.setIsPrimary(1);
+
+            addressRepo.save(address);
+        }
 
         // 3. Payment account
         PaymentAccounts account = null;

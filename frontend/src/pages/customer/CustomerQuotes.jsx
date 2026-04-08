@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Card, Table, Button, Badge, Spinner, Alert } from "react-bootstrap";
+import { Container, Card, Table, Button, Badge, Spinner, Alert, Modal, ListGroup } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
@@ -15,11 +15,40 @@ export default function CustomerQuotes() {
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [showDetails, setShowDetails] = useState(false);
+    const [selectedQuote, setSelectedQuote] = useState(null);
+    const [plansMap, setPlansMap] = useState({});
+    const [addonsMap, setAddonsMap] = useState({});
+
     const navigate = useNavigate();
 
     useEffect(() => {
         loadQuotes();
+        loadMetadata();
     }, []);
+
+    const loadMetadata = async () => {
+        try {
+            const [plansRes, addonsRes] = await Promise.all([
+                apiFetch("/api/plans"),
+                apiFetch("/api/addons")
+            ]);
+            if (plansRes.ok) {
+                const plans = await plansRes.json();
+                const pMap = {};
+                plans.forEach(p => pMap[p.planId] = p);
+                setPlansMap(pMap);
+            }
+            if (addonsRes.ok) {
+                const addons = await addonsRes.json();
+                const aMap = {};
+                addons.forEach(a => aMap[a.addOnId] = a);
+                setAddonsMap(aMap);
+            }
+        } catch (err) {
+            console.error("Failed to load metadata", err);
+        }
+    };
 
     const loadQuotes = async () => {
         try {
@@ -33,6 +62,11 @@ export default function CustomerQuotes() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleViewDetails = (quote) => {
+        setSelectedQuote(quote);
+        setShowDetails(true);
     };
 
     const handleApprove = async (quoteId) => {
@@ -97,6 +131,14 @@ export default function CustomerQuotes() {
                                     </Badge>
                                 </td>
                                 <td>
+                                    <Button
+                                        variant="outline-info"
+                                        size="sm"
+                                        className="me-2"
+                                        onClick={() => handleViewDetails(q)}
+                                    >
+                                        View Details
+                                    </Button>
                                     {q.status === "PENDING" && (
                                         <Button
                                             variant="success"
@@ -121,6 +163,63 @@ export default function CustomerQuotes() {
                     </tbody>
                 </Table>
             )}
+
+            {/* DETAILS MODAL */}
+            <Modal show={showDetails} onHide={() => setShowDetails(false)} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Quote Details #{selectedQuote?.id}</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {selectedQuote && (
+                        <>
+                            <h5>Plan</h5>
+                            <ListGroup className="mb-3">
+                                <ListGroup.Item>
+                                    {plansMap[selectedQuote.planId]?.planName || `Plan ID: ${selectedQuote.planId}`}
+                                    <span className="float-end">
+                                        {formatMoney(plansMap[selectedQuote.planId]?.monthlyPrice)}
+                                    </span>
+                                </ListGroup.Item>
+                            </ListGroup>
+
+                            {selectedQuote.addonIds && selectedQuote.addonIds.length > 0 && (
+                                <>
+                                    <h5>Add-ons</h5>
+                                    <ListGroup className="mb-3">
+                                        {selectedQuote.addonIds.map(aid => (
+                                            <ListGroup.Item key={aid}>
+                                                {addonsMap[aid]?.addOnName || `Add-on ID: ${aid}`}
+                                                <span className="float-end">
+                                                    {formatMoney(addonsMap[aid]?.monthlyPrice)}
+                                                </span>
+                                            </ListGroup.Item>
+                                        ))}
+                                    </ListGroup>
+                                </>
+                            )}
+
+                            <hr />
+                            <div className="d-flex justify-content-between fw-bold fs-5">
+                                <span>Total Amount:</span>
+                                <span>{formatMoney(selectedQuote.amount)}</span>
+                            </div>
+                        </>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDetails(false)}>
+                        Close
+                    </Button>
+                    {selectedQuote?.status === "PENDING" && (
+                        <Button variant="success" onClick={() => {
+                            setShowDetails(false);
+                            handleApprove(selectedQuote.id);
+                        }}>
+                            Approve & Proceed to Checkout
+                        </Button>
+                    )}
+                </Modal.Footer>
+            </Modal>
         </Container>
     );
 }

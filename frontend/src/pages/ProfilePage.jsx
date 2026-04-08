@@ -399,6 +399,20 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 </Alert>
             )}
 
+            {/* ================= MISSING INFO WARNINGS ================= */}
+            {missingFields.length > 0 && (
+                <Alert variant="danger" style={{ borderRadius: 16 }} className="mb-4">
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                        <AlertTriangle size={20} />
+                        <span className="fw-bold">Important: Missing Information</span>
+                    </div>
+                    <p className="mb-0 small">
+                        Please provide the following information to complete your profile:
+                        <strong> {missingFields.join(", ")}</strong>.
+                    </p>
+                </Alert>
+            )}
+
             {/* ================= BILLING SETUP ALERTS ================= */}
             {needsCustomerRegistration ? (
                 <Alert

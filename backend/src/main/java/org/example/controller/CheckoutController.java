@@ -41,7 +41,13 @@ public class CheckoutController {
                     dto.getBillingCycle(),
                     dto.getPaymentIntentId(),
                     dto.getInvoiceNumber(),
-                    dto.getItems()
+                    dto.getItems(),
+                    dto.getStreet1(),
+                    dto.getStreet2(),
+                    dto.getCity(),
+                    dto.getProvince(),
+                    dto.getPostalCode(),
+                    dto.getCountry()
             );
 
             // Audit log for successful payment
