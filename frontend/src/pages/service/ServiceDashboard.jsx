@@ -1,9 +1,10 @@
-import React from "react";
-import { Container, Row, Col, Card, Button } from "react-bootstrap";
+import React, { useState, useEffect } from "react";
+import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
 import { Wrench, ClipboardList, CheckCircle, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../services/api";
 
-function Stat({ title, value, hint, icon: Icon }) {
+function Stat({ title, value, hint, icon: Icon, colorClass }) {
     return (
         <Card className="shadow-sm h-100" style={{ borderRadius: 18 }}>
             <Card.Body className="p-4">
@@ -23,7 +24,7 @@ function Stat({ title, value, hint, icon: Icon }) {
                             borderRadius: 16,
                             background: "rgba(0,0,0,0.05)",
                         }}
-                        className="d-flex align-items-center justify-content-center"
+                        className={`d-flex align-items-center justify-content-center ${colorClass}`}
                     >
                         <Icon size={24} />
                     </div>
@@ -75,6 +76,34 @@ function ActionCard({ title, desc, icon: Icon, to }) {
 
 export default function ServiceDashboard() {
     const nav = useNavigate();
+    const [summary, setSummary] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchSummary();
+    }, []);
+
+    const fetchSummary = async () => {
+        try {
+            const resp = await apiFetch("/api/service/summary");
+            if (resp.ok) {
+                const data = await resp.json();
+                setSummary(data);
+            }
+        } catch (err) {
+            console.error("Error fetching summary:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <Container className="py-5 text-center">
+                <Spinner animation="border" variant="primary" />
+            </Container>
+        );
+    }
 
     return (
         <Container className="py-4">
@@ -100,16 +129,36 @@ export default function ServiceDashboard() {
             {/* Stats Row */}
             <Row className="g-3">
                 <Col md={3}>
-                    <Stat title="Assigned Tickets" value="5" hint="Active tickets" icon={ClipboardList} />
+                    <Stat
+                        title="Assigned Tickets"
+                        value={summary?.assignedRequests || 0}
+                        hint="Active tickets"
+                        icon={ClipboardList}
+                    />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Work Orders" value="3" hint="Pending tasks" icon={Wrench} />
+                    <Stat
+                        title="Work Orders"
+                        value={summary?.todayAppointments || 0}
+                        hint="Scheduled today"
+                        icon={Wrench}
+                    />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Completed Today" value="2" hint="Finished jobs" icon={CheckCircle} />
+                    <Stat
+                        title="Completed"
+                        value={summary?.completedRequests || 0}
+                        hint="Total finished"
+                        icon={CheckCircle}
+                    />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Urgent Issues" value="1" hint="Needs attention" icon={AlertTriangle} />
+                    <Stat
+                        title="Remaining"
+                        value={summary?.openRequests || 0}
+                        hint="Needs attention"
+                        icon={AlertTriangle}
+                    />
                 </Col>
             </Row>
 
