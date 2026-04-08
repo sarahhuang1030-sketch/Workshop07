@@ -18,20 +18,23 @@ public class ManagerAddOnRepository {
     public List<ManagerAddOnDTO> findAll() {
         return jdbc.query("""
             SELECT
-                AddOnId,
-                ServiceTypeId,
-                AddOnName,
-                MonthlyPrice,
-                Description,
-                IsActive,
-                IconKey,
-                ThemeKey
-            FROM AddOns
-            ORDER BY AddOnName
+                a.AddOnId,
+                a.ServiceTypeId,
+                st.Name as ServiceTypeName,
+                a.AddOnName,
+                a.MonthlyPrice,
+                a.Description,
+                a.IsActive,
+                a.IconKey,
+                a.ThemeKey
+            FROM AddOns a
+            LEFT JOIN ServiceTypes st ON a.ServiceTypeId = st.ServiceTypeId
+            ORDER BY a.AddOnName
         """,
                 (rs, rowNum) -> new ManagerAddOnDTO(
                         rs.getInt("AddOnId"),
                         rs.getInt("ServiceTypeId"),
+                        rs.getString("ServiceTypeName"),
                         rs.getString("AddOnName"),
                         rs.getDouble("MonthlyPrice"),
                         rs.getString("Description"),
@@ -93,20 +96,23 @@ public class ManagerAddOnRepository {
     public ManagerAddOnDTO findById(int addOnId) {
         return jdbc.queryForObject("""
         SELECT
-            AddOnId,
-            ServiceTypeId,
-            AddOnName,
-            MonthlyPrice,
-            Description,
-            IsActive,
-            IconKey,
-            ThemeKey
-        FROM AddOns
-        WHERE AddOnId = ?
+            a.AddOnId,
+            a.ServiceTypeId,
+            st.Name as ServiceTypeName,
+            a.AddOnName,
+            a.MonthlyPrice,
+            a.Description,
+            a.IsActive,
+            a.IconKey,
+            a.ThemeKey
+        FROM AddOns a
+        LEFT JOIN ServiceTypes st ON a.ServiceTypeId = st.ServiceTypeId
+        WHERE a.AddOnId = ?
     """,
                 (rs, rowNum) -> new ManagerAddOnDTO(
                         rs.getInt("AddOnId"),
                         rs.getInt("ServiceTypeId"),
+                        rs.getString("ServiceTypeName"),
                         rs.getString("AddOnName"),
                         rs.getDouble("MonthlyPrice"),
                         rs.getString("Description"),

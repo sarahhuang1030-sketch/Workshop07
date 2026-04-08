@@ -25,21 +25,41 @@ public class EmployeeService {
     private final RoleRepository roleRepository;
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.example.repository.LocationRepository locationRepository;
 
     public EmployeeService(EmployeeRepository employeeRepository,
                            RoleRepository roleRepository,
                            UserAccountRepository userAccountRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           org.example.repository.LocationRepository locationRepository) {
         this.employeeRepository = employeeRepository;
         this.roleRepository = roleRepository;
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
+        this.locationRepository = locationRepository;
     }
 
     public List<EmployeeDTO> getAllEmployees() {
-        return employeeRepository.findAll()
-                .stream()
-                .map(this::toDTO)
+        List<Employee> employees = employeeRepository.findAll();
+        java.util.Map<Integer, String> locationNames = new java.util.HashMap<>();
+        java.util.Map<Integer, String> employeeNames = new java.util.HashMap<>();
+
+        employees.forEach(e -> {
+            if (e.getPrimaryLocationId() != null) locationNames.put(e.getPrimaryLocationId(), null);
+            employeeNames.put(e.getEmployeeId(), (e.getFirstName() != null ? e.getFirstName() : "") + " " + (e.getLastName() != null ? e.getLastName() : ""));
+        });
+
+        locationNames.keySet().forEach(id -> {
+            locationRepository.findById(id).ifPresent(loc -> locationNames.put(id, loc.getLocationName()));
+        });
+
+        return employees.stream()
+                .map(e -> {
+                    EmployeeDTO dto = toDTO(e);
+                    dto.setPrimaryLocationName(locationNames.get(e.getPrimaryLocationId()));
+                    dto.setManagerName(employeeNames.get(e.getManagerId()));
+                    return dto;
+                })
                 .toList();
     }
 
@@ -127,6 +147,8 @@ public class EmployeeService {
         EmployeeDTO dto = new EmployeeDTO();
         dto.setEmployeeId(employee.getEmployeeId());
         dto.setPrimaryLocationId(employee.getPrimaryLocationId());
+
+        // We'll handle primaryLocationName and managerName in bulk or as needed
         dto.setFirstName(employee.getFirstName());
         dto.setLastName(employee.getLastName());
         dto.setEmail(employee.getEmail());
@@ -137,6 +159,7 @@ public class EmployeeService {
         dto.setStatus(employee.getStatus());
         dto.setActive(employee.getActive());
         dto.setManagerId(employee.getManagerId());
+
         return dto;
     }
 

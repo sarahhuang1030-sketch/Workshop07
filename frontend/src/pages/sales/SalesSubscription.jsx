@@ -273,8 +273,8 @@ export default function SalesSubscription({ darkMode = false }) {
                             <thead>
                             <tr>
                                 <th>Subscription ID</th>
-                                <th>Customer ID</th>
-                                <th>Plan ID</th>
+                                <th>Customer</th>
+                                <th>Plan</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Status</th>
@@ -289,8 +289,8 @@ export default function SalesSubscription({ darkMode = false }) {
                                 filteredSubscriptions.map((sub) => (
                                     <tr key={sub.subscriptionId}>
                                         <td>{sub.subscriptionId}</td>
-                                        <td>{sub.customerId}</td>
-                                        <td>{sub.planId}</td>
+                                        <td>{sub.customerName || `Customer #${sub.customerId}`}</td>
+                                        <td>{sub.planName || `Plan #${sub.planId}`}</td>
                                         <td>{sub.startDate || "—"}</td>
                                         <td>{sub.endDate || "—"}</td>
                                         <td>
@@ -407,25 +407,43 @@ export default function SalesSubscription({ darkMode = false }) {
                 <Form onSubmit={handleSave}>
                     <Modal.Body>
                         <Form.Group className="mb-3">
-                            <Form.Label>Customer ID</Form.Label>
-                            <Form.Control
-                                type="number"
-                                name="customerId"
-                                value={formData.customerId}
-                                onChange={handleChange}
-                                required
-                            />
+                            <Form.Label>Customer</Form.Label>
+
+                            {editingSubscription ? (
+                                <Form.Control
+                                    type="text"
+                                    value={editingSubscription.customerName || `Customer #${editingSubscription.customerId}`}
+                                    disabled
+                                />
+                            ) : (
+                                <Form.Control
+                                    type="number"
+                                    name="customerId"
+                                    value={formData.customerId}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            )}
                         </Form.Group>
 
                         <Form.Group className="mb-3">
-                            <Form.Label>Plan ID</Form.Label>
-                            <Form.Control
-                                type="number"
-                                name="planId"
-                                value={formData.planId}
-                                onChange={handleChange}
-                                required
-                            />
+                            <Form.Label>Plan</Form.Label>
+
+                            {editingSubscription ? (
+                                <Form.Control
+                                    type="text"
+                                    value={editingSubscription.planName || `Plan #${editingSubscription.planId}`}
+                                    disabled
+                                />
+                            ) : (
+                                <Form.Control
+                                    type="number"
+                                    name="planId"
+                                    value={formData.planId}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            )}
                         </Form.Group>
 
                         <Form.Group className="mb-3">

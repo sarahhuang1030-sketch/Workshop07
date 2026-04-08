@@ -70,6 +70,7 @@ export default function ManagerSubscription({ darkMode = false }) {
 
             const q = search.trim().toLowerCase();
 
+
             const addonsText = Array.isArray(sub.addons)
                 ? sub.addons
                     .map((a) => `${a.addOnName || ""} ${a.status || ""}`)
@@ -80,8 +81,8 @@ export default function ManagerSubscription({ darkMode = false }) {
                 !q ||
                 [
                     sub.subscriptionId,
-                    sub.customerName,
-                    sub.planName,
+                    sub.customerId,
+                    sub.planId,
                     sub.status,
                     sub.notes,
                     sub.startDate,
@@ -272,8 +273,8 @@ export default function ManagerSubscription({ darkMode = false }) {
                             <thead>
                             <tr>
                                 <th>Subscription ID</th>
-                                <th>Customer</th>   {/* changed */}
-                                <th>Plan</th>       {/* changed */}
+                                <th>Customer</th>
+                                <th>Plan</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Status</th>
@@ -283,20 +284,15 @@ export default function ManagerSubscription({ darkMode = false }) {
                                 <th>Actions</th>
                             </tr>
                             </thead>
-
                             <tbody>
                             {filteredSubscriptions.length > 0 ? (
                                 filteredSubscriptions.map((sub) => (
                                     <tr key={sub.subscriptionId}>
                                         <td>{sub.subscriptionId}</td>
-
-                                        {/* ✅ show names instead of IDs */}
-                                        <td>{sub.customerName || "—"}</td>
-                                        <td>{sub.planName || "—"}</td>
-
+                                        <td>{sub.customerName || `Customer #${sub.customerId}`}</td>
+                                        <td>{sub.planName || `Plan #${sub.planId}`}</td>
                                         <td>{sub.startDate || "—"}</td>
                                         <td>{sub.endDate || "—"}</td>
-
                                         <td>
                                             <Badge
                                                 bg={
@@ -312,10 +308,8 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                 {sub.status || "Unknown"}
                                             </Badge>
                                         </td>
-
                                         <td>{sub.billingCycleDay ?? "—"}</td>
                                         <td>{sub.notes || "—"}</td>
-
                                         <td>
                                             {Array.isArray(sub.addons) && sub.addons.length > 0 ? (
                                                 sub.addons.map((a) => (
@@ -327,7 +321,6 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                 "—"
                                             )}
                                         </td>
-
                                         <td>
                                             <div className="d-flex gap-2 flex-wrap">
                                                 <Button
@@ -343,7 +336,10 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                         size="sm"
                                                         variant="outline-warning"
                                                         onClick={() =>
-                                                            updateStatus(sub.subscriptionId, "Suspended")
+                                                            updateStatus(
+                                                                sub.subscriptionId,
+                                                                "Suspended"
+                                                            )
                                                         }
                                                     >
                                                         Suspend
@@ -367,7 +363,10 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                         size="sm"
                                                         variant="outline-danger"
                                                         onClick={() =>
-                                                            updateStatus(sub.subscriptionId, "Cancelled")
+                                                            updateStatus(
+                                                                sub.subscriptionId,
+                                                                "Cancelled"
+                                                            )
                                                         }
                                                     >
                                                         Cancel
@@ -408,28 +407,99 @@ export default function ManagerSubscription({ darkMode = false }) {
                 <Form onSubmit={handleSave}>
                     <Modal.Body>
                         <Form.Group className="mb-3">
-                            <Form.Label>Customer ID</Form.Label>
+                            <Form.Label>Customer</Form.Label>
+
+                            {editingSubscription ? (
+                                <Form.Control
+                                    type="text"
+                                    value={editingSubscription.customerName || `Customer #${editingSubscription.customerId}`}
+                                    disabled
+                                />
+                            ) : (
+                                <Form.Control
+                                    type="number"
+                                    name="customerId"
+                                    value={formData.customerId}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            )}
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Plan</Form.Label>
+
+                            {editingSubscription ? (
+                                <Form.Control
+                                    type="text"
+                                    value={editingSubscription.planName || `Plan #${editingSubscription.planId}`}
+                                    disabled
+                                />
+                            ) : (
+                                <Form.Control
+                                    type="number"
+                                    name="planId"
+                                    value={formData.planId}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            )}
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Start Date</Form.Label>
                             <Form.Control
-                                type="number"
-                                name="customerId"
-                                value={formData.customerId}
+                                type="date"
+                                name="startDate"
+                                value={formData.startDate}
                                 onChange={handleChange}
                                 required
                             />
                         </Form.Group>
 
                         <Form.Group className="mb-3">
-                            <Form.Label>Plan ID</Form.Label>
+                            <Form.Label>End Date</Form.Label>
                             <Form.Control
-                                type="number"
-                                name="planId"
-                                value={formData.planId}
+                                type="date"
+                                name="endDate"
+                                value={formData.endDate}
                                 onChange={handleChange}
-                                required
                             />
                         </Form.Group>
 
-                        {/* rest unchanged */}
+                        <Form.Group className="mb-3">
+                            <Form.Label>Status</Form.Label>
+                            <Form.Select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                            >
+                                <option value="Active">Active</option>
+                                <option value="Suspended">Suspended</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </Form.Select>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Billing Cycle Day</Form.Label>
+                            <Form.Control
+                                type="number"
+                                name="billingCycleDay"
+                                value={formData.billingCycleDay}
+                                onChange={handleChange}
+                            />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Notes</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                name="notes"
+                                value={formData.notes}
+                                onChange={handleChange}
+                            />
+                        </Form.Group>
                     </Modal.Body>
 
                     <Modal.Footer>

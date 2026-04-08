@@ -6,6 +6,7 @@ import java.time.LocalDate;
 public class EmployeeDTO {
     private Integer employeeId;
     private Integer primaryLocationId;
+    private String primaryLocationName;
 
     private String firstName;
     private String lastName;
@@ -17,6 +18,7 @@ public class EmployeeDTO {
     private String status;
     private Integer active;
     private Integer managerId;
+    private String managerName;
 
     public EmployeeDTO() {
     }
@@ -37,7 +39,13 @@ public class EmployeeDTO {
         this.primaryLocationId = primaryLocationId;
     }
 
+    public String getPrimaryLocationName() {
+        return primaryLocationName;
+    }
 
+    public void setPrimaryLocationName(String primaryLocationName) {
+        this.primaryLocationName = primaryLocationName;
+    }
 
     public String getFirstName() {
         return firstName;
@@ -117,5 +125,13 @@ public class EmployeeDTO {
 
     public void setManagerId(Integer managerId) {
         this.managerId = managerId;
+    }
+
+    public String getManagerName() {
+        return managerName;
+    }
+
+    public void setManagerName(String managerName) {
+        this.managerName = managerName;
     }
 }

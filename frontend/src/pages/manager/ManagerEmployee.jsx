@@ -255,8 +255,7 @@ export default function ManageEmployee({ darkMode = false }) {
                                 <th>Hire Date</th>
                                 <th>Salary (Yearly)</th>
                                 <th>Location</th>
-
-                                <th>Manager ID</th>
+                                <th>Manager</th>
                                 {/*<th>Active</th>*/}
                                 <th style={{ width: 180 }}>Actions</th>
                             </tr>
@@ -279,9 +278,8 @@ export default function ManageEmployee({ darkMode = false }) {
                                         <td>{emp.status || "—"}</td>
                                         <td>{emp.hireDate || "—"}</td>
                                         <td>{emp.salary != null ? `$${Number(emp.salary).toLocaleString()}` : "—"}</td>
-                                        <td>{emp.primaryLocationId ?? "—"}</td>
-
-                                        <td>{emp.managerId ?? "—"}</td>
+                                        <td>{emp.primaryLocationName || (emp.primaryLocationId ? `Loc #${emp.primaryLocationId}` : "—")}</td>
+                                        <td>{emp.managerName || (emp.managerId ? `Mgr #${emp.managerId}` : "—")}</td>
                                         {/*<td>{emp.active === 1 ? "Yes" : "No"}</td>*/}
                                         <td>
                                             <div className="d-flex gap-2">
@@ -453,7 +451,7 @@ export default function ManageEmployee({ darkMode = false }) {
 
                             <Col md={4}>
                                 <Form.Group>
-                                    <Form.Label>Primary Location ID</Form.Label>
+                                    <Form.Label>Primary Location</Form.Label>
                                     <Form.Control
                                         type="number"
                                         name="primaryLocationId"
@@ -467,7 +465,7 @@ export default function ManageEmployee({ darkMode = false }) {
 
                             <Col md={4}>
                                 <Form.Group>
-                                    <Form.Label>Manager ID</Form.Label>
+                                    <Form.Label>Manager</Form.Label>
                                     <Form.Control
                                         type="number"
                                         name="managerId"

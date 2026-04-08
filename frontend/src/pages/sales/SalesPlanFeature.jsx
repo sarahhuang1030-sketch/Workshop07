@@ -219,7 +219,7 @@ export default function SalesPlanFeature({ darkMode = false }) {
                             <thead>
                             <tr>
                                 <th>Feature ID</th>
-                                <th>Plan ID</th>
+                                <th>Plan</th>
                                 <th>Feature Name</th>
                                 <th>Feature Value</th>
                                 <th>Unit</th>
@@ -232,7 +232,7 @@ export default function SalesPlanFeature({ darkMode = false }) {
                                 filteredFeatures.map((feature) => (
                                     <tr key={feature.featureId}>
                                         <td>{feature.featureId ?? "—"}</td>
-                                        <td>{feature.planId ?? "—"}</td>
+                                        <td>{feature.planName || (feature.planId ? `Plan #${feature.planId}` : "—")}</td>
                                         <td>
                                             <Badge bg="info">
                                                 {feature.featureName || "—"}
@@ -287,7 +287,7 @@ export default function SalesPlanFeature({ darkMode = false }) {
                 <Form onSubmit={handleSave}>
                     <Modal.Body>
                         <Form.Group className="mb-3">
-                            <Form.Label>Plan ID</Form.Label>
+                            <Form.Label>Plan</Form.Label>
                             <Form.Control
                                 type="number"
                                 name="planId"
