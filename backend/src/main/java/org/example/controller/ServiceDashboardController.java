@@ -1,7 +1,8 @@
 package org.example.controller;
 
-import com.stripe.model.Customer;
 import org.example.dto.CustomerDTO;
+import org.example.dto.ManagerServiceAppointmentDTO;
+import org.example.dto.ManagerServiceRequestDTO;
 import org.example.dto.ServiceDashboardSummaryDTO;
 import org.example.model.CustomerAddress;
 import org.example.service.CustomerAddressService;
@@ -10,12 +11,10 @@ import org.example.service.CustomerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/service")
@@ -36,6 +35,32 @@ public class ServiceDashboardController {
     @GetMapping("/summary")
     public ServiceDashboardSummaryDTO getSummary(Authentication authentication) {
         return serviceDashboardService.getSummary(authentication.getName());
+    }
+
+    @GetMapping("/tickets")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public List<ManagerServiceRequestDTO> getAssignedTickets(Authentication authentication) {
+        return serviceDashboardService.getAssignedTickets(authentication.getName());
+    }
+
+    @PutMapping("/tickets/{ticketId}/status")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public ResponseEntity<Void> updateTicketStatus(@PathVariable Integer ticketId, @RequestBody Map<String, String> body) {
+        serviceDashboardService.updateTicketStatus(ticketId, body.get("status"));
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/appointments")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public List<ManagerServiceAppointmentDTO> getAssignedAppointments(Authentication authentication) {
+        return serviceDashboardService.getAssignedAppointments(authentication.getName());
+    }
+
+    @PutMapping("/appointments/{appointmentId}/status")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public ResponseEntity<Void> updateAppointmentStatus(@PathVariable Integer appointmentId, @RequestBody Map<String, String> body) {
+        serviceDashboardService.updateAppointmentStatus(appointmentId, body.get("status"));
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/customers")
