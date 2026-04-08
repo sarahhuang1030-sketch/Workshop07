@@ -337,6 +337,7 @@ export default function ManagerService({ darkMode = false }) {
         const normalizedStatus =
             req.status === "Open" ||
             req.status === "Assigned" ||
+            req.status === "In Progress" ||
             req.status === "Completed" ||
             req.status === "Cancelled"
                 ? req.status
@@ -628,7 +629,7 @@ export default function ManagerService({ darkMode = false }) {
                                     >
                                         <option value="">Select employee</option>
                                         {createdByOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}
@@ -646,7 +647,7 @@ export default function ManagerService({ darkMode = false }) {
                                     >
                                         <option value="">Select technician</option>
                                         {technicianOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}
@@ -855,7 +856,7 @@ export default function ManagerService({ darkMode = false }) {
                                     >
                                         <option value="">Select technician</option>
                                         {technicianOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}

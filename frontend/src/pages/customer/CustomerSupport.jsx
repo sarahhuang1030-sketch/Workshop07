@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Card, Table, Form, Button, Badge, Row, Col, Alert, Spinner } from "react-bootstrap";
+import { Container, Card, Table, Form, Button, Badge, Row, Col, Alert, Spinner, Modal } from "react-bootstrap";
 import { apiFetch } from "../../services/api";
 
 const REQUESTS_API = "/api/customer/service-requests";
@@ -10,13 +10,16 @@ export default function CustomerSupport({ darkMode = false }) {
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
+    const [showDetails, setShowDetails] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState(null);
+
     const [formData, setFormData] = useState({
         requestType: "Technical Support",
         priority: "Medium",
         description: ""
     });
 
-    const requestTypes = ["Technical Support", "Billing Inquiry", "Installation Request", "Repair", "Other"];
+    const requestTypes = ["Technical Support", "Billing Inquiry", "Installation", "Repair", "Upgrade", "Other"];
     const priorities = ["Low", "Medium", "High"];
 
     useEffect(() => {
@@ -77,6 +80,11 @@ export default function CustomerSupport({ darkMode = false }) {
 
     const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark shadow-sm";
 
+    const openDetails = (req) => {
+        setSelectedRequest(req);
+        setShowDetails(true);
+    };
+
     return (
         <Container className="py-4">
             <h2 className="fw-bold mb-4">Customer Support</h2>
@@ -136,6 +144,7 @@ export default function CustomerSupport({ darkMode = false }) {
                                             <th>Status</th>
                                             <th>Technician</th>
                                             <th>Created</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -150,6 +159,11 @@ export default function CustomerSupport({ darkMode = false }) {
                                                 </td>
                                                 <td>{req.technicianName || "TBD"}</td>
                                                 <td>{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "—"}</td>
+                                                <td>
+                                                    <Button size="sm" variant="outline-primary" onClick={() => openDetails(req)}>
+                                                        Details
+                                                    </Button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -161,6 +175,51 @@ export default function CustomerSupport({ darkMode = false }) {
                     </Card>
                 </Col>
             </Row>
+
+            <Modal show={showDetails} onHide={() => setShowDetails(false)} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Request Details - #{selectedRequest?.requestId}</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {selectedRequest && (
+                        <div>
+                            <h5>Description</h5>
+                            <p>{selectedRequest.description}</p>
+                            <hr />
+                            <h5>Appointments</h5>
+                            {selectedRequest.appointments && selectedRequest.appointments.length > 0 ? (
+                                <Table striped bordered hover size="sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Start</th>
+                                            <th>End</th>
+                                            <th>Status</th>
+                                            <th>Technician</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedRequest.appointments.map(appt => (
+                                            <tr key={appt.appointmentId}>
+                                                <td>{appt.locationType}</td>
+                                                <td>{new Date(appt.scheduledStart).toLocaleString()}</td>
+                                                <td>{new Date(appt.scheduledEnd).toLocaleString()}</td>
+                                                <td>{appt.status}</td>
+                                                <td>{appt.technicianName || "TBD"}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            ) : (
+                                <p className="text-muted">No appointments scheduled for this request yet.</p>
+                            )}
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDetails(false)}>Close</Button>
+                </Modal.Footer>
+            </Modal>
         </Container>
     );
 }
