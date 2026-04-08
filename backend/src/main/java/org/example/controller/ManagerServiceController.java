@@ -6,6 +6,7 @@ import org.example.model.ServiceAppointment;
 import org.example.model.ServiceRequest;
 import org.example.repository.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/manager/service-requests")
+@PreAuthorize("hasRole('MANAGER')")
 public class ManagerServiceController {
 
     private final ManagerServiceRequestRepository serviceRequestRepository;
