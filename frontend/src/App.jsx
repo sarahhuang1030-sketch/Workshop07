@@ -51,6 +51,7 @@ import SalesEmployeeSales from "./pages/sales/SalesEmployeeSales";
 import SalesLocation from "./pages/sales/SalesLocation";
 // import SalesPastDue from "./pages/sales/SalesPastDue";
 import CreateBundle from "./pages/sales/CreateBundle";
+import SalesService from "./pages/sales/SalesServices.jsx";
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -465,6 +466,14 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
                             <CreateBundle />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/sales/services"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
+                            <SalesService />
                         </RequireRole>
                     }
                 />
