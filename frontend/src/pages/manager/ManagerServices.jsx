@@ -50,9 +50,9 @@ export default function ManagerService({ darkMode = false }) {
         description: "",
     });
 
-    const requestTypeOptions = ["Installation", "Repair", "Upgrade", "Other"];
+    const requestTypeOptions = ["Technical Support", "Billing Inquiry", "Installation", "Repair", "Upgrade", "Other"];
     const priorityOptions = ["Low", "Medium", "High"];
-    const statusOptions = ["Open", "Assigned", "Completed", "Cancelled"];
+    const statusOptions = ["Open", "Assigned", "In Progress", "Completed", "Cancelled"];
 
     const cardBase = darkMode
         ? "bg-dark text-light border-secondary"
@@ -159,6 +159,7 @@ export default function ManagerService({ darkMode = false }) {
         const value = String(status || "").toLowerCase();
 
         if (value === "assigned") return "primary";
+        if (value === "in progress") return "info";
         if (value === "scheduled") return "info";
         if (value === "completed") return "success";
         if (value === "cancelled") return "secondary";

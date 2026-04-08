@@ -1,7 +1,8 @@
-import React from "react";
-import { Container, Row, Col, Card, Button } from "react-bootstrap";
+import React, { useState, useEffect } from "react";
+import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
 import { Wrench, ClipboardList, CheckCircle, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../services/api";
 
 function Stat({ title, value, hint, icon: Icon }) {
     return (
@@ -75,6 +76,29 @@ function ActionCard({ title, desc, icon: Icon, to }) {
 
 export default function ServiceDashboard() {
     const nav = useNavigate();
+    const [summary, setSummary] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        loadSummary();
+    }, []);
+
+    const loadSummary = async () => {
+        try {
+            setLoading(true);
+            const res = await apiFetch("/api/service/summary");
+            if (!res.ok) throw new Error("Failed to load summary");
+            const data = await res.json();
+            setSummary(data);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
 
     return (
         <Container className="py-4">
@@ -97,19 +121,21 @@ export default function ServiceDashboard() {
                 </div>
             </div>
 
+            {error && <Alert variant="danger">{error}</Alert>}
+
             {/* Stats Row */}
             <Row className="g-3">
                 <Col md={3}>
-                    <Stat title="Assigned Tickets" value="5" hint="Active tickets" icon={ClipboardList} />
+                    <Stat title="Assigned Tickets" value={summary?.assignedRequests || 0} hint="Active tickets" icon={ClipboardList} />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Work Orders" value="3" hint="Pending tasks" icon={Wrench} />
+                    <Stat title="Work Orders" value={summary?.todayAppointments || 0} hint="Today's tasks" icon={Wrench} />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Completed Today" value="2" hint="Finished jobs" icon={CheckCircle} />
+                    <Stat title="Completed Jobs" value={summary?.completedRequests || 0} hint="Total finished" icon={CheckCircle} />
                 </Col>
                 <Col md={3}>
-                    <Stat title="Urgent Issues" value="1" hint="Needs attention" icon={AlertTriangle} />
+                    <Stat title="Open Requests" value={summary?.openRequests || 0} hint="Needs action" icon={AlertTriangle} />
                 </Col>
             </Row>
 
