@@ -33,6 +33,8 @@ import CustomerBilling from "./pages/customer/CustomerBilling";
 import CustomerSupport from "./pages/customer/CustomerSupport";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CustomerInvoice from "./pages/customer/CustomerInvoice";
+import CustomerQuotes from "./pages/customer/CustomerQuotes.jsx";
+import CustomerBillingHistory from "./pages/customer/CustomerBillingHistory.jsx";
 
 // Sales
 import SalesDashboard from "./pages/sales/SalesDashboard";
@@ -72,7 +74,7 @@ import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales";
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
 import RequireAuth from "./components/auth/RequireAuth";
-import CustomerBillingHistory from "./pages/customer/CustomerBillingHistory.jsx";
+
 
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
@@ -100,10 +102,10 @@ function mapMeToUser(meResponse) {
 
     const dbRole = dbRoleRaw
         ? String(dbRoleRaw)
-              .replace(/^ROLE_/i, "")
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, "")
+            .replace(/^ROLE_/i, "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "")
         : null;
 
     const attrs = meResponse?.attributes ?? {};
@@ -366,6 +368,14 @@ export default function App() {
                 <Route
                     path="/customer/billing/history"
                     element={<CustomerBillingHistory />}
+                />
+                <Route
+                    path="/customer/quotes"
+                    element={
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
+                            <CustomerQuotes />
+                        </RequireRole>
+                    }
                 />
                 <Route
                     path="/customer/plan"

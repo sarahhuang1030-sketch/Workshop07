@@ -16,6 +16,7 @@ import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal, BillingAddressCard } from "../components";
 import { apiFetch } from "../services/api";
+import CustomerQuotes from "../pages/customer/CustomerQuotes";
 
 const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
@@ -649,6 +650,16 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         />
                     )}
 
+                    {/* =========================
+                            CUSTOMER QUOTES (NEW)
+                        ========================= */}
+                    {profile.role === "CUSTOMER" && (
+                        <Card className={`mt-4 ${cardBase}`} style={{ borderRadius: 22 }}>
+                            <Card.Body>
+                                <CustomerQuotes />
+                            </Card.Body>
+                        </Card>
+                    )}
                 </Col>
             </Row>
 

@@ -12,7 +12,6 @@ import org.example.model.Subscription;
 import org.example.model.SubscriptionAddOn;
 import org.example.repository.*;
 import org.example.entity.InvoiceItems;
-
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,14 +19,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * SaaS Invoice Service
- * Supports:
- * - Quote → Invoice conversion
- * - Subscription creation
- * - Add-ons binding
- * - Status lifecycle: PENDING → APPROVED → PAID
- */
 @Service
 public class InvoiceService {
 
@@ -37,7 +28,8 @@ public class InvoiceService {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
     private final InvoiceItemRepository invoiceItemRepository;
-
+    private final PlanRepository planRepository;
+    private final AddOnRepository addOnRepository;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
@@ -45,7 +37,9 @@ public class InvoiceService {
             PaymentAccountRepository paymentAccountRepository,
             SubscriptionRepository subscriptionRepository,
             SubscriptionAddOnRepository subscriptionAddOnRepository,
-            InvoiceItemRepository invoiceItemRepository
+            InvoiceItemRepository invoiceItemRepository,
+            PlanRepository planRepository,
+            AddOnRepository addOnRepository
     ) {
         this.invoiceRepository = invoiceRepository;
         this.customerRepository = customerRepository;
@@ -53,11 +47,13 @@ public class InvoiceService {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.invoiceItemRepository = invoiceItemRepository;
+        this.planRepository = planRepository;
+        this.addOnRepository = addOnRepository;
     }
 
-    // ======================================================
-    // SaaS STATUS LIFECYCLE
-    // ======================================================
+    // =========================
+    // STATUS
+    // =========================
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_PAID = "PAID";
@@ -66,9 +62,9 @@ public class InvoiceService {
         return "INV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    // ======================================================
-    // CREATE INVOICE (PLAN + ADDON + SUBSCRIPTION)
-    // ======================================================
+    // =========================
+    // CREATE INVOICE
+    // =========================
     @Transactional
     public Invoices createInvoice(InvoiceRequestDTO body) {
 
@@ -93,9 +89,7 @@ public class InvoiceService {
 
         Invoices savedInvoice = invoiceRepository.save(invoice);
 
-        // =========================
-        // PLAN REQUIRED
-        // =========================
+        // plan required
         Integer planId = body.getItems().stream()
                 .filter(i -> i != null && "plan".equalsIgnoreCase(i.getType()))
                 .map(ItemDTO::getId)
@@ -106,23 +100,16 @@ public class InvoiceService {
             throw new IllegalArgumentException("Plan is required in invoice items");
         }
 
-        // =========================
-        // SAVE ITEMS
-        // =========================
+        // items
         for (ItemDTO item : body.getItems()) {
 
             if (item == null) continue;
 
             InvoiceItems entity = new InvoiceItems();
-
-            // correct relation mapping
             entity.setInvoice(savedInvoice);
-
-            // We only store description + price info
             entity.setDescription(item.getName());
             entity.setQuantity(item.getQuantity() == null ? 1 : item.getQuantity());
 
-            // convert Double -> BigDecimal
             if (item.getPrice() != null) {
                 entity.setUnitPrice(BigDecimal.valueOf(item.getPrice()));
                 entity.setLineTotal(
@@ -132,13 +119,10 @@ public class InvoiceService {
             }
 
             entity.setDiscountAmount(BigDecimal.ZERO);
-
             invoiceItemRepository.save(entity);
         }
 
-        // =========================
-        // CREATE SUBSCRIPTION
-        // =========================
+        // subscription
         Subscription subscription = new Subscription();
         subscription.setCustomerId(body.getCustomerId());
         subscription.setPlanId(planId);
@@ -147,25 +131,19 @@ public class InvoiceService {
 
         Subscription savedSubscription = subscriptionRepository.save(subscription);
 
-        // =========================
-        // ADDONS
-        // =========================
+        // addons
         body.getItems().stream()
                 .filter(i -> i != null && "addon".equalsIgnoreCase(i.getType()))
                 .forEach(item -> {
-
                     SubscriptionAddOn addon = new SubscriptionAddOn();
                     addon.setSubscriptionId(savedSubscription.getSubscriptionId());
                     addon.setAddOnId(item.getId());
                     addon.setStartDate(LocalDate.now());
                     addon.setStatus("ACTIVE");
-
                     subscriptionAddOnRepository.save(addon);
                 });
 
-        // =========================
-        // PAYMENT ACCOUNT LINK
-        // =========================
+        // payment account
         if (body.getPaymentAccountId() != null) {
             paymentAccountRepository.findById(body.getPaymentAccountId())
                     .ifPresent(account -> {
@@ -177,39 +155,40 @@ public class InvoiceService {
         return savedInvoice;
     }
 
-    // ======================================================
+    // =========================
     // CREATE FROM QUOTE
-    // ======================================================
+    // =========================
     @Transactional
     public Invoices createFromQuote(Quote q) {
 
         Invoices inv = new Invoices();
-
         inv.setCustomerId(q.getCustomerId());
         inv.setSubtotal(q.getAmount());
         inv.setTotal(q.getAmount());
         inv.setTaxTotal(0.0);
-
         inv.setInvoiceNumber(generateInvoiceNumber());
         inv.setStatus(STATUS_PENDING);
+        inv.setSource("QUOTE");
+        inv.setIssueDate(LocalDate.now());
 
         try {
             inv.setQuoteId(q.getId());
         } catch (Exception ignored) {}
 
-        return invoiceRepository.save(inv);
+        Invoices saved = invoiceRepository.save(inv);
+
+        return saved;
     }
 
-    // ======================================================
-    // UPDATE INVOICE
-    // ======================================================
+    // =========================
+    // UPDATE
+    // =========================
     @Transactional
     public Invoices updateInvoice(String invoiceNumber, InvoiceRequestDTO body) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
         if (inv == null) return null;
 
-        // Only allow update in PENDING state
         if (!STATUS_PENDING.equals(inv.getStatus())) {
             throw new IllegalStateException("Only PENDING invoices can be updated");
         }
@@ -218,40 +197,29 @@ public class InvoiceService {
         inv.setTaxTotal(body.getTaxTotal());
         inv.setTotal(body.getTotal());
 
-        if (body.getPaymentAccountId() != null) {
-            paymentAccountRepository.findById(body.getPaymentAccountId())
-                    .ifPresent(inv::setPaidByAccount);
-        }
-
         return invoiceRepository.save(inv);
     }
 
-    // ======================================================
-    // DELETE INVOICE (SAFE VERSION)
-    // ======================================================
-        @Transactional
-        public boolean deleteInvoice(String invoiceNumber) {
+    // =========================
+    // DELETE
+    // =========================
+    @Transactional
+    public boolean deleteInvoice(String invoiceNumber) {
 
-            Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+        Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+        if (inv == null) return false;
 
-            if (inv == null) {
-                return false;
-            }
-
-            // SaaS safety rule:
-            // Do not delete PAID invoices
-            if (STATUS_PAID.equals(inv.getStatus())) {
-                throw new IllegalStateException("Cannot delete PAID invoices");
-            }
-
-            // Option A: HARD DELETE
-            invoiceRepository.delete(inv);
-
-            return true;
+        if (STATUS_PAID.equals(inv.getStatus())) {
+            throw new IllegalStateException("Cannot delete PAID invoices");
         }
-    // ======================================================
-    // APPROVE INVOICE
-    // ======================================================
+
+        invoiceRepository.delete(inv);
+        return true;
+    }
+
+    // =========================
+    // APPROVE
+    // =========================
     public Invoices approveInvoice(String invoiceNumber) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -265,9 +233,9 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
-    // ======================================================
-    // MARK AS PAID
-    // ======================================================
+    // =========================
+    // MARK PAID
+    // =========================
     public Invoices markAsPaid(String invoiceNumber, Integer paymentAccountId) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -283,13 +251,12 @@ public class InvoiceService {
         }
 
         inv.setStatus(STATUS_PAID);
-
         return invoiceRepository.save(inv);
     }
 
-    // ======================================================
-    // DTO CONVERSION
-    // ======================================================
+    // =========================
+    // DTO
+    // =========================
     public InvoiceDTO convertToDTO(Invoices invoice) {
 
         InvoiceDTO dto = new InvoiceDTO();
@@ -314,23 +281,18 @@ public class InvoiceService {
                         : customer.getFirstName() + " " + customer.getLastName())
         );
 
-        // =========================
-        // LOAD INVOICE ITEMS (CRITICAL FIX)
-        // =========================
         dto.items = invoiceItemRepository.findByInvoice_InvoiceId(invoice.getInvoiceId())
                 .stream()
-                        .map(i -> {
-                            InvoiceDTO.InvoiceItemDTO itemDTO = new InvoiceDTO.InvoiceItemDTO();
-
-                            itemDTO.description = i.getDescription();
-                            itemDTO.quantity = i.getQuantity();
-                            itemDTO.unitPrice = i.getUnitPrice();
-                            itemDTO.discountAmount = i.getDiscountAmount();
-                            itemDTO.lineTotal = i.getLineTotal();
-
-                            return itemDTO;
-                        })
-                        .toList();
+                .map(i -> {
+                    InvoiceDTO.InvoiceItemDTO itemDTO = new InvoiceDTO.InvoiceItemDTO();
+                    itemDTO.description = i.getDescription();
+                    itemDTO.quantity = i.getQuantity();
+                    itemDTO.unitPrice = i.getUnitPrice();
+                    itemDTO.discountAmount = i.getDiscountAmount();
+                    itemDTO.lineTotal = i.getLineTotal();
+                    return itemDTO;
+                })
+                .toList();
 
         PaymentAccounts account = invoice.getPaidByAccount();
 
@@ -348,9 +310,9 @@ public class InvoiceService {
         return dto;
     }
 
-    // ======================================================
+    // =========================
     // FINDERS
-    // ======================================================
+    // =========================
     public List<Invoices> findAllInvoices() {
         return invoiceRepository.findAll();
     }
