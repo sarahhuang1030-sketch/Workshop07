@@ -1,5 +1,5 @@
 -- =========================================================
--- V21__create_subscription_statuses.sql
+-- V22__create_subscription_statuses.sql
 -- Lookup table for subscription status values
 -- =========================================================
 
