@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 @RestController
 @RequestMapping("/api/billing")
 public class BillingController {
@@ -64,7 +63,7 @@ public class BillingController {
     ) {}
 
     // =========================================================
-    // GET Billing Address (MERGED VERSION)
+    // GET Billing Address (FIXED EMAIL SOURCE LOGIC)
     // =========================================================
     @GetMapping("/address")
     public ResponseEntity<?> getBillingAddress(
@@ -89,8 +88,12 @@ public class BillingController {
         boolean isEmployee = employeeId != null;
 
         var out = new LinkedHashMap<String, Object>();
+
         out.put("customerId", customerId);
         out.put("employeeId", employeeId);
+
+        // ✅ NEW: explicitly tell frontend the role
+        out.put("role", isEmployee ? "EMPLOYEE" : "CUSTOMER");
 
         Customer customer = null;
 
@@ -98,45 +101,43 @@ public class BillingController {
             customer = customerRepo.findById(customerId).orElse(null);
         }
 
-        // =========================
-        // NAME + EMAIL RESOLUTION (MERGED LOGIC)
-        // =========================
+        // =========================================================
+        // NAME + EMAIL RESOLUTION (FIXED: NO CROSS OVERWRITING)
+        // =========================================================
         if (isEmployee && employeeId != null) {
 
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
-                out.put("email", emp.getEmail()); // employee email priority
+                out.put("email", emp.getEmail()); // employee email ONLY
             });
 
         } else if (customer != null) {
 
             out.put("firstName", customer.getFirstName());
             out.put("lastName", customer.getLastName());
-            out.put("email", customer.getEmail()); // customer email
+            out.put("email", customer.getEmail()); // customer email ONLY
 
         } else {
-            // fallback (old logic compatibility)
             out.put("email", ua.getUsername());
         }
 
-        // =========================
-        // PHONE (MERGED)
-        // =========================
+        // =========================================================
+        // PHONE
+        // =========================================================
         if (customer != null) {
             out.put("homePhone", customer.getHomePhone());
         }
 
-        // employee fallback phone (old version behavior)
         if (isEmployee && customer == null && employeeId != null) {
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("homePhone", emp.getPhone());
             });
         }
 
-        // =========================
+        // =========================================================
         // ADDRESS
-        // =========================
+        // =========================================================
         if (customerId != null) {
             customerAddressRepo
                     .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
@@ -154,7 +155,7 @@ public class BillingController {
     }
 
     // =========================================================
-    // PUT Billing Address (MERGED VERSION)
+    // PUT Billing Address (FIXED: NO CUSTOMER EMAIL OVERWRITE)
     // =========================================================
     @Transactional
     @PutMapping("/address")
@@ -182,26 +183,27 @@ public class BillingController {
         Integer employeeId = ua.getEmployeeId();
         boolean isEmployee = employeeId != null;
 
-        // =========================
-        // UPDATE CUSTOMER CORE
-        // =========================
+        // =========================================================
+        // UPDATE CUSTOMER CORE (FIXED EMAIL HANDLING)
+        // =========================================================
         if (req.homePhone() != null) {
             customer.setHomePhone(req.homePhone().trim());
         }
 
-        // email update (merged rule: allow both roles)
-        if (req.email() != null) {
+        // ❌ FIX: DO NOT always overwrite customer email
+        // Only update customer email if user is NOT employee
+        if (!isEmployee && req.email() != null) {
             customer.setEmail(req.email().trim());
         }
 
-        // name rules (merged old + new logic)
         if (isEmployee) {
 
             employeeRepo.findById(employeeId).ifPresent(emp -> {
+
                 if (req.firstName() != null) emp.setFirstName(req.firstName().trim());
                 if (req.lastName() != null) emp.setLastName(req.lastName().trim());
 
-                // employee email override allowed
+                // employee email is updated ONLY in employee table
                 if (req.email() != null) emp.setEmail(req.email().trim());
 
                 employeeRepo.save(emp);
@@ -212,6 +214,7 @@ public class BillingController {
             if (req.firstName() != null) {
                 customer.setFirstName(req.firstName().trim());
             }
+
             if (req.lastName() != null) {
                 customer.setLastName(req.lastName().trim());
             }
@@ -219,9 +222,9 @@ public class BillingController {
 
         customerRepo.save(customer);
 
-        // =========================
+        // =========================================================
         // UPSERT ADDRESS
-        // =========================
+        // =========================================================
         CustomerAddress addr = customerAddressRepo
                 .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
                 .orElseGet(() -> {
@@ -241,14 +244,27 @@ public class BillingController {
 
         customerAddressRepo.save(addr);
 
-        // =========================
-        // RESPONSE (MERGED)
-        // =========================
+        // =========================================================
+        // RESPONSE (FIXED EMAIL CONSISTENCY)
+        // =========================================================
         var out = new LinkedHashMap<String, Object>();
 
         out.put("customerId", customerId);
-        out.put("email", isEmployee ? req.email() : customer.getEmail());
         out.put("homePhone", customer.getHomePhone());
+
+        if (isEmployee) {
+
+            employeeRepo.findById(employeeId).ifPresent(emp -> {
+                out.put("email", emp.getEmail());
+                out.put("firstName", emp.getFirstName());
+                out.put("lastName", emp.getLastName());
+            });
+
+        } else {
+            out.put("email", customer.getEmail());
+            out.put("firstName", customer.getFirstName());
+            out.put("lastName", customer.getLastName());
+        }
 
         out.put("street1", addr.getStreet1());
         out.put("street2", addr.getStreet2());
@@ -256,16 +272,6 @@ public class BillingController {
         out.put("province", addr.getProvince());
         out.put("postalCode", addr.getPostalCode());
         out.put("country", addr.getCountry());
-
-        if (isEmployee) {
-            employeeRepo.findById(employeeId).ifPresent(emp -> {
-                out.put("firstName", emp.getFirstName());
-                out.put("lastName", emp.getLastName());
-            });
-        } else {
-            out.put("firstName", customer.getFirstName());
-            out.put("lastName", customer.getLastName());
-        }
 
         auditService.log(
                 "BillingAddress",
@@ -278,7 +284,7 @@ public class BillingController {
     }
 
     // =========================================================
-    // ENSURE CUSTOMER (MERGED LOGIC - ENHANCED)
+    // ENSURE CUSTOMER (UNCHANGED LOGIC)
     // =========================================================
     private Customer ensureCustomer(UserAccount ua) {
 

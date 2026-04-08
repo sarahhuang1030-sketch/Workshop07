@@ -120,7 +120,15 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             if (!res.ok) return;
 
             const data = await res.json();
-            const address = data?.address ?? data ?? {};
+
+            const address = {
+                street1: data.street1,
+                street2: data.street2,
+                city: data.city,
+                province: data.province,
+                postalCode: data.postalCode,
+                country: data.country,
+            };
 
             setProfile(prev => ({
                 ...prev,
@@ -218,7 +226,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             employeeId: userProp.employeeId ?? null,
             firstName: userProp.firstName ?? "—",
             lastName: userProp.lastName ?? "",
-            email: userProp.email ?? "—",
+            email:
+                userProp.email ??
+                userProp.raw?.email ??
+                userProp.raw?.employeeEmail ??
+                userProp.raw?.customerEmail ??
+                "—",
             phone,
             avatarUrl: userProp.avatarUrl ?? null,
             oauthPicture: userProp.oauthPicture ?? userProp.raw?.oauthPicture ?? userProp.picture ?? userProp.raw?.picture ?? null,
@@ -236,7 +249,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         }
 
         setLoading(false);
-    }, [userProp, loadAddress, loadPaymentMethod]);
+    }, [userProp, loadAddress, loadPaymentMethod, loadInvoices]);
 
     useEffect(() => {
         const customerId = userProp?.customerId;
@@ -349,7 +362,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         );
     }
 
-    // const hasAccount = !!userProp.customerId || !!userProp.employeeId;
     const hasAccount = !!userProp?.customerId || !!userProp?.employeeId;
     if (!hasAccount) return <Navigate to="/login" replace />;
 
@@ -426,10 +438,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
                         </div>
 
-                        {/* Missing components section */}
                         <div className="mt-3 d-flex gap-2 flex-wrap">
 
-                            {/* Missing billing address */}
                             {!hasBillingAddress && (
                                 <Alert
                                     variant="warning"
@@ -457,7 +467,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 </Alert>
                             )}
 
-                            {/* Missing payment method */}
                             {!hasPaymentMethod && (
                                 <Alert
                                     variant="warning"
@@ -485,7 +494,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 </Alert>
                             )}
 
-                            {/* Missing plan */}
                             {!hasPlan && (
                                 <Alert
                                     variant="warning"
@@ -528,7 +536,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         onDeleteAvatar={deleteAvatar}
                     />
 
-                    {/* ===== LEFT SIDE: REWARD POINTS (RESTORED) ===== */}
                     <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
                         <Card.Body className="p-4">
                             <div className="d-flex align-items-center justify-content-between">
@@ -543,7 +550,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                     className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
                                     style={{ fontWeight: 900, fontSize: "2rem" }}
                                 >
-                                    {/*{Number(profile.points ?? 0).toLocaleString()} pts*/}
                                     {(computedPoints || 0).toLocaleString()} pts
                                 </div>
                                 <div className={mutedClass}>
@@ -555,9 +561,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
                             <div className="mt-3">
                                 <div className="d-flex justify-content-between small">
-                <span className={mutedClass}>
-                    Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                </span>
+                                    <span className={mutedClass}>
+                                        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                                    </span>
                                     <span className={mutedClass}>{tierInfo.progress}%</span>
                                 </div>
 
@@ -583,29 +589,66 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                     </Card>
                 </Col>
 
+                {/*<Col lg={8}>*/}
+                {/*    {hasCompletedBillingSetup && (*/}
+                {/*        <>*/}
+                {/*            <SubscriptionPage user={profile} darkMode={darkMode} />*/}
+
+                {/*            <BillingCard*/}
+                {/*                profile={profile}*/}
+                {/*                darkMode={darkMode}*/}
+                {/*                onEdit={(section) => {*/}
+                {/*                    if (section === "payment") setShowPaymentModal(true);*/}
+                {/*                    else setShowBillingModal(true);*/}
+                {/*                }}*/}
+                {/*                className="mt-4"*/}
+                {/*            />*/}
+
+                {/*            <BillingAddressCard*/}
+                {/*                address={profile.billing.address}*/}
+                {/*                darkMode={darkMode}*/}
+                {/*                onEdit={() => setShowBillingModal(true)}*/}
+                {/*                className="mt-3"*/}
+                {/*            />*/}
+                {/*        </>*/}
+                {/*    )}*/}
+                {/*</Col>*/}
                 <Col lg={8}>
-                    {hasCompletedBillingSetup && (
-                        <>
-                            <SubscriptionPage user={profile} darkMode={darkMode} />
 
-                            <BillingCard
-                                profile={profile}
-                                darkMode={darkMode}
-                                onEdit={(section) => {
-                                    if (section === "payment") setShowPaymentModal(true);
-                                    else setShowBillingModal(true);
-                                }}
-                                className="mt-4"
-                            />
+                    {/* =========================
+        KEEP ORIGINAL WARNING LOGIC
+    ========================= */}
+                    {!hasCompletedBillingSetup && null}
 
-                            <BillingAddressCard
-                                address={profile.billing.address}
-                                darkMode={darkMode}
-                                onEdit={() => setShowBillingModal(true)}
-                                className="mt-3"
-                            />
-                        </>
+                    {/* =========================
+        SEPARATE COMPONENT DISPLAY (NEW LOGIC)
+    ========================= */}
+
+                    {hasPlan && (
+                        <SubscriptionPage user={profile} darkMode={darkMode} />
                     )}
+
+                    {hasPaymentMethod && (
+                        <BillingCard
+                            profile={profile}
+                            darkMode={darkMode}
+                            onEdit={(section) => {
+                                if (section === "payment") setShowPaymentModal(true);
+                                else setShowBillingModal(true);
+                            }}
+                            className="mt-4"
+                        />
+                    )}
+
+                    {hasBillingAddress && (
+                        <BillingAddressCard
+                            address={profile.billing.address}
+                            darkMode={darkMode}
+                            onEdit={() => setShowBillingModal(true)}
+                            className="mt-3"
+                        />
+                    )}
+
                 </Col>
             </Row>
 
@@ -619,9 +662,14 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             ...prev,
                             firstName: updatedPersonal.firstName ?? prev.firstName,
                             lastName: updatedPersonal.lastName ?? prev.lastName,
-                            phone: updatedPersonal.phone ?? prev.phone,
+                            phone: updatedPersonal.homePhone ?? updatedPersonal.phone ?? prev.phone,
+                            email: updatedPersonal.email ?? prev.email,
+                            customerId: updatedPersonal.customerId ?? prev.customerId,
+                            employeeId: updatedPersonal.employeeId ?? prev.employeeId,
+                            role: updatedPersonal.role ?? "CUSTOMER",
                         }));
                     }
+
                     await loadAddress();
                 }}
                 backdrop
