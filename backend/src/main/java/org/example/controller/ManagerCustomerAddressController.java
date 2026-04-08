@@ -1,12 +1,14 @@
 package org.example.controller;
 
+import org.example.dto.SaveMyAddressRequestDTO;
 import org.example.model.CustomerAddress;
+import org.example.service.AuditService;
 import org.example.service.CustomerAddressService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.example.service.AuditService;
 
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/manager/customers/{customerId}/address")
@@ -22,25 +24,35 @@ public class ManagerCustomerAddressController {
     }
 
     @GetMapping
-    public ResponseEntity<CustomerAddress> getAddress(@PathVariable Integer customerId) {
-        CustomerAddress address = customerAddressService.getPrimaryAddress(customerId);
-        if (address == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(address);
+    public ResponseEntity<List<CustomerAddress>> getAddresses(@PathVariable Integer customerId) {
+        return ResponseEntity.ok(customerAddressService.getAddresses(customerId));
     }
 
     @PutMapping
     public CustomerAddress saveAddress(@PathVariable Integer customerId,
-                                       @RequestBody CustomerAddress address,
+                                       @RequestBody SaveMyAddressRequestDTO address,
                                        Authentication authentication) {
-        CustomerAddress saved = customerAddressService.saveOrUpdatePrimaryAddress(customerId, address);
+        CustomerAddress saved = customerAddressService.saveOrUpdateAddress(customerId, address);
 
         String username = authentication.getName();
-        String target = "Customer " + customerId + " - " + saved.getStreet1();
+        String target = "Customer " + customerId + " - " + saved.getAddressType() + " - " + saved.getStreet1();
 
         auditService.log("CustomerAddress", "Update", target, username);
 
         return saved;
+    }
+
+    @DeleteMapping("/{addressType}")
+    public ResponseEntity<Void> deleteAddressByType(@PathVariable Integer customerId,
+                                                    @PathVariable String addressType,
+                                                    Authentication authentication) {
+        customerAddressService.deleteAddressByType(customerId, addressType);
+
+        String username = authentication.getName();
+        String target = "Customer " + customerId + " - " + addressType;
+
+        auditService.log("CustomerAddress", "Delete", target, username);
+
+        return ResponseEntity.noContent().build();
     }
 }

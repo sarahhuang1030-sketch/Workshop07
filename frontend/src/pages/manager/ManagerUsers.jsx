@@ -12,6 +12,13 @@ import {
     Spinner,
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../services/api";
+import {
+    digitsOnly,
+    formatPhoneFromDigits,
+    formatPostalCode,
+    postalCodeCA,
+} from "../validation/Validation";
 
 const emptyForm = {
     customerType: "Individual",
@@ -21,16 +28,23 @@ const emptyForm = {
     email: "",
     homePhone: "",
     status: "Active",
-    street1: "",
-    street2: "",
-    city: "",
-    province: "",
-    postalCode: "",
-    country: "Canada",
-    addressType: "Billing",
-    isPrimary: 1,
+
+    sameAsBilling: true,
+
+    billingStreet1: "",
+    billingStreet2: "",
+    billingCity: "",
+    billingProvince: "",
+    billingPostalCode: "",
+    billingCountry: "Canada",
+
+    serviceStreet1: "",
+    serviceStreet2: "",
+    serviceCity: "",
+    serviceProvince: "",
+    servicePostalCode: "",
+    serviceCountry: "Canada",
 };
-import { apiFetch } from "../../services/api";
 
 export default function ManagerUsers({ darkMode = false }) {
     const [customers, setCustomers] = useState([]);
@@ -60,19 +74,20 @@ export default function ManagerUsers({ darkMode = false }) {
             setCustomers(data);
         } catch (err) {
             console.error(err);
-            setError("Unable to load CustomersPage.jsx.");
+            setError("Unable to load customers.");
         } finally {
             setLoading(false);
         }
     };
 
-    const loadCustomerAddress = async (customerId) => {
+    const loadCustomerAddresses = async (customerId) => {
         const res = await apiFetch(`/api/manager/customers/${customerId}/address`);
 
-        if (res.status === 404) return null;
-        if (!res.ok) throw new Error(`Failed to load address: ${res.status}`);
+        if (res.status === 404) return [];
+        if (!res.ok) throw new Error(`Failed to load addresses: ${res.status}`);
 
-        return await res.json();
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
     };
 
     useEffect(() => {
@@ -89,7 +104,17 @@ export default function ManagerUsers({ darkMode = false }) {
         try {
             setError("");
 
-            const address = await loadCustomerAddress(customer.customerId);
+            const addresses = await loadCustomerAddresses(customer.customerId);
+
+            const billing = addresses.find(
+                (a) => (a.addressType || "").toLowerCase() === "billing"
+            );
+
+            const service = addresses.find(
+                (a) => (a.addressType || "").toLowerCase() === "service"
+            );
+
+            const sameAsBilling = !service;
 
             setEditingId(customer.customerId);
             setForm({
@@ -98,17 +123,24 @@ export default function ManagerUsers({ darkMode = false }) {
                 lastName: customer.lastName ?? "",
                 businessName: customer.businessName ?? "",
                 email: customer.email ?? "",
-                homePhone: customer.homePhone ?? "",
+                homePhone: formatPhoneFromDigits(digitsOnly(customer.homePhone ?? "")),
                 status: customer.status ?? "Active",
 
-                street1: address?.street1 ?? "",
-                street2: address?.street2 ?? "",
-                city: address?.city ?? "",
-                province: address?.province ?? "",
-                postalCode: address?.postalCode ?? "",
-                country: address?.country ?? "Canada",
-                addressType: address?.addressType ?? "Billing",
-                isPrimary: address?.isPrimary ?? 1,
+                sameAsBilling,
+
+                billingStreet1: billing?.street1 ?? "",
+                billingStreet2: billing?.street2 ?? "",
+                billingCity: billing?.city ?? "",
+                billingProvince: billing?.province ?? "",
+                billingPostalCode: formatPostalCode(billing?.postalCode ?? ""),
+                billingCountry: billing?.country ?? "Canada",
+
+                serviceStreet1: service?.street1 ?? "",
+                serviceStreet2: service?.street2 ?? "",
+                serviceCity: service?.city ?? "",
+                serviceProvince: service?.province ?? "",
+                servicePostalCode: formatPostalCode(service?.postalCode ?? ""),
+                serviceCountry: service?.country ?? "Canada",
             });
 
             setShowModal(true);
@@ -125,14 +157,116 @@ export default function ManagerUsers({ darkMode = false }) {
     };
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({
-            ...prev,
-            [name]: value,
-            ...(name === "customerType" && value !== "Business"
-                ? { businessName: "" }
-                : {}),
-        }));
+        const { name, value, type, checked } = e.target;
+
+        setForm((prev) => {
+            let nextValue = type === "checkbox" ? checked : value;
+
+            if (name === "homePhone") {
+                nextValue = formatPhoneFromDigits(digitsOnly(value));
+            }
+
+            if (name === "billingPostalCode" || name === "servicePostalCode") {
+                nextValue = formatPostalCode(value);
+            }
+
+            const next = {
+                ...prev,
+                [name]: nextValue,
+            };
+
+            if (name === "customerType" && value !== "Business") {
+                next.businessName = "";
+            }
+
+            return next;
+        });
+    };
+
+    const saveAddress = async (customerId, addressType, payload) => {
+        const res = await apiFetch(`/api/manager/customers/${customerId}/address`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                addressType,
+                street1: payload.street1,
+                street2: payload.street2 || null,
+                city: payload.city,
+                province: payload.province,
+                postalCode: payload.postalCode,
+                country: payload.country,
+                isPrimary: 1,
+            }),
+        });
+
+        if (!res.ok) {
+            throw new Error(`${addressType} address save failed: ${res.status}`);
+        }
+    };
+
+    const deleteServiceAddress = async (customerId) => {
+        const res = await apiFetch(`/api/manager/customers/${customerId}/address/Service`, {
+            method: "DELETE",
+        });
+
+        if (!res.ok && res.status !== 404) {
+            throw new Error(`Delete service address failed: ${res.status}`);
+        }
+    };
+
+    const validateCustomerForm = () => {
+        if (!form.customerType?.trim()) return "Customer type is required.";
+        if (!form.status?.trim()) return "Status is required.";
+        if (!form.firstName?.trim()) return "First name is required.";
+        if (!form.lastName?.trim()) return "Last name is required.";
+
+        if (form.customerType === "Business" && !form.businessName?.trim()) {
+            return "Business name is required.";
+        }
+
+        if (!form.email?.trim()) return "Email is required.";
+
+        if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(form.email.trim())) {
+            return "Enter a valid email address (e.g., name@email.com).";
+        }
+
+        const phoneDigits = digitsOnly(form.homePhone);
+        if (!phoneDigits) return "Phone is required.";
+        if (phoneDigits.length !== 10) {
+            return "Phone must be 10 digits (e.g., (403) 555-1234).";
+        }
+
+        if (!form.billingStreet1?.trim()) return "Billing street 1 is required.";
+        if (!form.billingCity?.trim()) return "Billing city is required.";
+        if (!form.billingProvince?.trim()) return "Billing province is required.";
+        if (!form.billingCountry?.trim()) return "Billing country is required.";
+        if (!form.billingPostalCode?.trim()) return "Billing postal code is required.";
+
+        if (
+            form.billingCountry?.trim().toLowerCase() === "canada" &&
+            !postalCodeCA.test(form.billingPostalCode.trim())
+        ) {
+            return "Enter a valid billing postal code (e.g., T2P 1A1).";
+        }
+
+        if (!form.sameAsBilling) {
+            if (!form.serviceStreet1?.trim()) return "Service street 1 is required.";
+            if (!form.serviceCity?.trim()) return "Service city is required.";
+            if (!form.serviceProvince?.trim()) return "Service province is required.";
+            if (!form.serviceCountry?.trim()) return "Service country is required.";
+            if (!form.servicePostalCode?.trim()) return "Service postal code is required.";
+
+            if (
+                form.serviceCountry?.trim().toLowerCase() === "canada" &&
+                !postalCodeCA.test(form.servicePostalCode.trim())
+            ) {
+                return "Enter a valid service postal code (e.g., T2P 1A1).";
+            }
+        }
+
+        return "";
     };
 
     const handleSave = async (e) => {
@@ -142,29 +276,38 @@ export default function ManagerUsers({ darkMode = false }) {
             setSaving(true);
             setError("");
 
+            const validationMessage = validateCustomerForm();
+            if (validationMessage) {
+                setError(validationMessage);
+                setSaving(false);
+                return;
+            }
+
             const url = editingId
                 ? `/api/manager/customers/${editingId}`
-                : "/api/manager/CustomersPage.jsx";
+                : "/api/manager/customers";
 
             const method = editingId ? "PUT" : "POST";
 
-            const payload = {
+            const customerPayload = {
                 customerType: form.customerType,
-                firstName: form.firstName,
-                lastName: form.lastName,
-                businessName: form.businessName || null,
-                email: form.email,
-                homePhone: form.homePhone,
+                firstName: form.firstName.trim(),
+                lastName: form.lastName.trim(),
+                businessName:
+                    form.customerType === "Business"
+                        ? form.businessName?.trim() || null
+                        : null,
+                email: form.email.trim(),
+                homePhone: digitsOnly(form.homePhone),
                 status: form.status,
             };
 
             const res = await apiFetch(url, {
                 method,
-
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(customerPayload),
             });
 
             if (!res.ok) {
@@ -174,27 +317,26 @@ export default function ManagerUsers({ darkMode = false }) {
             const savedCustomer = await res.json();
             const customerId = editingId || savedCustomer.customerId;
 
-            const addressPayload = {
-                addressType: form.addressType,
-                street1: form.street1,
-                street2: form.street2 || null,
-                city: form.city,
-                province: form.province,
-                postalCode: form.postalCode,
-                country: form.country,
-                isPrimary: 1,
-            };
-
-            const addressRes = await apiFetch(`/api/manager/customers/${customerId}/address`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(addressPayload),
+            await saveAddress(customerId, "Billing", {
+                street1: form.billingStreet1.trim(),
+                street2: form.billingStreet2?.trim() || "",
+                city: form.billingCity.trim(),
+                province: form.billingProvince.trim(),
+                postalCode: form.billingPostalCode.trim(),
+                country: form.billingCountry.trim(),
             });
 
-            if (!addressRes.ok) {
-                throw new Error(`Address save failed: ${addressRes.status}`);
+            if (form.sameAsBilling) {
+                await deleteServiceAddress(customerId);
+            } else {
+                await saveAddress(customerId, "Service", {
+                    street1: form.serviceStreet1.trim(),
+                    street2: form.serviceStreet2?.trim() || "",
+                    city: form.serviceCity.trim(),
+                    province: form.serviceProvince.trim(),
+                    postalCode: form.servicePostalCode.trim(),
+                    country: form.serviceCountry.trim(),
+                });
             }
 
             setShowModal(false);
@@ -260,7 +402,7 @@ export default function ManagerUsers({ darkMode = false }) {
 
                 <div className="d-flex gap-2">
                     <Form.Control
-                        className={"w-auto"}
+                        className="w-auto"
                         type="text"
                         placeholder="Search customer..."
                         value={search}
@@ -271,16 +413,16 @@ export default function ManagerUsers({ darkMode = false }) {
                         Add Customer
                     </Button>
                     <Button
-                    variant="outline-secondary"
-                    onClick={() => navigate("/manager")}
-                    style={{ borderRadius: 12 }}
-                >
-                    Go Back
-                </Button>
+                        variant="outline-secondary"
+                        onClick={() => navigate("/manager")}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Go Back
+                    </Button>
                 </div>
             </div>
 
-            {error && <Alert variant="danger">{error}</Alert>}
+
 
             <Card className={cardBase} style={{ borderRadius: 18 }}>
                 <Card.Body>
@@ -346,13 +488,14 @@ export default function ManagerUsers({ darkMode = false }) {
                 </Card.Body>
             </Card>
 
-            <Modal show={showModal} onHide={closeModal} centered>
+            <Modal show={showModal} onHide={closeModal} centered size="lg">
                 <Form onSubmit={handleSave}>
                     <Modal.Header closeButton={!saving}>
                         <Modal.Title>{editingId ? "Edit Customer" : "Add Customer"}</Modal.Title>
                     </Modal.Header>
 
                     <Modal.Body>
+                        {error && <Alert variant="danger">{error}</Alert>}
                         <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
@@ -361,6 +504,7 @@ export default function ManagerUsers({ darkMode = false }) {
                                         name="customerType"
                                         value={form.customerType}
                                         onChange={handleChange}
+                                        required
                                     >
                                         <option value="Individual">Individual</option>
                                         <option value="Business">Business</option>
@@ -375,6 +519,7 @@ export default function ManagerUsers({ darkMode = false }) {
                                         name="status"
                                         value={form.status}
                                         onChange={handleChange}
+                                        required
                                     >
                                         <option value="Active">Active</option>
                                         <option value="Inactive">Inactive</option>
@@ -389,6 +534,7 @@ export default function ManagerUsers({ darkMode = false }) {
                                         name="firstName"
                                         value={form.firstName}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                             </Col>
@@ -400,6 +546,7 @@ export default function ManagerUsers({ darkMode = false }) {
                                         name="lastName"
                                         value={form.lastName}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                             </Col>
@@ -439,32 +586,23 @@ export default function ManagerUsers({ darkMode = false }) {
                                         value={form.homePhone}
                                         onChange={handleChange}
                                         required
+                                        maxLength={14}
+                                        placeholder="(403) 555-1234"
                                     />
                                 </Form.Group>
                             </Col>
 
-
-
-
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Address Type</Form.Label>
-                                    <Form.Select
-                                        name="addressType"
-                                        value={form.addressType}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="Billing">Billing</option>
-                                        <option value="Service">Service</option>
-                                    </Form.Select>
-                                </Form.Group>
+                            <Col md={12}>
+                                <hr className="my-2" />
+                                <h5 className="mb-3">Billing Address</h5>
                             </Col>
+
                             <Col md={12}>
                                 <Form.Group>
                                     <Form.Label>Street 1</Form.Label>
                                     <Form.Control
-                                        name="street1"
-                                        value={form.street1}
+                                        name="billingStreet1"
+                                        value={form.billingStreet1}
                                         onChange={handleChange}
                                         required
                                     />
@@ -475,8 +613,8 @@ export default function ManagerUsers({ darkMode = false }) {
                                 <Form.Group>
                                     <Form.Label>Street 2</Form.Label>
                                     <Form.Control
-                                        name="street2"
-                                        value={form.street2}
+                                        name="billingStreet2"
+                                        value={form.billingStreet2}
                                         onChange={handleChange}
                                     />
                                 </Form.Group>
@@ -486,8 +624,8 @@ export default function ManagerUsers({ darkMode = false }) {
                                 <Form.Group>
                                     <Form.Label>City</Form.Label>
                                     <Form.Control
-                                        name="city"
-                                        value={form.city}
+                                        name="billingCity"
+                                        value={form.billingCity}
                                         onChange={handleChange}
                                         required
                                     />
@@ -498,8 +636,8 @@ export default function ManagerUsers({ darkMode = false }) {
                                 <Form.Group>
                                     <Form.Label>Province</Form.Label>
                                     <Form.Control
-                                        name="province"
-                                        value={form.province}
+                                        name="billingProvince"
+                                        value={form.billingProvince}
                                         onChange={handleChange}
                                         required
                                     />
@@ -510,10 +648,12 @@ export default function ManagerUsers({ darkMode = false }) {
                                 <Form.Group>
                                     <Form.Label>Postal Code</Form.Label>
                                     <Form.Control
-                                        name="postalCode"
-                                        value={form.postalCode}
+                                        name="billingPostalCode"
+                                        value={form.billingPostalCode}
                                         onChange={handleChange}
                                         required
+                                        maxLength={7}
+                                        placeholder="T2P 1A1"
                                     />
                                 </Form.Group>
                             </Col>
@@ -522,13 +662,106 @@ export default function ManagerUsers({ darkMode = false }) {
                                 <Form.Group>
                                     <Form.Label>Country</Form.Label>
                                     <Form.Control
-                                        name="country"
-                                        value={form.country}
+                                        name="billingCountry"
+                                        value={form.billingCountry}
                                         onChange={handleChange}
                                         required
                                     />
                                 </Form.Group>
                             </Col>
+
+                            <Col md={12}>
+                                <Form.Check
+                                    type="checkbox"
+                                    name="sameAsBilling"
+                                    label="Service address is the same as billing address"
+                                    checked={form.sameAsBilling}
+                                    onChange={handleChange}
+                                    className="mt-2"
+                                />
+                            </Col>
+
+                            {!form.sameAsBilling && (
+                                <>
+                                    <Col md={12}>
+                                        <hr className="my-2" />
+                                        <h5 className="mb-3">Service Address</h5>
+                                    </Col>
+
+                                    <Col md={12}>
+                                        <Form.Group>
+                                            <Form.Label>Street 1</Form.Label>
+                                            <Form.Control
+                                                name="serviceStreet1"
+                                                value={form.serviceStreet1}
+                                                onChange={handleChange}
+                                                required={!form.sameAsBilling}
+                                            />
+                                        </Form.Group>
+                                    </Col>
+
+                                    <Col md={12}>
+                                        <Form.Group>
+                                            <Form.Label>Street 2</Form.Label>
+                                            <Form.Control
+                                                name="serviceStreet2"
+                                                value={form.serviceStreet2}
+                                                onChange={handleChange}
+                                            />
+                                        </Form.Group>
+                                    </Col>
+
+                                    <Col md={6}>
+                                        <Form.Group>
+                                            <Form.Label>City</Form.Label>
+                                            <Form.Control
+                                                name="serviceCity"
+                                                value={form.serviceCity}
+                                                onChange={handleChange}
+                                                required={!form.sameAsBilling}
+                                            />
+                                        </Form.Group>
+                                    </Col>
+
+                                    <Col md={6}>
+                                        <Form.Group>
+                                            <Form.Label>Province</Form.Label>
+                                            <Form.Control
+                                                name="serviceProvince"
+                                                value={form.serviceProvince}
+                                                onChange={handleChange}
+                                                required={!form.sameAsBilling}
+                                            />
+                                        </Form.Group>
+                                    </Col>
+
+                                    <Col md={6}>
+                                        <Form.Group>
+                                            <Form.Label>Postal Code</Form.Label>
+                                            <Form.Control
+                                                name="servicePostalCode"
+                                                value={form.servicePostalCode}
+                                                onChange={handleChange}
+                                                required={!form.sameAsBilling}
+                                                maxLength={7}
+                                                placeholder="T2P 1A1"
+                                            />
+                                        </Form.Group>
+                                    </Col>
+
+                                    <Col md={6}>
+                                        <Form.Group>
+                                            <Form.Label>Country</Form.Label>
+                                            <Form.Control
+                                                name="serviceCountry"
+                                                value={form.serviceCountry}
+                                                onChange={handleChange}
+                                                required={!form.sameAsBilling}
+                                            />
+                                        </Form.Group>
+                                    </Col>
+                                </>
+                            )}
                         </Row>
                     </Modal.Body>
 
