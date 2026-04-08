@@ -137,11 +137,14 @@ export default function ServiceTickets() {
     const filteredTickets = tickets.filter(t => {
         const matchesSearch = t.customerName?.toLowerCase().includes(filters.search.toLowerCase()) ||
                               t.requestId?.toString().includes(filters.search);
-        const matchesStatus = !filters.status || t.status === filters.status;
-        const matchesType = !filters.type || t.requestType === filters.type;
+        const matchesStatus = !filters.status || t.status?.toUpperCase() === filters.status?.toUpperCase();
+        const matchesType = !filters.type || t.requestType?.toUpperCase() === filters.type?.toUpperCase();
         const matchesPriority = !filters.priority || t.priority?.toUpperCase() === filters.priority.toUpperCase();
         return matchesSearch && matchesStatus && matchesType && matchesPriority;
     });
+
+    const yourTickets = filteredTickets.filter(t => t.assignedTechnicianUserId === me?.userId);
+    const unassignedTickets = filteredTickets.filter(t => !t.assignedTechnicianUserId);
 
     return (
         <Container className="py-4">
@@ -190,44 +193,85 @@ export default function ServiceTickets() {
                 </Card.Body>
             </Card>
 
-            <Card className="shadow-sm border-0" style={{ borderRadius: 18 }}>
-                <Card.Body className="p-0">
-                    {loading ? <div className="p-5 text-center">Loading...</div> : (
-                        <Table responsive hover className="mb-0 align-middle">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Customer</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                    <th>Priority</th>
-                                    <th>Assignment</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredTickets.map(t => (
-                                    <tr key={t.requestId}>
-                                        <td>#{t.requestId}</td>
-                                        <td>{t.customerName}</td>
-                                        <td>{t.requestType}</td>
-                                        <td><Badge bg={getTicketStatusBadge(t.status)}>{t.status}</Badge></td>
-                                        <td><Badge bg={getPriorityBadge(t.priority)}>{t.priority}</Badge></td>
-                                        <td>{t.assignedTechnicianUserId ? "Assigned to you" : <Badge bg="secondary">Unassigned</Badge>}</td>
-                                        <td>
-                                            {!t.assignedTechnicianUserId ? (
-                                                <Button size="sm" variant="success" onClick={() => handleClaimTicket(t.requestId)} disabled={updating}>Claim</Button>
-                                            ) : (
-                                                <Button size="sm" variant="outline-primary" onClick={() => { setSelectedTicket(t); setShowManageModal(true); }}>Manage</Button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </Table>
-                    )}
-                </Card.Body>
-            </Card>
+            <Row className="g-4">
+                <Col lg={12}>
+                    <Card className="shadow-sm border-0" style={{ borderRadius: 18 }}>
+                        <Card.Header className="bg-white border-0 pt-4 px-4">
+                            <h5 className="fw-bold mb-0">Your Assigned Tickets</h5>
+                        </Card.Header>
+                        <Card.Body className="p-0">
+                            {loading ? <div className="p-4 text-center">Loading...</div> : yourTickets.length === 0 ? (
+                                <div className="p-5 text-center text-muted">No tickets assigned to you.</div>
+                            ) : (
+                                <Table responsive hover className="mb-0 align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Customer</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Priority</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {yourTickets.map(t => (
+                                            <tr key={t.requestId}>
+                                                <td>#{t.requestId}</td>
+                                                <td>{t.customerName}</td>
+                                                <td>{t.requestType}</td>
+                                                <td><Badge bg={getTicketStatusBadge(t.status)}>{t.status}</Badge></td>
+                                                <td><Badge bg={getPriorityBadge(t.priority)}>{t.priority}</Badge></td>
+                                                <td>
+                                                    <Button size="sm" variant="outline-primary" onClick={() => { setSelectedTicket(t); setShowManageModal(true); }}>Manage</Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col lg={12}>
+                    <Card className="shadow-sm border-0" style={{ borderRadius: 18 }}>
+                        <Card.Header className="bg-white border-0 pt-4 px-4">
+                            <h5 className="fw-bold mb-0">Available Unassigned Tickets</h5>
+                        </Card.Header>
+                        <Card.Body className="p-0">
+                            {loading ? <div className="p-4 text-center">Loading...</div> : unassignedTickets.length === 0 ? (
+                                <div className="p-5 text-center text-muted">No unassigned tickets available.</div>
+                            ) : (
+                                <Table responsive hover className="mb-0 align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Customer</th>
+                                            <th>Type</th>
+                                            <th>Priority</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {unassignedTickets.map(t => (
+                                            <tr key={t.requestId}>
+                                                <td>#{t.requestId}</td>
+                                                <td>{t.customerName}</td>
+                                                <td>{t.requestType}</td>
+                                                <td><Badge bg={getPriorityBadge(t.priority)}>{t.priority}</Badge></td>
+                                                <td>
+                                                    <Button size="sm" variant="success" onClick={() => handleClaimTicket(t.requestId)} disabled={updating}>Claim Ticket</Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Manage Ticket Modal */}
             <Modal show={showManageModal} onHide={() => setShowManageModal(false)} centered>

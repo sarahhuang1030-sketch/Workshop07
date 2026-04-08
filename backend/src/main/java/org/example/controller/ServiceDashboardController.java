@@ -81,20 +81,16 @@ public class ServiceDashboardController {
         UserAccount user = userAccountRepository.findByUsernameIgnoreCase(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        List<ManagerServiceRequestDTO> assigned = serviceRequestRepository.findByAssignedTechnicianUserId(user.getUserId())
-                .stream()
+        // Use native query or criteria if necessary, but JpaRepository findByAssignedTechnicianUserId(null) should work
+        List<ServiceRequest> allRequests = serviceRequestRepository.findAll();
+
+        List<ManagerServiceRequestDTO> result = allRequests.stream()
+                .filter(t -> (t.getAssignedTechnicianUserId() == null && "OPEN".equalsIgnoreCase(t.getStatus())) ||
+                             (user.getUserId().equals(t.getAssignedTechnicianUserId())))
                 .map(this::toRequestDTO)
                 .collect(Collectors.toList());
 
-        List<ManagerServiceRequestDTO> unassigned = serviceRequestRepository.findByAssignedTechnicianUserId(null)
-                .stream()
-                .filter(t -> "OPEN".equalsIgnoreCase(t.getStatus()))
-                .map(this::toRequestDTO)
-                .collect(Collectors.toList());
-
-        assigned.addAll(unassigned);
-
-        return ResponseEntity.ok(assigned);
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/tickets/{id}")

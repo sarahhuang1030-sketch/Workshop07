@@ -56,7 +56,21 @@ public class CustomerServiceRequestController {
         request.setCustomerId(user.getCustomerId());
         request.setCreatedByUserId(user.getUserId());
         request.setRequestType(dto.getRequestType());
-        request.setPriority(dto.getPriority() != null ? ServiceRequest.Priority.valueOf(dto.getPriority()) : ServiceRequest.Priority.Medium);
+
+        // Handle priority case-insensitively or use a default
+        ServiceRequest.Priority priority = ServiceRequest.Priority.Medium;
+        if (dto.getPriority() != null) {
+            try {
+                priority = ServiceRequest.Priority.valueOf(
+                    dto.getPriority().substring(0, 1).toUpperCase() +
+                    dto.getPriority().substring(1).toLowerCase()
+                );
+            } catch (Exception e) {
+                // Keep default
+            }
+        }
+        request.setPriority(priority);
+
         request.setStatus("OPEN");
         request.setDescription(dto.getDescription());
         request.setCreatedAt(LocalDateTime.now());
