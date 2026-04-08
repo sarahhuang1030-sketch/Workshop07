@@ -23,13 +23,13 @@ public class ServiceDashboardRepository {
         long assignedRequests = countAssignedRequests(userId);
         long openRequests = countOpenRequests(userId);
         long todayAppointments = countTodayAppointments(userId);
-        long completedRequests = countCompletedRequests(userId);
+        long unassignedRequests = countUnassignedRequests();
 
         return new ServiceDashboardSummaryDTO(
                 assignedRequests,
                 openRequests,
                 todayAppointments,
-                completedRequests
+                unassignedRequests
         );
     }
 
@@ -66,7 +66,7 @@ public class ServiceDashboardRepository {
                 SELECT COUNT(*)
                 FROM servicerequests
                 WHERE AssignedTechnicianUserId = ?
-                  AND Status IN ('Open', 'Assigned', 'In Progress')
+                  AND Status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS')
                 """,
                 Long.class,
                 userId
@@ -88,16 +88,15 @@ public class ServiceDashboardRepository {
         return value != null ? value : 0L;
     }
 
-    private long countCompletedRequests(int userId) {
+    private long countUnassignedRequests() {
         Long value = jdbc.queryForObject(
                 """
                 SELECT COUNT(*)
                 FROM servicerequests
-                WHERE AssignedTechnicianUserId = ?
-                  AND Status = 'Completed'
+                WHERE AssignedTechnicianUserId IS NULL
+                  AND Status = 'OPEN'
                 """,
-                Long.class,
-                userId
+                Long.class
         );
         return value != null ? value : 0L;
     }

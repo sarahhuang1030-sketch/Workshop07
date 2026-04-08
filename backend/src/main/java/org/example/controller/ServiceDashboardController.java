@@ -77,28 +77,57 @@ public class ServiceDashboardController {
 
     @GetMapping("/tickets")
     @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
-    public ResponseEntity<List<ManagerServiceRequestDTO>> getAssignedTickets(Authentication authentication) {
+    public ResponseEntity<List<ManagerServiceRequestDTO>> getTickets(Authentication authentication) {
         UserAccount user = userAccountRepository.findByUsernameIgnoreCase(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        List<ManagerServiceRequestDTO> requests = serviceRequestRepository.findByAssignedTechnicianUserId(user.getUserId())
+        List<ManagerServiceRequestDTO> assigned = serviceRequestRepository.findByAssignedTechnicianUserId(user.getUserId())
                 .stream()
                 .map(this::toRequestDTO)
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(requests);
+        List<ManagerServiceRequestDTO> unassigned = serviceRequestRepository.findByAssignedTechnicianUserId(null)
+                .stream()
+                .filter(t -> "OPEN".equalsIgnoreCase(t.getStatus()))
+                .map(this::toRequestDTO)
+                .collect(Collectors.toList());
+
+        assigned.addAll(unassigned);
+
+        return ResponseEntity.ok(assigned);
     }
 
     @PutMapping("/tickets/{id}")
     @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
-    public ResponseEntity<ServiceRequest> updateTicketStatus(@PathVariable Integer id, @RequestBody ServiceRequest updated, Authentication authentication) {
+    public ResponseEntity<ServiceRequest> updateTicket(@PathVariable Integer id, @RequestBody ServiceRequest updated, Authentication authentication) {
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         return serviceRequestRepository.findById(id)
                 .map(existing -> {
-                    existing.setStatus(updated.getStatus());
+                    if (updated.getStatus() != null) {
+                        existing.setStatus(updated.getStatus());
+                    }
+                    if (updated.getAssignedTechnicianUserId() != null) {
+                        existing.setAssignedTechnicianUserId(updated.getAssignedTechnicianUserId());
+                    }
                     existing.setUpdatedAt(LocalDateTime.now());
                     return ResponseEntity.ok(serviceRequestRepository.save(existing));
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/work-orders")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public ResponseEntity<ServiceAppointment> createWorkOrder(@RequestBody ServiceAppointment appointment, Authentication authentication) {
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        appointment.setTechnicianUserId(user.getUserId());
+        if (appointment.getStatus() == null) {
+            appointment.setStatus("ASSIGNED");
+        }
+        return ResponseEntity.ok(serviceAppointmentRepository.save(appointment));
     }
 
     @GetMapping("/work-orders")
@@ -137,13 +166,18 @@ public class ServiceDashboardController {
         dto.setDescription(request.getDescription());
         dto.setPriority(request.getPriority() != null ? request.getPriority().name() : null);
         dto.setCreatedAt(request.getCreatedAt());
-        dto.setCustomerName(
-                request.getCustomerId() != null
-                        ? customerRepository.findById(request.getCustomerId())
-                        .map(c -> c.getFirstName() + " " + c.getLastName())
-                        .orElse("—")
-                        : "—"
-        );
+
+        if (request.getCustomerId() != null) {
+            customerRepository.findById(request.getCustomerId()).ifPresent(c -> {
+                dto.setCustomerName(c.getFirstName() + " " + c.getLastName());
+                customerAddressRepository.findFirstByCustomerIdOrderByIsPrimaryDesc(c.getCustomerId())
+                    .ifPresent(addr -> {
+                        dto.setAddressId(addr.getAddressId().intValue());
+                        dto.setAddressText(addr.getStreet1() + ", " + addr.getCity());
+                    });
+            });
+        }
+
         return dto;
     }
 

@@ -98,10 +98,10 @@ export default function CustomerSupport() {
                                         value={newTicket.requestType}
                                         onChange={(e) => setNewTicket({ ...newTicket, requestType: e.target.value })}
                                     >
-                                        <option value="TECH_SUPPORT">Technical Support</option>
-                                        <option value="BILLING">Billing Inquiry</option>
-                                        <option value="INSTALLATION">Installation Request</option>
-                                        <option value="OUTAGE">Report an Outage</option>
+                                        <option value="TECH_SUPPORT">Tech Support</option>
+                                        <option value="BILLING">Billing</option>
+                                        <option value="INSTALLATION">Installation</option>
+                                        <option value="OUTAGE">Outage</option>
                                     </Form.Select>
                                 </Form.Group>
 

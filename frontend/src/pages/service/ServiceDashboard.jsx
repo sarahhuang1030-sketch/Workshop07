@@ -130,9 +130,9 @@ export default function ServiceDashboard() {
             <Row className="g-3">
                 <Col md={3}>
                     <Stat
-                        title="Assigned Tickets"
+                        title="Your Tickets"
                         value={summary?.assignedRequests || 0}
-                        hint="Active tickets"
+                        hint="Assigned to you"
                         icon={ClipboardList}
                     />
                 </Col>
@@ -146,18 +146,18 @@ export default function ServiceDashboard() {
                 </Col>
                 <Col md={3}>
                     <Stat
-                        title="Completed"
+                        title="Unassigned"
                         value={summary?.completedRequests || 0}
-                        hint="Total finished"
-                        icon={CheckCircle}
+                        hint="Available to claim"
+                        icon={AlertTriangle}
                     />
                 </Col>
                 <Col md={3}>
                     <Stat
-                        title="Remaining"
+                        title="Active Issues"
                         value={summary?.openRequests || 0}
-                        hint="Needs attention"
-                        icon={AlertTriangle}
+                        hint="Your pending tasks"
+                        icon={CheckCircle}
                     />
                 </Col>
             </Row>
