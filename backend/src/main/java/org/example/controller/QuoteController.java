@@ -123,10 +123,10 @@ public class QuoteController {
     }
 
     // ======================================================
-    // APPROVE QUOTE (FULL FLOW → INVOICE CREATED)
+    // APPROVE QUOTE (Status only → Pay later)
     // ======================================================
     @PatchMapping("/{id}/approve")
-    public ResponseEntity<InvoiceDTO> approve(@PathVariable Integer id) {
+    public ResponseEntity<QuoteDTO> approve(@PathVariable Integer id) {
 
         Quote q = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Quote not found"));
@@ -139,16 +139,8 @@ public class QuoteController {
         q.setStatus("APPROVED");
         repo.save(q);
 
-        // 2. CREATE INVOICE
-        Invoices inv = invoiceService.createFromQuote(q);
-
-        // 3. UPDATE QUOTE
-        q.setInvoiceId(inv.getInvoiceId());
-        q.setStatus("INVOICED");
-        repo.save(q);
-
-        // 4. RETURN INVOICE DTO
-        return ResponseEntity.ok(invoiceService.convertToDTO(inv));
+        // 2. RETURN QUOTE DTO
+        return ResponseEntity.ok(mapToDTO(q));
     }
 
     // ======================================================

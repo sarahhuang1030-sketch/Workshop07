@@ -49,7 +49,7 @@ export default function SalesBilling({ darkMode = false }) {
 
         return () => { isMounted = false; };
 
-    }, [search]); // ✅ FIX: dependency added
+    }, [search]);
 
     if (loading) {
         return (

@@ -47,18 +47,25 @@ export default function SalesQuotes() {
         load();
     }
 
+    // Agent only sees Pending/Approved
+    const filteredQuotes = quotes.filter(q => ["PENDING", "APPROVED"].includes(q.status));
+
     return (
         <Container className="py-4">
 
-            <h3 className="mb-4">Quotes</h3>
+            <h3 className="mb-4">Agent Quotes</h3>
 
             {loading && <Spinner animation="border" />}
             {error && <Alert variant="danger">{error}</Alert>}
 
+            {!loading && !error && filteredQuotes.length === 0 && (
+                <Alert variant="info">No pending or approved quotes found.</Alert>
+            )}
+
             {!loading && !error && (
                 <Accordion defaultActiveKey="0">
 
-                    {quotes.map((q, index) => (
+                    {filteredQuotes.map((q, index) => (
                         <Card key={q.id} className="mb-3 shadow-sm">
 
                             <Accordion.Item eventKey={String(index)}>
@@ -90,18 +97,18 @@ export default function SalesQuotes() {
                                 <Accordion.Body>
 
                                     <div className="mb-3">
-                                        <strong>Customer:</strong> {q.customerName}
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <strong>Total:</strong> ${q.amount}
+                                        <strong>Details:</strong>
+                                        <div className="small text-muted">
+                                            Customer: {q.customerName}<br/>
+                                            Amount: ${q.amount}
+                                        </div>
                                     </div>
 
                                     <div className="d-flex gap-2">
 
                                         <Button
                                             size="sm"
-                                            variant="primary"
+                                            variant="outline-primary"
                                             onClick={() => edit(q.id)}
                                         >
                                             Edit
@@ -110,7 +117,7 @@ export default function SalesQuotes() {
                                         {q.status === "PENDING" && (
                                             <Button
                                                 size="sm"
-                                                variant="danger"
+                                                variant="outline-danger"
                                                 onClick={() => cancel(q.id)}
                                             >
                                                 Cancel

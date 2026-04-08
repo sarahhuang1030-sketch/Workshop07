@@ -29,6 +29,19 @@ export default function CheckoutPage() {
     const [externalInvoice, setExternalInvoice] = useState(null);
     const [loadingInvoice, setLoadingInvoice] = useState(false);
 
+    const [quote, setQuote] = useState(null);
+    const [loadingQuote, setLoadingQuote] = useState(false);
+
+    const [billingAddress, setBillingAddress] = useState({
+        street1: "",
+        street2: "",
+        city: "",
+        province: "ON",
+        postalCode: "",
+        country: "Canada",
+    });
+    const [addressLoaded, setAddressLoaded] = useState(false);
+
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -37,13 +50,17 @@ export default function CheckoutPage() {
     const quoteId = queryParams.get("quoteId");
 
     /* =========================
-       LOAD INVOICE (external)
+       LOAD INVOICE / QUOTE / ADDRESS
     ========================= */
     useEffect(() => {
         if (invoiceNumber) {
             loadInvoice(invoiceNumber);
         }
-    }, [invoiceNumber]);
+        if (quoteId) {
+            loadQuote(quoteId);
+        }
+        loadAddress();
+    }, [invoiceNumber, quoteId]);
 
     const loadInvoice = async (num) => {
         try {
@@ -61,6 +78,45 @@ export default function CheckoutPage() {
         }
     };
 
+    const loadQuote = async (id) => {
+        try {
+            setLoadingQuote(true);
+            const res = await apiFetch(`/api/quotes/${id}`);
+            if (!res.ok) throw new Error("Quote not found");
+
+            const data = await res.json();
+            setQuote(data);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to load quote details.");
+        } finally {
+            setLoadingQuote(false);
+        }
+    };
+
+    const loadAddress = async () => {
+        try {
+            const res = await apiFetch("/api/billing/address");
+            if (res.ok) {
+                const data = await res.json();
+                if (data.street1) {
+                    setBillingAddress({
+                        street1: data.street1,
+                        street2: data.street2,
+                        city: data.city,
+                        province: data.province || "ON",
+                        postalCode: data.postalCode,
+                        country: data.country || "Canada",
+                    });
+                    setProvince(data.province || "ON");
+                    setAddressLoaded(true);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load address", err);
+        }
+    };
+
     /* =========================
        PRICING CALCULATION
     ========================= */
@@ -68,75 +124,96 @@ export default function CheckoutPage() {
         const taxRate = PROVINCE_TAX[province] || 0.13;
 
         if (externalInvoice) {
+            const subtotal = Number(externalInvoice.subtotal ?? 0);
             const taxRate = PROVINCE_TAX[province] || 0.13;
 
-            const subtotal = Number(externalInvoice.subtotal ?? 0);
+            const yearlyDiscount = 0;
+
+            const tax = subtotal * taxRate;
+            const finalTotal = subtotal + tax;
 
             return {
                 subtotal,
-
-                tax: subtotal * taxRate,
-
-                finalTotal: subtotal + subtotal * taxRate,
-
+                yearlyDiscount,
+                tax,
+                finalTotal,
                 hasRecurringItems: true,
                 hasOneTimeItems: false,
                 isExternal: true,
             };
         }
 
-        const recurringPlans = plans.reduce(
-            (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
-            0
-        );
+        let baseSubtotal = 0;
+        let recurringMonthly = 0;
+        let hasRecurring = false;
+        let isQuote = false;
 
-        const recurringAddOns = addOns.reduce(
-            (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
-            0
-        );
+        if (quote) {
+            baseSubtotal = Number(quote.amount || 0);
+            recurringMonthly = baseSubtotal;
+            hasRecurring = true;
+            isQuote = true;
+        } else {
+            const recurringPlans = plans.reduce(
+                (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
+                0
+            );
 
-        const financedDevices = devices
-            .filter((d) => d.pricingType === "monthly")
-            .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
+            const recurringAddOns = addOns.reduce(
+                (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
+                0
+            );
 
-        const outrightDevices = devices
-            .filter((d) => d.pricingType === "full")
-            .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
+            const financedDevices = devices
+                .filter((d) => d.pricingType === "monthly")
+                .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
 
-        const recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
+            const outrightDevices = devices
+                .filter((d) => d.pricingType === "full")
+                .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
+
+            recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
+            const oneTimeSubtotal = outrightDevices;
+
+            baseSubtotal = recurringMonthly + oneTimeSubtotal;
+            hasRecurring = recurringMonthly > 0;
+        }
 
         const yearlyBase = recurringMonthly * 12;
-        const yearlyDiscount = billingCycle === "yearly" ? yearlyBase * 0.1 : 0;
+        const yearlyDiscount = (billingCycle === "yearly" && hasRecurring)
+            ? yearlyBase * 0.1
+            : 0;
 
-        const recurringSubtotal =
-            billingCycle === "yearly"
-                ? yearlyBase - yearlyDiscount
-                : recurringMonthly;
+        const yearlyNet = yearlyBase - yearlyDiscount;
 
-        const oneTimeSubtotal = outrightDevices;
+        let calculatedSubtotal;
 
-        const subtotal = recurringSubtotal + oneTimeSubtotal;
-        const tax = subtotal * taxRate;
-        const finalTotal = subtotal + tax;
+        if (billingCycle === "yearly" && hasRecurring) {
+            calculatedSubtotal = yearlyNet + (baseSubtotal - recurringMonthly);
+        } else {
+            calculatedSubtotal = baseSubtotal;
+        }
+
+        const tax = calculatedSubtotal * taxRate;
+        const finalTotal = calculatedSubtotal + tax;
+
+        const monthlyRecurring = recurringMonthly;
 
         return {
-            recurringPlans,
-            recurringAddOns,
-            financedDevices,
-            outrightDevices,
-            recurringMonthly,
-            yearlyBase,
-            yearlyDiscount,
-            recurringSubtotal,
-            oneTimeSubtotal,
-            subtotal,
+            subtotal: calculatedSubtotal,
             tax,
             finalTotal,
-            hasRecurringItems: recurringMonthly > 0,
-            hasOneTimeItems: outrightDevices > 0,
+
+            monthlyRecurring,
+            yearlyBase,
+            yearlyDiscount,
+            yearlyNet,
+
+            hasRecurringItems: hasRecurring,
             isExternal: false,
+            isQuote
         };
-    }, [plans, addOns, devices, billingCycle, province, externalInvoice]);
+    }, [plans, addOns, devices, billingCycle, province, externalInvoice, quote]);
 
     /* =========================
        HANDLE CHECKOUT
@@ -144,6 +221,9 @@ export default function CheckoutPage() {
     const handleCheckout = async () => {
         if (!paymentMethod) return alert("Please select a payment card.");
         if (!stripe) return alert("Stripe not ready.");
+        if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode) {
+            return alert("Please complete your billing address.");
+        }
 
         try {
             const payload = {
@@ -170,7 +250,7 @@ export default function CheckoutPage() {
                 return;
             }
 
-            const invoiceRes = await apiFetch("/api/checkout", {
+            const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -182,15 +262,20 @@ export default function CheckoutPage() {
                     paymentIntentId: result.paymentIntent.id,
                     quoteId: quoteId || null,
                     items: [],
+                    ...billingAddress
                 }),
             });
 
             const invoice = await invoiceRes.json();
 
+            if (!invoiceRes.ok) {
+                return alert(invoice.error || "Checkout failed");
+            }
+
             setOrderNumber(invoice.invoiceNumber);
             setSubmitted(true);
 
-            if (!pricing.isExternal) clearCart();
+            if (!pricing.isExternal && !pricing.isQuote) clearCart();
         } catch (err) {
             console.error(err);
             alert("Checkout failed.");
@@ -261,29 +346,117 @@ export default function CheckoutPage() {
                 </Form.Select>
             </Card>
 
+            <Card className="mb-3 p-3">
+                <h5>Billing Address</h5>
+                {addressLoaded ? (
+                    <div className="small text-muted mb-2">
+                        {billingAddress.street1}, {billingAddress.city}, {billingAddress.province}, {billingAddress.postalCode}
+                    </div>
+                ) : (
+                    <Alert variant="warning" className="py-2 small">
+                        No billing address found. Please enter it below.
+                    </Alert>
+                )}
+                <Row className="g-2">
+                    <Col md={12}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="Street Address"
+                            value={billingAddress.street1}
+                            onChange={(e) => setBillingAddress({...billingAddress, street1: e.target.value})}
+                        />
+                    </Col>
+                    <Col md={6}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="City"
+                            value={billingAddress.city}
+                            onChange={(e) => setBillingAddress({...billingAddress, city: e.target.value})}
+                        />
+                    </Col>
+                    <Col md={6}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="Postal Code"
+                            value={billingAddress.postalCode}
+                            onChange={(e) => setBillingAddress({...billingAddress, postalCode: e.target.value})}
+                        />
+                    </Col>
+                </Row>
+            </Card>
+
             <PaymentCardUI onCardSelect={setPaymentMethod} />
+
+            {/*<Card className="mt-3 p-3">*/}
+            {/*    <h5>Order Summary</h5>*/}
+            {/*    <hr />*/}
+
+
+
+            {/*    {billingCycle === "yearly" && pricing.yearlyDiscount > 0 && (*/}
+            {/*        <div className="d-flex justify-content-between text-success">*/}
+            {/*            <span>Yearly Discount (10%)</span>*/}
+            {/*            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>*/}
+            {/*        </div>*/}
+            {/*    )}*/}
+
+            {/*    <div className="d-flex justify-content-between">*/}
+            {/*        <span>Subtotal</span>*/}
+            {/*        <span>${pricing.subtotal.toFixed(2)}</span>*/}
+            {/*    </div>*/}
+
+            {/*    <div className="d-flex justify-content-between">*/}
+            {/*        <span>Tax</span>*/}
+            {/*        <span>${(pricing.tax ?? 0).toFixed(2)}</span>*/}
+            {/*    </div>*/}
+
+            {/*    <hr />*/}
+
+            {/*    <div className="d-flex justify-content-between fw-bold fs-5">*/}
+            {/*        <span>Total</span>*/}
+            {/*        <span>${(pricing.finalTotal ?? 0).toFixed(2)}</span>*/}
+            {/*    </div>*/}
+            {/*</Card>*/}
 
             <Card className="mt-3 p-3">
                 <h5>Order Summary</h5>
                 <hr />
 
+                {/* YEARLY BREAKDOWN */}
+                {billingCycle === "yearly" && pricing.hasRecurringItems && (
+                    <>
+                        <div className="d-flex justify-content-between">
+                            <span>12-Month Recurring Total</span>
+                            <span>${pricing.yearlyBase.toFixed(2)}</span>
+                        </div>
+
+                        <div className="d-flex justify-content-between text-success">
+                            <span>Yearly Discount (10%)</span>
+                            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
+                        </div>
+
+                        <hr />
+                    </>
+                )}
+
                 <div className="d-flex justify-content-between">
                     <span>Subtotal</span>
-                    <span>${(pricing.subtotal ?? 0).toFixed(2)}</span>
+                    <span>${pricing.subtotal.toFixed(2)}</span>
                 </div>
 
                 <div className="d-flex justify-content-between">
                     <span>Tax</span>
-                    <span>${(pricing.tax ?? 0).toFixed(2)}</span>
+                    <span>${pricing.tax.toFixed(2)}</span>
                 </div>
 
                 <hr />
 
                 <div className="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
-                    <span>${(pricing.finalTotal ?? 0).toFixed(2)}</span>
+                    <span>${pricing.finalTotal.toFixed(2)}</span>
                 </div>
             </Card>
+
 
             <Button className="mt-4 w-100" size="lg" onClick={handleCheckout}>
                 Pay ${(pricing.finalTotal ?? 0).toFixed(2)}

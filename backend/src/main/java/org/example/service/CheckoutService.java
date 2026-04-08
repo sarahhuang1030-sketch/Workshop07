@@ -1,5 +1,6 @@
 package org.example.service;
 
+import org.example.dto.AddOnDTO;
 import org.example.model.CustomerAddress;
 import org.example.model.Subscription;
 import org.example.model.SubscriptionAddOn;
@@ -33,6 +34,8 @@ public class CheckoutService {
     private final SubscriptionRepository subscriptionRepo;
     private final SubscriptionAddOnRepository subscriptionAddOnRepo;
     private final QuoteRepository quoteRepo;
+    private final PlanRepository planRepository;
+    private final AddOnRepository addOnRepository;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
@@ -47,7 +50,9 @@ public class CheckoutService {
             CustomerAddressRepository addressRepo,
             SubscriptionRepository subscriptionRepo,
             SubscriptionAddOnRepository subscriptionAddOnRepo,
-            QuoteRepository quoteRepo
+            QuoteRepository quoteRepo,
+            PlanRepository planRepository,
+            AddOnRepository addOnRepository
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
@@ -62,6 +67,8 @@ public class CheckoutService {
         this.subscriptionRepo = subscriptionRepo;
         this.subscriptionAddOnRepo = subscriptionAddOnRepo;
         this.quoteRepo = quoteRepo;
+        this.planRepository = planRepository;
+        this.addOnRepository = addOnRepository;
     }
 
     @Transactional
@@ -126,16 +133,17 @@ public class CheckoutService {
         // ======================================================
         // 4. QUOTE FLOW (OPTIONAL)
         // ======================================================
+        Quote quote = null;
         if (quoteId != null) {
-            Quote q = quoteRepo.findById(quoteId)
+            quote = quoteRepo.findById(quoteId)
                     .orElseThrow(() -> new RuntimeException("Quote not found"));
 
-            if (!"APPROVED".equalsIgnoreCase(q.getStatus())) {
+            if (!"APPROVED".equalsIgnoreCase(quote.getStatus())) {
                 throw new RuntimeException("Quote must be APPROVED before payment");
             }
 
-            q.setStatus("PAID");
-            quoteRepo.save(q);
+            quote.setStatus("PAID");
+            // Linkage will happen later once invoice is created
         }
 
         // ======================================================
@@ -170,6 +178,12 @@ public class CheckoutService {
             invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
             invoice.setCustomerId(user.getCustomerId());
             invoice.setIssueDate(LocalDate.now());
+            if (quote != null) {
+                invoice.setQuoteId(quote.getId());
+                invoice.setSource("QUOTE");
+            } else {
+                invoice.setSource("CART");
+            }
         }
 
         LocalDate issueDate = invoice.getIssueDate();
@@ -188,10 +202,36 @@ public class CheckoutService {
 
         Invoices saved = invoiceRepo.save(invoice);
 
+        if (quote != null) {
+            quote.setInvoiceId(saved.getInvoiceId());
+            quoteRepo.save(quote);
+        }
+
         // ======================================================
         // 7. SUBSCRIPTION + ADDONS
         // ======================================================
         Integer subscriptionId = null;
+
+        if (quote != null) {
+            Subscription sub = new Subscription();
+            sub.setCustomerId(user.getCustomerId());
+            sub.setPlanId(quote.getPlanId());
+            sub.setStartDate(LocalDate.now());
+            sub.setStatus("ACTIVE");
+            sub = subscriptionRepo.save(sub);
+            subscriptionId = sub.getSubscriptionId();
+
+            if (quote.getAddons() != null) {
+                for (QuoteAddOn qao : quote.getAddons()) {
+                    SubscriptionAddOn sao = new SubscriptionAddOn();
+                    sao.setSubscriptionId(subscriptionId);
+                    sao.setAddOnId(qao.getAddonId());
+                    sao.setStartDate(LocalDate.now());
+                    sao.setStatus("ACTIVE");
+                    subscriptionAddOnRepo.save(sao);
+                }
+            }
+        }
 
         for (CheckoutItemDTO dto : items) {
             if ("plan".equalsIgnoreCase(dto.getItemType())) {
@@ -230,12 +270,72 @@ public class CheckoutService {
         payment.setCustomerId(user.getCustomerId());
         payment.setAmount(BigDecimal.valueOf(total));
         payment.setPaymentDate(java.time.LocalDateTime.now());
-        payment.setMethod(account != null ? account.getMethod() : "Stripe");
-        payment.setStatus("SUCCESS");
+        payment.setMethod(account != null ? account.getMethod() : "Visa");
+        payment.setStatus("Completed");
 
         paymentRepo.save(payment);
 
         rewardService.addPointsFromInvoice(user, total);
+
+        // ======================================================
+        // 8.4 ADD QUOTE ITEMS TO INVOICE (NEW)
+        // ======================================================
+        if (quote != null) {
+            final Invoices currentInvoice = saved;
+            final Quote currentQuote = quote;
+            // Plan Item
+            planRepository.findAllPlans().stream()
+                    .filter(p -> p.planId() == currentQuote.getPlanId())
+                    .findFirst()
+                    .ifPresent(plan -> {
+                        InvoiceItems planItem = new InvoiceItems();
+                        planItem.setInvoice(currentInvoice);
+                        planItem.setDescription(plan.planName());
+                        planItem.setQuantity(1);
+                        planItem.setUnitPrice(BigDecimal.valueOf(plan.monthlyPrice()));
+                        planItem.setLineTotal(BigDecimal.valueOf(plan.monthlyPrice()));
+                        planItem.setDiscountAmount(BigDecimal.ZERO);
+                        itemRepo.save(planItem);
+                    });
+
+            // Addon Items
+            if (quote.getAddons() != null) {
+                for (QuoteAddOn qao : quote.getAddons()) {
+                    AddOnDTO addon = addOnRepository.findById(qao.getAddonId());
+                    if (addon != null) {
+                        InvoiceItems addonItem = new InvoiceItems();
+                        addonItem.setInvoice(currentInvoice);
+                        addonItem.setDescription(addon.addOnName());
+                        addonItem.setQuantity(1);
+                        addonItem.setUnitPrice(BigDecimal.valueOf(addon.monthlyPrice()));
+                        addonItem.setLineTotal(BigDecimal.valueOf(addon.monthlyPrice()));
+                        addonItem.setDiscountAmount(BigDecimal.ZERO);
+                        itemRepo.save(addonItem);
+                    }
+                }
+            }
+        }
+
+        // ======================================================
+        // 8.5 WATER BILL (NEW)
+        // ======================================================
+        if (quote != null || !items.isEmpty()) {
+            InvoiceItems waterItem = new InvoiceItems();
+            waterItem.setInvoice(saved);
+            waterItem.setDescription("Water Bill Fee");
+            waterItem.setQuantity(1);
+
+            double baseForWater = subtotal;
+            if (quote != null && (items == null || items.isEmpty())) {
+                baseForWater = quote.getAmount();
+            }
+
+            BigDecimal waterAmount = BigDecimal.valueOf(baseForWater * 0.05); // 5% fee
+            waterItem.setUnitPrice(waterAmount);
+            waterItem.setLineTotal(waterAmount);
+            waterItem.setDiscountAmount(BigDecimal.ZERO);
+            itemRepo.save(waterItem);
+        }
 
         // ======================================================
         // 9. ITEMS + STOCK + SUBSCRIBERS
