@@ -1,17 +1,8 @@
 package org.example.service;
 
-import org.example.entity.InvoiceItemSubscriber;
-import org.example.entity.InvoiceItems;
-import org.example.entity.Invoices;
-import org.example.entity.PaymentAccounts;
-import org.example.entity.Phone;
+import org.example.entity.*;
 import org.example.model.UserAccount;
-import org.example.repository.InvoiceItemRepository;
-import org.example.repository.InvoiceItemSubscriberRepository;
-import org.example.repository.InvoiceRepository;
-import org.example.repository.PaymentAccountRepository;
-import org.example.repository.PhoneRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.repository.*;
 import org.example.dto.CheckoutItemDTO;
 import com.stripe.model.PaymentIntent;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,6 +24,7 @@ public class CheckoutService {
     private final PhoneRepository phoneRepository;
     private final StripePaymentService stripePaymentService;
     private final RewardService rewardService;
+    private final PaymentRepository paymentRepo;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
@@ -42,7 +34,8 @@ public class CheckoutService {
             UserAccountRepository userRepo,
             PhoneRepository phoneRepository,
             StripePaymentService stripePaymentService,
-            RewardService rewardService
+            RewardService rewardService,
+            PaymentRepository paymentRepo
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
@@ -52,6 +45,7 @@ public class CheckoutService {
         this.phoneRepository = phoneRepository;
         this.stripePaymentService = stripePaymentService;
         this.rewardService = rewardService;
+        this.paymentRepo = paymentRepo;
     }
 
     @Transactional
@@ -63,6 +57,7 @@ public class CheckoutService {
             String promoCode,
             String billingCycle,
             String paymentIntentId,
+            String invoiceNumber,
             List<CheckoutItemDTO> items
     ) throws Exception {
 
@@ -92,12 +87,23 @@ public class CheckoutService {
             }
         }
 
-        // 4. Create invoice
-        Invoices invoice = new Invoices();
-        invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
-        invoice.setCustomerId(user.getCustomerId());
+        // 4. Create or Update invoice
+        Invoices invoice = null;
+        if (invoiceNumber != null && !invoiceNumber.isEmpty()) {
+            invoice = invoiceRepo.findByInvoiceNumber(invoiceNumber);
+            if (invoice != null && !invoice.getCustomerId().equals(user.getCustomerId())) {
+                throw new Exception("Unauthorized invoice access");
+            }
+        }
 
-        LocalDate issueDate = LocalDate.now();
+        if (invoice == null) {
+            invoice = new Invoices();
+            invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
+            invoice.setCustomerId(user.getCustomerId());
+            invoice.setIssueDate(LocalDate.now());
+        }
+
+        LocalDate issueDate = invoice.getIssueDate();
         LocalDate dueDate;
 
         if ("yearly".equalsIgnoreCase(billingCycle)) {
@@ -106,7 +112,6 @@ public class CheckoutService {
             dueDate = issueDate.plusMonths(1);
         }
 
-        invoice.setIssueDate(issueDate);
         invoice.setDueDate(dueDate);
 
         invoice.setSubtotal(subtotal);
@@ -118,6 +123,16 @@ public class CheckoutService {
         invoice.setStripePaymentIntentId(paymentIntentId);
 
         Invoices saved = invoiceRepo.save(invoice);
+
+        // 4b. Create payment record
+        Payments payment = new Payments();
+        payment.setInvoiceId(saved.getInvoiceId());
+        payment.setCustomerId(user.getCustomerId());
+        payment.setAmount(BigDecimal.valueOf(total));
+        payment.setPaymentDate(java.time.LocalDateTime.now());
+        payment.setMethod(account != null ? account.getMethod() : "Stripe");
+        payment.setStatus("SUCCESS");
+        paymentRepo.save(payment);
 
         // reward points
         rewardService.addPointsFromInvoice(user, total);

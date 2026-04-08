@@ -22,6 +22,9 @@ import java.time.LocalDateTime;
 
         private String status; // e.g., SUCCESS, FAILED
 
+        @Column(name = "invoice_id")
+        private Integer invoiceId;
+
         // Getters and Setters
         public Integer getPaymentId() { return paymentId; }
         public void setPaymentId(Integer paymentId) { this.paymentId = paymentId; }
@@ -40,5 +43,8 @@ import java.time.LocalDateTime;
 
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
+
+        public Integer getInvoiceId() { return invoiceId; }
+        public void setInvoiceId(Integer invoiceId) { this.invoiceId = invoiceId; }
     }
 

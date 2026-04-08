@@ -73,6 +73,7 @@ import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
 import RequireAuth from "./components/auth/RequireAuth";
 import CustomerBillingHistory from "./pages/customer/CustomerBillingHistory.jsx";
+import CustomerQuotes from "./pages/customer/CustomerQuotes.jsx";
 
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
@@ -366,6 +367,14 @@ export default function App() {
                 <Route
                     path="/customer/billing/history"
                     element={<CustomerBillingHistory />}
+                />
+                <Route
+                    path="/customer/quotes"
+                    element={
+                        <RequireRole user={user} allow={["customer"]} authReady={authReady}>
+                            <CustomerQuotes />
+                        </RequireRole>
+                    }
                 />
                 <Route
                     path="/customer/plan"

@@ -7,6 +7,7 @@ import org.example.dto.ItemDTO;
 import org.example.entity.Invoices;
 import org.example.entity.PaymentAccounts;
 import org.example.entity.Quote;
+import org.example.entity.QuoteAddOn;
 import org.example.model.Customer;
 import org.example.model.Subscription;
 import org.example.model.SubscriptionAddOn;
@@ -37,6 +38,8 @@ public class InvoiceService {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
     private final InvoiceItemRepository invoiceItemRepository;
+    private final PlanRepository planRepository;
+    private final AddOnRepository addOnRepository;
 
 
     public InvoiceService(
@@ -45,7 +48,9 @@ public class InvoiceService {
             PaymentAccountRepository paymentAccountRepository,
             SubscriptionRepository subscriptionRepository,
             SubscriptionAddOnRepository subscriptionAddOnRepository,
-            InvoiceItemRepository invoiceItemRepository
+            InvoiceItemRepository invoiceItemRepository,
+            PlanRepository planRepository,
+            AddOnRepository addOnRepository
     ) {
         this.invoiceRepository = invoiceRepository;
         this.customerRepository = customerRepository;
@@ -53,6 +58,8 @@ public class InvoiceService {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.invoiceItemRepository = invoiceItemRepository;
+        this.planRepository = planRepository;
+        this.addOnRepository = addOnRepository;
     }
 
     // ======================================================
@@ -192,12 +199,48 @@ public class InvoiceService {
 
         inv.setInvoiceNumber(generateInvoiceNumber());
         inv.setStatus(STATUS_PENDING);
+        inv.setSource("QUOTE");
+        inv.setIssueDate(LocalDate.now());
 
         try {
             inv.setQuoteId(q.getId());
         } catch (Exception ignored) {}
 
-        return invoiceRepository.save(inv);
+        Invoices saved = invoiceRepository.save(inv);
+
+        // Add plan item
+        if (q.getPlanId() != null) {
+            PlanRepository.PlanRow plan = planRepository.findPlanById(q.getPlanId());
+            if (plan != null) {
+                InvoiceItems item = new InvoiceItems();
+                item.setInvoice(saved);
+                item.setDescription(plan.planName());
+                item.setQuantity(1);
+                item.setUnitPrice(BigDecimal.valueOf(plan.monthlyPrice()));
+                item.setLineTotal(BigDecimal.valueOf(plan.monthlyPrice()));
+                item.setDiscountAmount(BigDecimal.ZERO);
+                invoiceItemRepository.save(item);
+            }
+        }
+
+        // Add addon items
+        if (q.getAddons() != null) {
+            for (org.example.entity.QuoteAddOn qao : q.getAddons()) {
+                org.example.dto.AddOnDTO addon = addOnRepository.findById(qao.getAddonId());
+                if (addon != null) {
+                    InvoiceItems item = new InvoiceItems();
+                    item.setInvoice(saved);
+                    item.setDescription(addon.addOnName());
+                    item.setQuantity(1);
+                    item.setUnitPrice(BigDecimal.valueOf(addon.monthlyPrice()));
+                    item.setLineTotal(BigDecimal.valueOf(addon.monthlyPrice()));
+                    item.setDiscountAmount(BigDecimal.ZERO);
+                    invoiceItemRepository.save(item);
+                }
+            }
+        }
+
+        return saved;
     }
 
     // ======================================================

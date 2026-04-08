@@ -40,6 +40,7 @@ public class CheckoutController {
                     dto.getPromoCode(),
                     dto.getBillingCycle(),
                     dto.getPaymentIntentId(),
+                    dto.getInvoiceNumber(),
                     dto.getItems()
             );
 

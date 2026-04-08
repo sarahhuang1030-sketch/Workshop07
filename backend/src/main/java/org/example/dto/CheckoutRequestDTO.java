@@ -11,6 +11,7 @@ public class CheckoutRequestDTO {
     private String promoCode;
     private String billingCycle;
     private String paymentIntentId;
+    private String invoiceNumber; // For paying existing invoices
     private List<CheckoutItemDTO> items;  // List of item DTOs
 
     // Getters & Setters
@@ -34,6 +35,9 @@ public class CheckoutRequestDTO {
 
     public String getPaymentIntentId() { return paymentIntentId; }
     public void setPaymentIntentId(String paymentIntentId) { this.paymentIntentId = paymentIntentId; }
+
+    public String getInvoiceNumber() { return invoiceNumber; }
+    public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
 
     public List<CheckoutItemDTO> getItems() { return items; }
     public void setItems(List<CheckoutItemDTO> items) { this.items = items; }
