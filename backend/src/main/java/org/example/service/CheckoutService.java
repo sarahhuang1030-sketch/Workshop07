@@ -1,8 +1,7 @@
 package org.example.service;
 
 import org.example.entity.*;
-import org.example.model.CustomerAddress;
-import org.example.model.UserAccount;
+import org.example.model.*;
 import org.example.repository.*;
 import org.example.dto.CheckoutItemDTO;
 import com.stripe.model.PaymentIntent;
@@ -27,6 +26,8 @@ public class CheckoutService {
     private final RewardService rewardService;
     private final PaymentRepository paymentRepo;
     private final CustomerAddressRepository addressRepo;
+    private final SubscriptionRepository subscriptionRepo;
+    private final SubscriptionAddOnRepository subscriptionAddOnRepo;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
@@ -38,7 +39,9 @@ public class CheckoutService {
             StripePaymentService stripePaymentService,
             RewardService rewardService,
             PaymentRepository paymentRepo,
-            CustomerAddressRepository addressRepo
+            CustomerAddressRepository addressRepo,
+            SubscriptionRepository subscriptionRepo,
+            SubscriptionAddOnRepository subscriptionAddOnRepo
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
@@ -50,6 +53,8 @@ public class CheckoutService {
         this.rewardService = rewardService;
         this.paymentRepo = paymentRepo;
         this.addressRepo = addressRepo;
+        this.subscriptionRepo = subscriptionRepo;
+        this.subscriptionAddOnRepo = subscriptionAddOnRepo;
     }
 
     @Transactional
@@ -152,7 +157,37 @@ public class CheckoutService {
 
         Invoices saved = invoiceRepo.save(invoice);
 
-        // 4b. Create payment record
+        // 4b. Create/Update Subscription and Add-ons simultaneously
+        Integer subscriptionId = null;
+        for (CheckoutItemDTO dto : items) {
+            if ("plan".equalsIgnoreCase(dto.getItemType())) {
+                Subscription sub = new Subscription();
+                sub.setCustomerId(user.getCustomerId());
+                sub.setPlanId(dto.getId());
+                sub.setStartDate(LocalDate.now());
+                sub.setStatus("ACTIVE");
+                sub = subscriptionRepo.save(sub);
+                subscriptionId = sub.getSubscriptionId();
+            }
+        }
+
+        if (subscriptionId != null) {
+            saved.setSubscriptionId(subscriptionId);
+            invoiceRepo.save(saved);
+
+            for (CheckoutItemDTO dto : items) {
+                if ("addon".equalsIgnoreCase(dto.getItemType())) {
+                    SubscriptionAddOn sao = new SubscriptionAddOn();
+                    sao.setSubscriptionId(subscriptionId);
+                    sao.setAddOnId(dto.getId());
+                    sao.setStartDate(LocalDate.now());
+                    sao.setStatus("ACTIVE");
+                    subscriptionAddOnRepo.save(sao);
+                }
+            }
+        }
+
+        // 4c. Create payment record
         Payments payment = new Payments();
         payment.setInvoiceId(saved.getInvoiceId());
         payment.setCustomerId(user.getCustomerId());

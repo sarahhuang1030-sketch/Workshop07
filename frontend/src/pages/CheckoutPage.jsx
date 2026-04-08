@@ -207,6 +207,7 @@ export default function CheckoutPage() {
                     const discount = isYearly ? yearlyBase * 0.1 : 0;
 
                     return {
+                        id: plan.planId,
                         description:
                             plan.serviceType === "Mobile"
                                 ? `${plan.name} - ${(
@@ -232,6 +233,7 @@ export default function CheckoutPage() {
                     const discount = isYearly ? yearlyBase * 0.1 : 0;
 
                     return {
+                        id: a.addOnId,
                         description: a.addOnName,
                         quantity: 1,
                         unitPrice: isYearly ? yearlyBase : basePrice,

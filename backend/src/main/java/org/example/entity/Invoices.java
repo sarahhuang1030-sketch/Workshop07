@@ -48,6 +48,9 @@ public class Invoices {
     @Column(name = "stripe_payment_intent_id")
     private String stripePaymentIntentId;
 
+    @Column(name = "subscription_id")
+    private Integer subscriptionId;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "PaidByAccountId")
     private PaymentAccounts paidByAccount;
@@ -161,6 +164,14 @@ public class Invoices {
 
     public void setStripePaymentIntentId(String stripePaymentIntentId) {
         this.stripePaymentIntentId = stripePaymentIntentId;
+    }
+
+    public Integer getSubscriptionId() {
+        return subscriptionId;
+    }
+
+    public void setSubscriptionId(Integer subscriptionId) {
+        this.subscriptionId = subscriptionId;
     }
 
     public PaymentAccounts getPaidByAccount() {
