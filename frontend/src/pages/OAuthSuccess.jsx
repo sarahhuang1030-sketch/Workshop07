@@ -7,7 +7,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {apiFetch} from "../utils/api.js";
+import {apiFetch} from "../services/api.js";
 
 export default function OAuthSuccess({ setUser }) {
     const navigate = useNavigate();

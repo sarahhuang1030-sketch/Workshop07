@@ -14,3 +14,8 @@ ALTER TABLE invoices
 ALTER TABLE quotes
     ADD CONSTRAINT fk_quotes_plan
     FOREIGN KEY (plan_id) REFERENCES plans(PlanId);
+
+-- 3) Add Quote <-> Invoice relations (missing since V17)
+ALTER TABLE invoices
+    ADD CONSTRAINT fk_invoices_quote
+    FOREIGN KEY (quote_id) REFERENCES quotes(id);
