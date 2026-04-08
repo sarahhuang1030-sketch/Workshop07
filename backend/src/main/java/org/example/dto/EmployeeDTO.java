@@ -17,6 +17,7 @@ public class EmployeeDTO {
     private LocalDate hireDate;
     private String status;
     private Integer active;
+    private Integer userId;
     private Integer managerId;
     private String managerName;
 
@@ -117,6 +118,14 @@ public class EmployeeDTO {
 
     public void setActive(Integer active) {
         this.active = active;
+    }
+
+    public Integer getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Integer userId) {
+        this.userId = userId;
     }
 
     public Integer getManagerId() {

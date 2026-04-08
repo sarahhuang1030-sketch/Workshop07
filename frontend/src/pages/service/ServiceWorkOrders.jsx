@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert } from "react-bootstrap";
+import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
@@ -28,6 +28,9 @@ export default function ServiceWorkOrders() {
         status: "",
     });
 
+    const [showDetails, setShowDetails] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+
     useEffect(() => {
         loadWorkOrders();
     }, []);
@@ -55,6 +58,9 @@ export default function ServiceWorkOrders() {
             });
             if (!res.ok) throw new Error("Failed to update status");
             await loadWorkOrders();
+            if (selectedOrder && selectedOrder.appointmentId === appointmentId) {
+                setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+            }
         } catch (err) {
             alert(err.message);
         }
@@ -68,6 +74,11 @@ export default function ServiceWorkOrders() {
         const matchesStatus = !filters.status || w.status === filters.status;
         return matchesSearch && matchesStatus;
     });
+
+    const openDetails = (order) => {
+        setSelectedOrder(order);
+        setShowDetails(true);
+    };
 
     return (
         <Container className="py-4">
@@ -160,16 +171,21 @@ export default function ServiceWorkOrders() {
                                     <td>{new Date(order.scheduledStart).toLocaleString()}</td>
                                     <td>{order.addressText || order.locationType}</td>
                                     <td>
-                                        <Form.Select
-                                            size="sm"
-                                            value={order.status}
-                                            onChange={(e) => handleStatusUpdate(order.appointmentId, e.target.value)}
-                                            style={{ width: "130px" }}
-                                        >
-                                            <option value="Scheduled">Scheduled</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Completed">Completed</option>
-                                        </Form.Select>
+                                        <div className="d-flex gap-2">
+                                            <Button size="sm" variant="outline-primary" onClick={() => openDetails(order)}>
+                                                Details
+                                            </Button>
+                                            <Form.Select
+                                                size="sm"
+                                                value={order.status}
+                                                onChange={(e) => handleStatusUpdate(order.appointmentId, e.target.value)}
+                                                style={{ width: "130px" }}
+                                            >
+                                                <option value="Scheduled">Scheduled</option>
+                                                <option value="In Progress">In Progress</option>
+                                                <option value="Completed">Completed</option>
+                                            </Form.Select>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -178,6 +194,61 @@ export default function ServiceWorkOrders() {
                     )}
                 </Card.Body>
             </Card>
+
+            <Modal show={showDetails} onHide={() => setShowDetails(false)} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Work Order Details - #{selectedOrder?.appointmentId}</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {selectedOrder && (
+                        <Row className="g-3">
+                            <Col md={6}>
+                                <strong>Ticket ID:</strong> #{selectedOrder.requestId}
+                            </Col>
+                            <Col md={6}>
+                                <strong>Customer:</strong> {selectedOrder.customerName}
+                            </Col>
+                            <Col md={6}>
+                                <strong>Status:</strong> <Badge bg={getWorkOrderBadge(selectedOrder.status)}>{selectedOrder.status}</Badge>
+                            </Col>
+                            <Col md={6}>
+                                <strong>Location Type:</strong> {selectedOrder.locationType}
+                            </Col>
+                            <Col md={6}>
+                                <strong>Scheduled Start:</strong> {new Date(selectedOrder.scheduledStart).toLocaleString()}
+                            </Col>
+                            <Col md={6}>
+                                <strong>Scheduled End:</strong> {new Date(selectedOrder.scheduledEnd).toLocaleString()}
+                            </Col>
+                            <Col md={12}>
+                                <strong>Address:</strong> {selectedOrder.addressText || "N/A"}
+                            </Col>
+                            <Col md={12}>
+                                <strong>Notes:</strong>
+                                <p className="mt-1 p-2 bg-light border rounded" style={{ minHeight: "60px" }}>
+                                    {selectedOrder.notes || "No notes available."}
+                                </p>
+                            </Col>
+                            <Col md={12}>
+                                <Form.Group>
+                                    <Form.Label><strong>Update Status:</strong></Form.Label>
+                                    <Form.Select
+                                        value={selectedOrder.status}
+                                        onChange={(e) => handleStatusUpdate(selectedOrder.appointmentId, e.target.value)}
+                                    >
+                                        <option value="Scheduled">Scheduled</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Completed">Completed</option>
+                                    </Form.Select>
+                                </Form.Group>
+                            </Col>
+                        </Row>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDetails(false)}>Close</Button>
+                </Modal.Footer>
+            </Modal>
         </Container>
     );
 }

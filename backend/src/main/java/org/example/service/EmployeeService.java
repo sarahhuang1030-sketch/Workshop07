@@ -43,10 +43,12 @@ public class EmployeeService {
         List<Employee> employees = employeeRepository.findAll();
         java.util.Map<Integer, String> locationNames = new java.util.HashMap<>();
         java.util.Map<Integer, String> employeeNames = new java.util.HashMap<>();
+        java.util.Map<Integer, Integer> employeeUserIds = new java.util.HashMap<>();
 
         employees.forEach(e -> {
             if (e.getPrimaryLocationId() != null) locationNames.put(e.getPrimaryLocationId(), null);
             employeeNames.put(e.getEmployeeId(), (e.getFirstName() != null ? e.getFirstName() : "") + " " + (e.getLastName() != null ? e.getLastName() : ""));
+            userAccountRepository.findByEmployeeId(e.getEmployeeId()).ifPresent(ua -> employeeUserIds.put(e.getEmployeeId(), ua.getUserId()));
         });
 
         locationNames.keySet().forEach(id -> {
@@ -58,6 +60,7 @@ public class EmployeeService {
                     EmployeeDTO dto = toDTO(e);
                     dto.setPrimaryLocationName(locationNames.get(e.getPrimaryLocationId()));
                     dto.setManagerName(employeeNames.get(e.getManagerId()));
+                    dto.setUserId(employeeUserIds.get(e.getEmployeeId()));
                     return dto;
                 })
                 .toList();
@@ -67,7 +70,9 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + id));
 
-        return toDTO(employee);
+        EmployeeDTO dto = toDTO(employee);
+        userAccountRepository.findByEmployeeId(id).ifPresent(ua -> dto.setUserId(ua.getUserId()));
+        return dto;
     }
 
     @Transactional

@@ -1,11 +1,10 @@
 package org.example.controller;
 
+import org.example.dto.CustomerServiceAppointmentDTO;
 import org.example.dto.CustomerServiceRequestDTO;
 import org.example.model.ServiceRequest;
 import org.example.model.UserAccount;
-import org.example.repository.EmployeeRepository;
-import org.example.repository.ServiceRequestRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -21,13 +20,16 @@ import java.util.stream.Collectors;
 public class CustomerServiceRequestController {
 
     private final ServiceRequestRepository serviceRequestRepository;
+    private final ServiceAppointmentRepository serviceAppointmentRepository;
     private final UserAccountRepository userAccountRepository;
     private final EmployeeRepository employeeRepository;
 
     public CustomerServiceRequestController(ServiceRequestRepository serviceRequestRepository,
+                                            ServiceAppointmentRepository serviceAppointmentRepository,
                                             UserAccountRepository userAccountRepository,
                                             EmployeeRepository employeeRepository) {
         this.serviceRequestRepository = serviceRequestRepository;
+        this.serviceAppointmentRepository = serviceAppointmentRepository;
         this.userAccountRepository = userAccountRepository;
         this.employeeRepository = employeeRepository;
     }
@@ -80,6 +82,29 @@ public class CustomerServiceRequestController {
                 }
             });
         }
+
+        dto.setAppointments(serviceAppointmentRepository.findByRequestId(request.getRequestId())
+                .stream()
+                .map(appt -> {
+                    CustomerServiceAppointmentDTO apptDto = new CustomerServiceAppointmentDTO();
+                    apptDto.setAppointmentId(appt.getAppointmentId());
+                    apptDto.setLocationType(appt.getLocationType() != null ? appt.getLocationType().name() : null);
+                    apptDto.setScheduledStart(appt.getScheduledStart());
+                    apptDto.setScheduledEnd(appt.getScheduledEnd());
+                    apptDto.setStatus(appt.getStatus());
+
+                    if (appt.getTechnicianUserId() != null) {
+                        userAccountRepository.findById(appt.getTechnicianUserId()).ifPresent(ua -> {
+                            if (ua.getEmployeeId() != null) {
+                                employeeRepository.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                                    apptDto.setTechnicianName(emp.getFirstName() + " " + emp.getLastName());
+                                });
+                            }
+                        });
+                    }
+                    return apptDto;
+                })
+                .collect(Collectors.toList()));
 
         return dto;
     }
