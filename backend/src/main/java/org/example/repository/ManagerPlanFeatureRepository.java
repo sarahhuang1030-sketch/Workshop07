@@ -29,14 +29,16 @@ public class ManagerPlanFeatureRepository {
 
     public List<ManagerPlanFeatureDTO> findByPlanId(int planId) {
         return jdbc.query("""
-                SELECT FeatureId, PlanId, FeatureName, FeatureValue, Unit, SortOrder
-                FROM PlanFeatures
-                WHERE PlanId = ?
-                ORDER BY SortOrder, FeatureId
+                SELECT pf.FeatureId, pf.PlanId, p.Name as PlanName, pf.FeatureName, pf.FeatureValue, pf.Unit, pf.SortOrder
+                FROM PlanFeatures pf
+                LEFT JOIN Plans p ON pf.PlanId = p.PlanId
+                WHERE pf.PlanId = ?
+                ORDER BY pf.SortOrder, pf.FeatureId
                 """,
                 (rs, rowNum) -> new ManagerPlanFeatureDTO(
                         toInteger(rs.getObject("FeatureId")),
                         toInteger(rs.getObject("PlanId")),
+                        rs.getString("PlanName"),
                         rs.getString("FeatureName"),
                         rs.getString("FeatureValue"),
                         rs.getString("Unit"),
@@ -48,13 +50,15 @@ public class ManagerPlanFeatureRepository {
 
     public ManagerPlanFeatureDTO findById(int featureId) {
         List<ManagerPlanFeatureDTO> rows = jdbc.query("""
-                SELECT FeatureId, PlanId, FeatureName, FeatureValue, Unit, SortOrder
-                FROM PlanFeatures
-                WHERE FeatureId = ?
+                SELECT pf.FeatureId, pf.PlanId, p.Name as PlanName, pf.FeatureName, pf.FeatureValue, pf.Unit, pf.SortOrder
+                FROM PlanFeatures pf
+                LEFT JOIN Plans p ON pf.PlanId = p.PlanId
+                WHERE pf.FeatureId = ?
                 """,
                 (rs, rowNum) -> new ManagerPlanFeatureDTO(
                         toInteger(rs.getObject("FeatureId")),
                         toInteger(rs.getObject("PlanId")),
+                        rs.getString("PlanName"),
                         rs.getString("FeatureName"),
                         rs.getString("FeatureValue"),
                         rs.getString("Unit"),
@@ -126,13 +130,15 @@ public class ManagerPlanFeatureRepository {
 
     public List<ManagerPlanFeatureDTO> findAll() {
         String sql = """
-            SELECT FeatureId, PlanId, FeatureName, FeatureValue, Unit, SortOrder
-            FROM PlanFeatures
+            SELECT pf.FeatureId, pf.PlanId, p.Name as PlanName, pf.FeatureName, pf.FeatureValue, pf.Unit, pf.SortOrder
+            FROM PlanFeatures pf
+            LEFT JOIN Plans p ON pf.PlanId = p.PlanId
         """;
 
         return jdbc.query(sql, (rs, i) -> new ManagerPlanFeatureDTO(
                 rs.getInt("FeatureId"),
                 rs.getInt("PlanId"),
+                rs.getString("PlanName"),
                 rs.getString("FeatureName"),
                 rs.getString("FeatureValue"),
                 rs.getString("Unit"),

@@ -257,7 +257,7 @@ export default function SalesAddon({ darkMode = false }) {
                                 filteredAddons.map((addon) => (
                                     <tr key={addon.addOnId}>
                                         <td>{addon.addOnId}</td>
-                                        <td>{addon.serviceTypeId ?? "—"}</td>
+                                        <td>{addon.serviceTypeName || (addon.serviceTypeId ? `Type #${addon.serviceTypeId}` : "—")}</td>
                                         <td>{addon.addOnName}</td>
                                         <td>
                                             ${Number(addon.monthlyPrice || 0).toFixed(2)}
@@ -322,7 +322,7 @@ export default function SalesAddon({ darkMode = false }) {
                 <Form onSubmit={handleSave}>
                     <Modal.Body>
                         <Form.Group className="mb-3">
-                            <Form.Label>Service Type ID</Form.Label>
+                            <Form.Label>Service Type</Form.Label>
                             <Form.Control
                                 type="number"
                                 name="serviceTypeId"
