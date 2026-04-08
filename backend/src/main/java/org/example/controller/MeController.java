@@ -183,6 +183,7 @@ public class MeController {
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
 
+
             if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
                 customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
@@ -203,8 +204,10 @@ public class MeController {
 
                     out.put("primaryLocationId", emp.getPrimaryLocationId());
                     out.put("status", emp.getStatus());
+                    out.put("active", emp.getActive());
                     out.put("hireDate", emp.getHireDate());
                     out.put("managerId", emp.getManagerId());
+
 
                     String locationName = null;
                     if (emp.getPrimaryLocationId() != null) {

@@ -25,6 +25,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.example.model.UserAccount;
+import org.example.model.Employee;
+import org.example.repository.UserAccountRepository;
+import org.example.repository.EmployeeRepository;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -32,7 +37,8 @@ public class AuthController {
 
     private final CustomerRegistrationService registrationService;
     private final AuthService authService;
-
+    private final UserAccountRepository userAccountRepository;
+    private final EmployeeRepository employeeRepository;
     private final AuthenticationManager authenticationManager;
     private final AuditService auditService;
     private final JwtService jwtService;
@@ -41,12 +47,16 @@ public class AuthController {
                           AuthService authService,
                           AuthenticationManager authenticationManager,
                           AuditService auditService,
-                          JwtService jwtService) {
+                          JwtService jwtService,
+                          UserAccountRepository userAccountRepository,
+                            EmployeeRepository employeeRepository) {
         this.registrationService = registrationService;
         this.authService = authService;
         this.authenticationManager = authenticationManager;
         this.auditService = auditService;
         this.jwtService = jwtService;
+        this.userAccountRepository=userAccountRepository;
+        this.employeeRepository=employeeRepository;
     }
 
 
@@ -98,10 +108,27 @@ public class AuthController {
                 )
         );
 
+        LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
+
+        UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(req.getUsername()).orElse(null);
+
+        if (ua != null && ua.getEmployeeId() != null) {
+            Employee emp = employeeRepository.findById(ua.getEmployeeId()).orElse(null);
+
+            if (emp != null && (emp.getActive() == null || emp.getActive() == 0)) {
+                String firstName = emp.getFirstName() != null ? emp.getFirstName() : "there";
+
+                return ResponseEntity.status(403).body(
+                        Map.of(
+                                "message",
+                                "Hello " + firstName + ", your profile is inactive now so you can't access your dashboard."
+                        )
+                );
+            }
+        }
+
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);
-
-        LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
 
         LoginResponseDTO response = new LoginResponseDTO(
                 token,
