@@ -101,11 +101,11 @@ export default function CustomerQuotes() {
                 throw new Error(err.message || "Approval failed");
             }
 
-            const invoice = await res.json();
+            const data = await res.json();
 
-            // If backend returns invoice → go checkout directly
-            if (invoice?.invoiceNumber) {
-                navigate(`/checkout?invoiceNumber=${invoice.invoiceNumber}`);
+            if (data.status === "APPROVED") {
+                loadQuotes();
+                navigate(`/checkout?quoteId=${quoteId}`);
             } else {
                 loadQuotes();
             }

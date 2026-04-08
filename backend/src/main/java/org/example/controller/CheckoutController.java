@@ -46,8 +46,7 @@ public class CheckoutController {
                     dto.getPaymentIntentId(),
                     dto.getInvoiceNumber(),
 
-                    // ✅ FIX 1: missing quoteId (V1 has no quote)
-                    null,
+                    dto.getQuoteId(),
 
                     dto.getItems(),
                     dto.getStreet1(),
@@ -81,61 +80,13 @@ public class CheckoutController {
 
     /**
      * =========================
-     * VERSION 2: Checkout with QuoteId
+     * VERSION 2: Checkout with QuoteId (Deprecated - use V1)
      * =========================
      */
     @PostMapping("/v2")
     public ResponseEntity<?> checkoutV2(@RequestBody CheckoutRequestDTO dto,
                                         Authentication authentication) {
-
-        String username = (authentication != null) ? authentication.getName() : "system";
-
-        try {
-            System.out.println("CheckoutRequestDTO V2 received: " + dto);
-
-            Invoices invoice = checkoutService.checkout(
-                    dto.getPaymentAccountId(),
-                    dto.getSubtotal(),
-                    dto.getTax(),
-                    dto.getTotal(),
-                    dto.getPromoCode(),
-                    dto.getBillingCycle(),
-                    dto.getPaymentIntentId(),
-                    dto.getInvoiceNumber(),
-
-                    // quoteId (V2 uses this)
-                    dto.getQuoteId(),
-
-                    dto.getItems(),
-
-                    // ✅ FIX 2: V2 has NO address fields → pass nulls
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-
-            String target = "Invoice " + invoice.getInvoiceId()
-                    + " Total $" + dto.getTotal();
-
-            auditService.log("Payment", "Success", target, username);
-
-            return ResponseEntity.ok(invoice);
-
-        } catch (Exception e) {
-
-            System.err.println("Checkout V2 failed: " + e.getMessage());
-            e.printStackTrace();
-
-            String target = "Checkout Total $" + dto.getTotal();
-            auditService.log("Payment", "Failed", target, username);
-
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse("Checkout failed", e.getMessage()));
-        }
+        return checkoutV1(dto, authentication);
     }
 
     /**
