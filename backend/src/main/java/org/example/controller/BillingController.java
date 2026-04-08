@@ -64,7 +64,7 @@ public class BillingController {
     ) {}
 
     // =========================================================
-    // GET Billing Address (FIXED - NO MORE 409)
+    // GET Billing Address (MERGED VERSION)
     // =========================================================
     @GetMapping("/address")
     public ResponseEntity<?> getBillingAddress(
@@ -84,51 +84,77 @@ public class BillingController {
             return ResponseEntity.status(401).body("Not authenticated");
         }
 
-        Customer customer = ensureCustomer(ua);
-        if (customer == null) {
-            return ResponseEntity.status(500).body("Failed to create customer");
-        }
-
-        Integer customerId = customer.getCustomerId();
+        Integer customerId = ua.getCustomerId();
         Integer employeeId = ua.getEmployeeId();
         boolean isEmployee = employeeId != null;
 
         var out = new LinkedHashMap<String, Object>();
-
         out.put("customerId", customerId);
         out.put("employeeId", employeeId);
 
-        if (isEmployee) {
+        Customer customer = null;
+
+        if (customerId != null) {
+            customer = customerRepo.findById(customerId).orElse(null);
+        }
+
+        // =========================
+        // NAME + EMAIL RESOLUTION (MERGED LOGIC)
+        // =========================
+        if (isEmployee && employeeId != null) {
+
             employeeRepo.findById(employeeId).ifPresent(emp -> {
                 out.put("firstName", emp.getFirstName());
                 out.put("lastName", emp.getLastName());
+                out.put("email", emp.getEmail()); // employee email priority
             });
-        } else {
+
+        } else if (customer != null) {
+
             out.put("firstName", customer.getFirstName());
             out.put("lastName", customer.getLastName());
+            out.put("email", customer.getEmail()); // customer email
+
+        } else {
+            // fallback (old logic compatibility)
+            out.put("email", ua.getUsername());
         }
 
-        out.put("email", customer.getEmail());
-        out.put("homePhone", customer.getHomePhone());
+        // =========================
+        // PHONE (MERGED)
+        // =========================
+        if (customer != null) {
+            out.put("homePhone", customer.getHomePhone());
+        }
 
-        var addr = customerAddressRepo
-                .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
-                .orElse(null);
+        // employee fallback phone (old version behavior)
+        if (isEmployee && customer == null && employeeId != null) {
+            employeeRepo.findById(employeeId).ifPresent(emp -> {
+                out.put("homePhone", emp.getPhone());
+            });
+        }
 
-        if (addr != null) {
-            out.put("street1", addr.getStreet1());
-            out.put("street2", addr.getStreet2());
-            out.put("city", addr.getCity());
-            out.put("province", addr.getProvince());
-            out.put("postalCode", addr.getPostalCode());
-            out.put("country", addr.getCountry());
+        // =========================
+        // ADDRESS
+        // =========================
+        if (customerId != null) {
+            customerAddressRepo
+                    .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
+                    .ifPresent(addr -> {
+                        out.put("street1", addr.getStreet1());
+                        out.put("street2", addr.getStreet2());
+                        out.put("city", addr.getCity());
+                        out.put("province", addr.getProvince());
+                        out.put("postalCode", addr.getPostalCode());
+                        out.put("country", addr.getCountry());
+                    });
         }
 
         return ResponseEntity.ok(out);
     }
 
     // =========================================================
-    // PUT Billing Address (FIXED - NO MORE 409)
+    // PUT Billing Address (MERGED VERSION)
     // =========================================================
     @Transactional
     @PutMapping("/address")
@@ -157,16 +183,32 @@ public class BillingController {
         boolean isEmployee = employeeId != null;
 
         // =========================
-        // Update Customer
+        // UPDATE CUSTOMER CORE
         // =========================
         if (req.homePhone() != null) {
             customer.setHomePhone(req.homePhone().trim());
         }
+
+        // email update (merged rule: allow both roles)
         if (req.email() != null) {
             customer.setEmail(req.email().trim());
         }
 
-        if (!isEmployee) {
+        // name rules (merged old + new logic)
+        if (isEmployee) {
+
+            employeeRepo.findById(employeeId).ifPresent(emp -> {
+                if (req.firstName() != null) emp.setFirstName(req.firstName().trim());
+                if (req.lastName() != null) emp.setLastName(req.lastName().trim());
+
+                // employee email override allowed
+                if (req.email() != null) emp.setEmail(req.email().trim());
+
+                employeeRepo.save(emp);
+            });
+
+        } else {
+
             if (req.firstName() != null) {
                 customer.setFirstName(req.firstName().trim());
             }
@@ -178,7 +220,7 @@ public class BillingController {
         customerRepo.save(customer);
 
         // =========================
-        // Upsert Address
+        // UPSERT ADDRESS
         // =========================
         CustomerAddress addr = customerAddressRepo
                 .findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(customerId, "Billing")
@@ -200,12 +242,12 @@ public class BillingController {
         customerAddressRepo.save(addr);
 
         // =========================
-        // Response
+        // RESPONSE (MERGED)
         // =========================
         var out = new LinkedHashMap<String, Object>();
 
         out.put("customerId", customerId);
-        out.put("email", customer.getEmail());
+        out.put("email", isEmployee ? req.email() : customer.getEmail());
         out.put("homePhone", customer.getHomePhone());
 
         out.put("street1", addr.getStreet1());
@@ -236,7 +278,7 @@ public class BillingController {
     }
 
     // =========================================================
-    // AUTO CREATE CUSTOMER (FIX CORE)
+    // ENSURE CUSTOMER (MERGED LOGIC - ENHANCED)
     // =========================================================
     private Customer ensureCustomer(UserAccount ua) {
 
@@ -245,11 +287,23 @@ public class BillingController {
         }
 
         Customer c = new Customer();
-        c.setFirstName("");
-        c.setLastName("");
-        c.setEmail(ua.getUsername());
-        c.setHomePhone("");
         c.setCustomerType("Individual");
+        c.setHomePhone("");
+
+        if (ua.getEmployeeId() != null) {
+            employeeRepo.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                c.setFirstName(emp.getFirstName());
+                c.setLastName(emp.getLastName());
+                c.setEmail(emp.getEmail());
+                c.setHomePhone(emp.getPhone());
+            });
+        }
+
+        if (c.getEmail() == null || c.getEmail().isBlank()) {
+            c.setFirstName("");
+            c.setLastName("");
+            c.setEmail(ua.getUsername());
+        }
 
         Customer saved = customerRepo.save(c);
 
@@ -263,7 +317,9 @@ public class BillingController {
     // LOGIN KEY RESOLVER (UNCHANGED)
     // =========================================================
     private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
+
         if (auth instanceof OAuth2AuthenticationToken oauthTok) {
+
             Map<String, Object> attrs = oauthUser != null ? oauthUser.getAttributes() : Map.of();
 
             Object email = attrs.get("email");

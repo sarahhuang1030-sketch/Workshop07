@@ -98,13 +98,13 @@ public class PlanRepository {
     // =========================
     public PlanRow findPlanById(Integer planId) {
         List<PlanRow> results = jdbc.query("""
-                SELECT p.PlanId,
-                       p.PlanName,
-                       p.MonthlyPrice,
-                       p.Description
-                FROM Plans p
-                WHERE p.PlanId = ?
-                """,
+            SELECT p.PlanId,
+                   p.PlanName,
+                   p.MonthlyPrice,
+                   p.Description
+            FROM Plans p
+            WHERE CAST(p.PlanId AS SIGNED) = ?
+            """,
                 (rs, rowNum) -> new PlanRow(
                         rs.getInt("PlanId"),
                         rs.getString("PlanName"),
@@ -116,6 +116,7 @@ public class PlanRepository {
 
         return results.isEmpty() ? null : results.get(0);
     }
+
 
     // =========================
     // BULK PLAN FEATURES

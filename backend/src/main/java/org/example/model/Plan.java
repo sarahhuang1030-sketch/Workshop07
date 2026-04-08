@@ -51,6 +51,7 @@ public class Plan {
     public Integer getPlanId() {
         return planId;
     }
+    public void setPlanId(Integer planId) { this.planId = planId; }
 
     public Integer getServiceTypeId() {
         return serviceTypeId;
@@ -59,10 +60,12 @@ public class Plan {
     public String getPlanName() {
         return planName;
     }
+    public void setPlanName(String planName) { this.planName = planName; }
 
     public BigDecimal getMonthlyPrice() {
         return monthlyPrice;
     }
+    public void setMonthlyPrice(java.math.BigDecimal monthlyPrice) { this.monthlyPrice = monthlyPrice; }
 
     public Integer getContractTermMonths() {
         return contractTermMonths;

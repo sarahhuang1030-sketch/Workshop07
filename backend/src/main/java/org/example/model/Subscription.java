@@ -2,6 +2,7 @@ package org.example.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "subscriptions")
@@ -37,7 +38,43 @@ public class Subscription {
     @Column(name = "SoldByEmployeeId")
     private Integer soldByEmployeeId;
 
+
+    @Transient
+    private Customer customer;
+
+    @Transient
+    private Plan plan;
+
+    @Transient
+    private List<SubscriptionAddOn> subscriptionAddOns;
+
+    // getter & setter
+
     public Subscription() {
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
+
+    public Plan getPlan() {
+        return plan;
+    }
+
+    public void setPlan(Plan plan) {
+        this.plan = plan;
+    }
+
+    public List<SubscriptionAddOn> getSubscriptionAddOns() {
+        return subscriptionAddOns;
+    }
+
+    public void setSubscriptionAddOns(List<SubscriptionAddOn> subscriptionAddOns) {
+        this.subscriptionAddOns = subscriptionAddOns;
     }
 
     public Integer getSoldByEmployeeId() {

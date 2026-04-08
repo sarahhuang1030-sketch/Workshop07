@@ -73,10 +73,10 @@ public class Customer {
 
     // getters/setters
     public Integer getCustomerId() { return CustomerId; }
+    public void setCustomerId(Integer customerId) { this.CustomerId = customerId; }
 
     public String getCustomerType() { return CustomerType; }
     public void setCustomerType(String customerType) { this.CustomerType = customerType; }
-
 
     public String getFirstName() { return FirstName; }
     public void setFirstName(String firstName) { this.FirstName = firstName; }

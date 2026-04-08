@@ -12,6 +12,7 @@ import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.example.model.SubscriptionAddOn;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -42,25 +43,116 @@ public class ManagerSubscriptionController {
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.addOnRepository = addOnRepository;
         this.auditService = auditService;
-        this.userAccountRepository=userAccountRepository;
+        this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.planRepository = planRepository;
     }
 
     @GetMapping
     public List<ManagerSubscriptionDTO> getAll() {
-        Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns().stream()
-                .collect(Collectors.toMap(AddOnDTO::addOnId, AddOnDTO::addOnName));
 
-        return subscriptionRepository.findAll().stream().map(sub -> {
+        // Build add-on name lookup map
+        Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns()
+                .stream()
+                .filter(a -> a != null)
+                .collect(Collectors.toMap(
+                        AddOnDTO::addOnId,
+                        AddOnDTO::addOnName,
+                        (a, b) -> a
+                ));
+
+        // =========================================================
+        // OPTIMIZED QUERY (NO N+1)
+        // =========================================================
+        return subscriptionRepository.findAllWithRelationsRaw().stream().map(row -> {
+
+            Object[] sub = (Object[]) row;
+
+            if (sub == null) {
+                throw new RuntimeException("SQL result is null");
+            }
+
+            if (sub.length < 15) {
+                throw new RuntimeException("Invalid SQL result length: " + sub.length);
+            }
+
             ManagerSubscriptionDTO dto = new ManagerSubscriptionDTO();
-            dto.setSubscriptionId(sub.getSubscriptionId());
-            dto.setCustomerId(sub.getCustomerId());
-            dto.setPlanId(sub.getPlanId());
 
-            // Customer Name
-            Customer customer = customerRepository.findById(sub.getCustomerId()).orElse(null);
+            // ===============================
+            // BASIC FIELDS
+            // ===============================
+            Integer subscriptionId = (Integer) sub[0];
+            Integer customerId = (Integer) sub[1];
+            Integer planId = (Integer) sub[2];
 
+            dto.setSubscriptionId(subscriptionId);
+            dto.setCustomerId(customerId);
+            dto.setPlanId(planId);
+
+            // ===============================
+            // DATE CONVERSION FIX (IMPORTANT)
+            // SQL returns java.sql.Date -> convert to LocalDate
+            // ===============================
+            LocalDate startDate = sub[3] == null
+                    ? null
+                    : ((java.sql.Date) sub[3]).toLocalDate();
+
+            LocalDate endDate = sub[4] == null
+                    ? null
+                    : ((java.sql.Date) sub[4]).toLocalDate();
+
+            // ===============================
+            // CUSTOMER OBJECT (FROM RAW JOIN)
+            // ===============================
+            Customer customer = new Customer();
+            if (sub.length > 8 && sub[8] != null)
+                customer.setCustomerId((Integer) sub[8]);
+
+            if (sub.length > 9)
+                customer.setBusinessName((String) sub[9]);
+
+            if (sub.length > 10)
+                customer.setFirstName((String) sub[10]);
+
+            if (sub.length > 11)
+                customer.setLastName((String) sub[11]);
+
+            // ===============================
+            // PLAN OBJECT (FROM RAW JOIN)
+            // ===============================
+            Plan plan = new Plan();
+            if (sub.length > 12 && sub[12] != null)
+                plan.setPlanId((Integer) sub[12]);
+
+            if (sub.length > 13)
+                plan.setPlanName((String) sub[13]);
+
+            if (sub.length > 14 && sub[14] != null)
+                plan.setMonthlyPrice((java.math.BigDecimal) sub[14]);
+
+            // ===============================
+            // SUBSCRIPTION OBJECT (TEMP ONLY)
+            // ===============================
+            Subscription subscription = new Subscription();
+            subscription.setSubscriptionId(subscriptionId);
+            subscription.setCustomerId(customerId);
+            subscription.setPlanId(planId);
+
+            // FIX: safe LocalDate assignment (NO CAST)
+            subscription.setStartDate(startDate);
+            subscription.setEndDate(endDate);
+
+            subscription.setStatus((String) sub[5]);
+            subscription.setBillingCycleDay((Integer) sub[6]);
+            subscription.setNotes((String) sub[7]);
+
+            // attach virtual relations
+            subscription.setCustomer(customer);
+            subscription.setPlan(plan);
+
+            // ===============================
+            // DTO MAPPING (UNCHANGED LOGIC)
+            // ===============================
             if (customer != null) {
                 if (customer.getBusinessName() != null && !customer.getBusinessName().isBlank()) {
                     dto.setCustomerName(customer.getBusinessName());
@@ -69,32 +161,23 @@ public class ManagerSubscriptionController {
                     String last = customer.getLastName() != null ? customer.getLastName() : "";
                     dto.setCustomerName((first + " " + last).trim());
                 }
-            } else {
-                dto.setCustomerName(null);
-            }
-
-        // Plan Name
-            PlanRepository.PlanRow plan = planRepository.findPlanById(sub.getPlanId());
-
-            if (plan != null) {
-                dto.setPlanName(plan.planName());
-            } else {
-                dto.setPlanName(null);
             }
 
             if (plan != null) {
-                dto.setPlanName(plan.planName());
-            } else {
-                dto.setPlanName(null);
+                dto.setPlanName(plan.getPlanName());
             }
-            dto.setStartDate(sub.getStartDate());
-            dto.setEndDate(sub.getEndDate());
-            dto.setStatus(sub.getStatus());
-            dto.setBillingCycleDay(sub.getBillingCycleDay());
-            dto.setNotes(sub.getNotes());
 
+            dto.setStartDate(startDate);
+            dto.setEndDate(endDate);
+            dto.setStatus(subscription.getStatus());
+            dto.setBillingCycleDay(subscription.getBillingCycleDay());
+            dto.setNotes(subscription.getNotes());
+
+            // ===============================
+            // ADD-ONS (UNCHANGED)
+            // ===============================
             List<SubscriptionAddOnDTO> addons = subscriptionAddOnRepository
-                    .findBySubscriptionId(sub.getSubscriptionId())
+                    .findBySubscriptionId(subscriptionId)
                     .stream()
                     .map(sa -> {
                         SubscriptionAddOnDTO a = new SubscriptionAddOnDTO();
@@ -109,14 +192,21 @@ public class ManagerSubscriptionController {
                     .toList();
 
             dto.setAddons(addons);
+
             return dto;
+
         }).toList();
     }
 
+    /* =========================================================
+     * UPDATE STATUS
+     * ========================================================= */
     @PatchMapping("/{id}/status")
-    public Subscription updateStatus(@PathVariable Integer id,
-                                     @RequestBody Map<String, String> body,
-                                     Authentication authentication) {
+    public Subscription updateStatus(
+            @PathVariable Integer id,
+            @RequestBody Map<String, String> body,
+            Authentication authentication
+    ) {
         Subscription subscription = subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
 
@@ -125,6 +215,7 @@ public class ManagerSubscriptionController {
 
         String username = authentication.getName();
         String status = body.get("status");
+
         String target = "Subscription " + saved.getSubscriptionId()
                 + " (Customer " + saved.getCustomerId()
                 + ", Plan " + saved.getPlanId() + ")";
@@ -134,9 +225,14 @@ public class ManagerSubscriptionController {
         return saved;
     }
 
+    /* =========================================================
+     * CREATE SUBSCRIPTION
+     * ========================================================= */
     @PostMapping
-    public Subscription create(@RequestBody Subscription body,
-                               Authentication authentication) {
+    public Subscription create(
+            @RequestBody Subscription body,
+            Authentication authentication
+    ) {
 
         Integer currentEmployeeId = getCurrentEmployeeId(authentication);
         body.setSoldByEmployeeId(currentEmployeeId);
@@ -144,35 +240,43 @@ public class ManagerSubscriptionController {
         Subscription saved = subscriptionRepository.save(body);
 
         String username = authentication.getName();
+
         String target = "Subscription " + saved.getSubscriptionId()
                 + " (Customer " + saved.getCustomerId()
                 + ", Plan " + saved.getPlanId() + ")";
 
         auditService.log("Subscription", "Create", target, username);
 
-
-
         return saved;
     }
 
-//    Helper for subscription link to employee
-private Integer getCurrentEmployeeId(Authentication authentication) {
-    String username = authentication.getName();
+    /* =========================================================
+     * HELPER: GET CURRENT EMPLOYEE ID
+     * ========================================================= */
+    private Integer getCurrentEmployeeId(Authentication authentication) {
 
-    UserAccount ua = userAccountRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+        String username = authentication.getName();
 
-    if (ua.getEmployeeId() == null) {
-        throw new RuntimeException("Current user is not an employee");
+        UserAccount ua = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (ua.getEmployeeId() == null) {
+            throw new RuntimeException("Current user is not an employee");
+        }
+
+        return ua.getEmployeeId();
     }
 
-    return ua.getEmployeeId();
-}
-
+    /* =========================================================
+     * UPDATE SUBSCRIPTION
+     * ========================================================= */
     @PutMapping("/{id}")
-    public Subscription update(@PathVariable Integer id,
-                               @RequestBody Subscription body,
-                               Authentication authentication) {
+    public Subscription update(
+            @PathVariable Integer id,
+            @RequestBody Subscription body,
+            Authentication authentication
+    ) {
+
         Subscription sub = subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
 
@@ -187,6 +291,7 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
         Subscription saved = subscriptionRepository.save(sub);
 
         String username = authentication.getName();
+
         String target = "Subscription " + saved.getSubscriptionId()
                 + " (Customer " + saved.getCustomerId()
                 + ", Plan " + saved.getPlanId() + ")";
@@ -196,39 +301,81 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
         return saved;
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Integer id,
-                       Authentication authentication) {
-        Subscription sub = subscriptionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+    /* =========================================================
+     * DELETE SUBSCRIPTION
+     * ========================================================= */
+//    @DeleteMapping("/{id}")
+//    public void delete(
+//            @PathVariable Integer id,
+//            Authentication authentication
+//    ) {
+//
+//        Subscription sub = subscriptionRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+//
+//        String username = authentication.getName();
+//
+//        String target = "Subscription " + sub.getSubscriptionId()
+//                + " (Customer " + sub.getCustomerId()
+//                + ", Plan " + sub.getPlanId() + ")";
+//
+////        List<SubscriptionAddOn> addOns =
+////                subscriptionAddOnRepository.findBySubscriptionId(id);
+//
+//        List<SubscriptionAddOn> addonsEntity = sub.getSubscriptionAddOns();
+//
+//        if (addOns != null && !addOns.isEmpty()) {
+//            subscriptionAddOnRepository.deleteAll(addOns);
+//        }
+//
+//        subscriptionRepository.deleteById(id);
+//
+//        auditService.log("Subscription", "Delete", target, username);
+//    }
 
-        String username = authentication.getName();
-        String target = "Subscription " + sub.getSubscriptionId()
-                + " (Customer " + sub.getCustomerId()
-                + ", Plan " + sub.getPlanId() + ")";
+        @DeleteMapping("/{id}")
+        public void delete(
+                @PathVariable Integer id,
+                Authentication authentication
+        ) {
 
-        // delete child subscription add-ons first
-        List<SubscriptionAddOn> addOns = subscriptionAddOnRepository.findBySubscriptionId(id);
-        if (addOns != null && !addOns.isEmpty()) {
-            subscriptionAddOnRepository.deleteAll(addOns);
+            Subscription sub = subscriptionRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+            String username = authentication.getName();
+
+            String target = "Subscription " + sub.getSubscriptionId()
+                    + " (Customer " + sub.getCustomerId()
+                    + ", Plan " + sub.getPlanId() + ")";
+
+            // FIX: correct way to fetch add-ons
+            List<SubscriptionAddOn> addons =
+                    subscriptionAddOnRepository.findBySubscriptionId(id);
+
+            if (addons != null && !addons.isEmpty()) {
+                subscriptionAddOnRepository.deleteAll(addons);
+            }
+
+            subscriptionRepository.deleteById(id);
+
+            auditService.log("Subscription", "Delete", target, username);
         }
 
-        subscriptionRepository.deleteById(id);
-
-        auditService.log("Subscription", "Delete", target, username);
-    }
-
+    /* =========================================================
+     * GET BY ID
+     * ========================================================= */
     @GetMapping("/{id}")
     public Subscription getById(@PathVariable Integer id) {
         return subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
     }
 
-
-
-    // Additional endpoints for managing add-ons could be added here (e.g. add/remove add-on from subscription) workshop 6
+    /* =========================================================
+     * ADD-ON LIST
+     * ========================================================= */
     @GetMapping("/{subscriptionId}/addons")
     public List<SubscriptionAddOnDTO> getSubscriptionAddOns(@PathVariable Integer subscriptionId) {
+
         Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns().stream()
                 .collect(Collectors.toMap(AddOnDTO::addOnId, AddOnDTO::addOnName));
 
@@ -247,10 +394,15 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
                 .toList();
     }
 
+    /* =========================================================
+     * ATTACH ADD-ON
+     * ========================================================= */
     @PostMapping("/{subscriptionId}/addons/{addOnId}")
-    public void attachAddOnToSubscription(@PathVariable Integer subscriptionId,
-                                          @PathVariable Integer addOnId,
-                                          Authentication authentication) {
+    public void attachAddOnToSubscription(
+            @PathVariable Integer subscriptionId,
+            @PathVariable Integer addOnId,
+            Authentication authentication
+    ) {
 
         Subscription subscription = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
@@ -262,9 +414,11 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
             throw new RuntimeException("Add-on not found");
         }
 
-        boolean alreadyExists = subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
-                .stream()
-                .anyMatch(sa -> sa.getAddOnId() != null && sa.getAddOnId().equals(addOnId));
+        boolean alreadyExists =
+                subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
+                        .stream()
+                        .anyMatch(sa -> sa.getAddOnId() != null
+                                && sa.getAddOnId().equals(addOnId));
 
         if (alreadyExists) {
             return;
@@ -273,21 +427,31 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
         SubscriptionAddOn sa = new SubscriptionAddOn();
         sa.setSubscriptionId(subscriptionId);
         sa.setAddOnId(addOnId);
-        sa.setStartDate(subscription.getStartDate() != null ? subscription.getStartDate() : LocalDate.now());
+        sa.setStartDate(subscription.getStartDate() != null
+                ? subscription.getStartDate()
+                : LocalDate.now());
         sa.setEndDate(null);
         sa.setStatus("Active");
 
         subscriptionAddOnRepository.save(sa);
 
-        String username = authentication.getName();
-        String target = "Subscription " + subscriptionId + " -> Add-on " + addOnId;
-        auditService.log("SubscriptionAddOn", "Attach", target, username);
+        auditService.log(
+                "SubscriptionAddOn",
+                "Attach",
+                "Subscription " + subscriptionId + " -> Add-on " + addOnId,
+                authentication.getName()
+        );
     }
 
+    /* =========================================================
+     * REMOVE ADD-ON
+     * ========================================================= */
     @DeleteMapping("/{subscriptionId}/addons/{addOnId}")
-    public void removeAddOnFromSubscription(@PathVariable Integer subscriptionId,
-                                            @PathVariable Integer addOnId,
-                                            Authentication authentication) {
+    public void removeAddOnFromSubscription(
+            @PathVariable Integer subscriptionId,
+            @PathVariable Integer addOnId,
+            Authentication authentication
+    ) {
 
         SubscriptionAddOn existing = subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
                 .stream()
@@ -297,9 +461,11 @@ private Integer getCurrentEmployeeId(Authentication authentication) {
 
         subscriptionAddOnRepository.deleteById(existing.getSubscriptionAddOnId());
 
-        String username = authentication.getName();
-        String target = "Subscription " + subscriptionId + " -> Add-on " + addOnId;
-        auditService.log("SubscriptionAddOn", "Remove", target, username);
+        auditService.log(
+                "SubscriptionAddOn",
+                "Remove",
+                "Subscription " + subscriptionId + " -> Add-on " + addOnId,
+                authentication.getName()
+        );
     }
-
 }
