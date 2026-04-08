@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface CustomerAddressRepository extends JpaRepository<CustomerAddress, Long> {
 
+
     Optional<CustomerAddress> findByCustomerIdAndAddressType(Integer customerId, String addressType);
 
     Optional<CustomerAddress> findFirstByCustomerIdOrderByIsPrimaryDesc(Integer customerId);
