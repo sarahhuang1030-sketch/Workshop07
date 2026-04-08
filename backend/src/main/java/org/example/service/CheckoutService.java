@@ -1,5 +1,6 @@
 package org.example.service;
 
+import org.example.dto.AddOnDTO;
 import org.example.model.CustomerAddress;
 import org.example.model.Subscription;
 import org.example.model.SubscriptionAddOn;
@@ -33,6 +34,8 @@ public class CheckoutService {
     private final SubscriptionRepository subscriptionRepo;
     private final SubscriptionAddOnRepository subscriptionAddOnRepo;
     private final QuoteRepository quoteRepo;
+    private final PlanRepository planRepository;
+    private final AddOnRepository addOnRepository;
 
     public CheckoutService(
             InvoiceRepository invoiceRepo,
@@ -47,7 +50,9 @@ public class CheckoutService {
             CustomerAddressRepository addressRepo,
             SubscriptionRepository subscriptionRepo,
             SubscriptionAddOnRepository subscriptionAddOnRepo,
-            QuoteRepository quoteRepo
+            QuoteRepository quoteRepo,
+            PlanRepository planRepository,
+            AddOnRepository addOnRepository
     ) {
         this.invoiceRepo = invoiceRepo;
         this.itemRepo = itemRepo;
@@ -62,6 +67,8 @@ public class CheckoutService {
         this.subscriptionRepo = subscriptionRepo;
         this.subscriptionAddOnRepo = subscriptionAddOnRepo;
         this.quoteRepo = quoteRepo;
+        this.planRepository = planRepository;
+        this.addOnRepository = addOnRepository;
     }
 
     @Transactional
@@ -269,6 +276,45 @@ public class CheckoutService {
         paymentRepo.save(payment);
 
         rewardService.addPointsFromInvoice(user, total);
+
+        // ======================================================
+        // 8.4 ADD QUOTE ITEMS TO INVOICE (NEW)
+        // ======================================================
+        if (quote != null) {
+            final Invoices currentInvoice = saved;
+            final Quote currentQuote = quote;
+            // Plan Item
+            planRepository.findAllPlans().stream()
+                .filter(p -> p.planId() == currentQuote.getPlanId())
+                .findFirst()
+                .ifPresent(plan -> {
+                    InvoiceItems planItem = new InvoiceItems();
+                    planItem.setInvoice(currentInvoice);
+                    planItem.setDescription(plan.planName());
+                    planItem.setQuantity(1);
+                    planItem.setUnitPrice(BigDecimal.valueOf(plan.monthlyPrice()));
+                    planItem.setLineTotal(BigDecimal.valueOf(plan.monthlyPrice()));
+                    planItem.setDiscountAmount(BigDecimal.ZERO);
+                    itemRepo.save(planItem);
+                });
+
+            // Addon Items
+            if (quote.getAddons() != null) {
+                for (QuoteAddOn qao : quote.getAddons()) {
+                    AddOnDTO addon = addOnRepository.findById(qao.getAddonId());
+                    if (addon != null) {
+                        InvoiceItems addonItem = new InvoiceItems();
+                        addonItem.setInvoice(currentInvoice);
+                        addonItem.setDescription(addon.addOnName());
+                        addonItem.setQuantity(1);
+                        addonItem.setUnitPrice(BigDecimal.valueOf(addon.monthlyPrice()));
+                        addonItem.setLineTotal(BigDecimal.valueOf(addon.monthlyPrice()));
+                        addonItem.setDiscountAmount(BigDecimal.ZERO);
+                        itemRepo.save(addonItem);
+                    }
+                }
+            }
+        }
 
         // ======================================================
         // 8.5 WATER BILL (NEW)
