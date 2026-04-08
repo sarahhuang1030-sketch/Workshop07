@@ -182,7 +182,7 @@ public class MeController {
                     ua.getCustomerId() != null ? "CUSTOMER" : "GUEST");
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
-
+            out.put("points", ua.getPoints());
 
             if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
