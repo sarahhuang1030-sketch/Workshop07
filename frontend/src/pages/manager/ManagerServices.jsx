@@ -39,7 +39,6 @@ export default function ManagerService({ darkMode = false }) {
     // set customers and employees for name usage
     const [customers, setCustomers] = useState([]);
     const [employees, setEmployees] = useState([]);
-    const [customerAddresses, setCustomerAddresses] = useState([]);
 
     const [formData, setFormData] = useState({
         customerId: "",
@@ -194,18 +193,6 @@ export default function ManagerService({ darkMode = false }) {
         }));
     }
 
-    async function loadCustomerAddresses(customerId) {
-        if (!customerId) return;
-        try {
-            const res = await apiFetch(`${REQUESTS_API}/customers/${customerId}/addresses`);
-            if (!res.ok) throw new Error("Failed to load customer addresses");
-            const data = await res.json();
-            setCustomerAddresses(Array.isArray(data) ? data : []);
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
     async function reloadAppointmentsForSelectedRequest() {
         if (!selectedRequest?.requestId) return;
 
@@ -221,12 +208,8 @@ export default function ManagerService({ darkMode = false }) {
         setAppointments(Array.isArray(data) ? data : []);
     }
 
-    async function openCreateAppointmentModal() {
+    function openCreateAppointmentModal() {
         setEditingAppointment(null);
-        if (selectedRequest?.customerId) {
-            await loadCustomerAddresses(selectedRequest.customerId);
-        }
-
         setAppointmentForm({
             technicianUserId: "",
             addressId: selectedRequest?.addressId?.toString() ?? "",
@@ -240,12 +223,8 @@ export default function ManagerService({ darkMode = false }) {
         setShowAppointmentModal(true);
     }
 
-    async function openEditAppointmentModal(appt) {
+    function openEditAppointmentModal(appt) {
         setEditingAppointment(appt);
-        if (selectedRequest?.customerId) {
-            await loadCustomerAddresses(selectedRequest.customerId);
-        }
-
         setAppointmentForm({
             technicianUserId: appt.technicianUserId?.toString() ?? "",
             addressId: appt.addressId?.toString() ?? "",
@@ -906,19 +885,11 @@ export default function ManagerService({ darkMode = false }) {
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Address</Form.Label>
-                                    <Form.Select
-                                        name="addressId"
-                                        value={appointmentForm.addressId}
-                                        onChange={handleAppointmentChange}
-                                        required
-                                    >
-                                        <option value="">Select address</option>
-                                        {customerAddresses.map((addr) => (
-                                            <option key={addr.addressId} value={addr.addressId}>
-                                                [{addr.addressType}] {addr.fullAddress}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
+                                    <Form.Control
+                                        type="text"
+                                        value={editingAppointment?.addressText || selectedRequest?.addressText || "—"}
+                                        readOnly
+                                    />
                                 </Form.Group>
                             </Col>
 

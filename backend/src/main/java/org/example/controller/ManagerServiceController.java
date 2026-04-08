@@ -1,9 +1,7 @@
 package org.example.controller;
 
-import org.example.dto.CustomerAddressDTO;
 import org.example.dto.ManagerServiceAppointmentDTO;
 import org.example.dto.ManagerServiceRequestDTO;
-import org.example.model.CustomerAddress;
 import org.example.model.ServiceAppointment;
 import org.example.model.ServiceRequest;
 import org.example.repository.*;
@@ -202,37 +200,6 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
 
         serviceAppointmentRepository.delete(existing);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/customers/{customerId}/addresses")
-    public List<CustomerAddressDTO> getCustomerAddresses(@PathVariable Integer customerId) {
-        return customerAddressRepository.findByCustomerId(customerId)
-                .stream()
-                .map(this::toAddressDTO)
-                .toList();
-    }
-
-    private CustomerAddressDTO toAddressDTO(CustomerAddress address) {
-        CustomerAddressDTO dto = new CustomerAddressDTO();
-        dto.setAddressId(address.getAddressId());
-        dto.setCustomerId(address.getCustomerId());
-        dto.setAddressType(address.getAddressType());
-        dto.setStreet1(address.getStreet1());
-        dto.setStreet2(address.getStreet2());
-        dto.setCity(address.getCity());
-        dto.setProvince(address.getProvince());
-        dto.setPostalCode(address.getPostalCode());
-        dto.setCountry(address.getCountry());
-        dto.setIsPrimary(address.getIsPrimary());
-
-        String s1 = address.getStreet1() != null ? address.getStreet1() : "";
-        String s2 = address.getStreet2() != null ? address.getStreet2() : "";
-        String city = address.getCity() != null ? address.getCity() : "";
-        String prov = address.getProvince() != null ? address.getProvince() : "";
-        String pc = address.getPostalCode() != null ? address.getPostalCode() : "";
-
-        dto.setFullAddress((s1 + " " + s2 + ", " + city + ", " + prov + " " + pc).trim().replaceAll("  +", " "));
-        return dto;
     }
 
     private ManagerServiceRequestDTO toRequestDTO(ServiceRequest request) {
