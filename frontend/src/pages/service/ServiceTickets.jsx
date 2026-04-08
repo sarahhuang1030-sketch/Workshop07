@@ -84,9 +84,13 @@ export default function ServiceTickets() {
         }
     };
 
-    const filteredTickets = tickets.filter(t => {
-        const matchesSearch = t.requestId.toString().includes(filters.search) ||
-            t.customerName?.toLowerCase().includes(filters.search.toLowerCase());
+    const filteredTickets = (tickets || []).filter(t => {
+        if (!t) return false;
+        const rid = t.requestId ? String(t.requestId) : "";
+        const cname = t.customerName ? String(t.customerName).toLowerCase() : "";
+        const search = filters.search.toLowerCase();
+
+        const matchesSearch = rid.includes(search) || cname.includes(search);
         const matchesStatus = !filters.status || t.status === filters.status;
         const matchesType = !filters.type || t.requestType === filters.type;
         const matchesPriority = !filters.priority || t.priority === filters.priority;
@@ -201,21 +205,21 @@ export default function ServiceTickets() {
                             </thead>
                             <tbody>
                             {filteredTickets.map((ticket) => (
-                                <tr key={ticket.requestId}>
-                                    <td>#{ticket.requestId}</td>
-                                    <td>{ticket.customerName}</td>
-                                    <td>{ticket.requestType}</td>
+                                <tr key={ticket.requestId || Math.random()}>
+                                    <td>#{ticket.requestId || "N/A"}</td>
+                                    <td>{ticket.customerName || "—"}</td>
+                                    <td>{ticket.requestType || "—"}</td>
                                     <td>
                                         <Badge bg={getTicketStatusBadge(ticket.status)}>
-                                            {ticket.status}
+                                            {ticket.status || "UNKNOWN"}
                                         </Badge>
                                     </td>
                                     <td>
                                         <Badge bg={getPriorityBadge(ticket.priority)}>
-                                            {ticket.priority}
+                                            {ticket.priority || "—"}
                                         </Badge>
                                     </td>
-                                    <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                                    <td>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : "—"}</td>
                                     <td>
                                         <Button
                                             size="sm"

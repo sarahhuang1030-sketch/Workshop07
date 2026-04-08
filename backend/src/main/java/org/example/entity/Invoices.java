@@ -11,18 +11,28 @@ public class Invoices {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "InvoiceId")
     private Integer invoiceId;
 
+    @Column(name = "CustomerId")
     private Integer customerId;
 
-    @Column(length = 50)
+    @Column(name = "InvoiceNumber", length = 50)
     private String invoiceNumber;
 
+    @Column(name = "IssueDate")
     private LocalDate issueDate;
+
+    @Column(name = "DueDate")
     private LocalDate dueDate;
 
+    @Column(name = "subtotal")
     private Double subtotal;
+
+    @Column(name = "taxTotal")
     private Double taxTotal;
+
+    @Column(name = "total")
     private Double total;
 
     @Column(name = "promo_code")

@@ -67,10 +67,14 @@ export default function ServiceWorkOrders() {
         }
     };
 
-    const filteredAppointments = appointments.filter(a => {
-        const matchesSearch = a.appointmentId.toString().includes(filters.search) ||
-            a.requestId.toString().includes(filters.search) ||
-            a.addressText?.toLowerCase().includes(filters.search.toLowerCase());
+    const filteredAppointments = (appointments || []).filter(a => {
+        if (!a) return false;
+        const aid = a.appointmentId ? String(a.appointmentId) : "";
+        const rid = a.requestId ? String(a.requestId) : "";
+        const addr = a.addressText ? String(a.addressText).toLowerCase() : "";
+        const search = filters.search.toLowerCase();
+
+        const matchesSearch = aid.includes(search) || rid.includes(search) || addr.includes(search);
         const matchesStatus = !filters.status || a.status === filters.status;
         return matchesSearch && matchesStatus;
     });
@@ -152,16 +156,16 @@ export default function ServiceWorkOrders() {
                             </thead>
                             <tbody>
                             {filteredAppointments.map((order) => (
-                                <tr key={order.appointmentId}>
-                                    <td>#{order.appointmentId}</td>
-                                    <td>#{order.requestId}</td>
+                                <tr key={order.appointmentId || Math.random()}>
+                                    <td>#{order.appointmentId || "N/A"}</td>
+                                    <td>#{order.requestId || "N/A"}</td>
                                     <td>
                                         <Badge bg={getWorkOrderBadge(order.status)}>
-                                            {order.status}
+                                            {order.status || "UNKNOWN"}
                                         </Badge>
                                     </td>
-                                    <td>{new Date(order.scheduledStart).toLocaleString()}</td>
-                                    <td className="small">{order.addressText}</td>
+                                    <td>{order.scheduledStart ? new Date(order.scheduledStart).toLocaleString() : "—"}</td>
+                                    <td className="small">{order.addressText || "—"}</td>
                                     <td>
                                         <Button
                                             size="sm"
