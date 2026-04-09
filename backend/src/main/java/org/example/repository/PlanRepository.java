@@ -183,9 +183,11 @@ public class PlanRepository {
                         "       a.AddOnName, " +
                         "       a.MonthlyPrice, " +
                         "       a.Description, " +
-                        "       a.IsActive AS IsActive " +   // FIXED alias
+                        "       a.IsActive AS IsActive, " +   // FIXED alias
+                        "       s.Name AS ServiceType " +
                         "FROM PlanAddOns pa " +
                         "JOIN AddOns a ON a.AddOnId = pa.AddOnId " +
+                        "LEFT JOIN ServiceTypes s ON s.ServiceTypeId = a.ServiceTypeId " +
                         "WHERE pa.PlanId IN (" + placeholders + ") " +
                         "AND a.IsActive = TRUE " +
                         "ORDER BY pa.PlanId, a.AddOnName";
@@ -199,7 +201,8 @@ public class PlanRepository {
                                 rs.getString("AddOnName"),
                                 rs.getDouble("MonthlyPrice"),
                                 rs.getString("Description"),
-                                rs.getBoolean("IsActive")
+                                rs.getBoolean("IsActive"),
+                                rs.getString("ServiceType")
                         )
                 ),
                 planIds.toArray()

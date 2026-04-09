@@ -109,6 +109,8 @@ public class InvoiceService {
             entity.setInvoice(savedInvoice);
             entity.setDescription(item.getName());
             entity.setQuantity(item.getQuantity() == null ? 1 : item.getQuantity());
+            entity.setItemType(item.getType());
+            entity.setServiceType(item.getServiceType());
 
             if (item.getPrice() != null) {
                 entity.setUnitPrice(BigDecimal.valueOf(item.getPrice()));
@@ -290,6 +292,8 @@ public class InvoiceService {
                     itemDTO.unitPrice = i.getUnitPrice();
                     itemDTO.discountAmount = i.getDiscountAmount();
                     itemDTO.lineTotal = i.getLineTotal();
+                    itemDTO.itemType = i.getItemType();
+                    itemDTO.serviceType = i.getServiceType();
                     return itemDTO;
                 })
                 .toList();

@@ -295,6 +295,8 @@ public class CheckoutService {
                         planItem.setUnitPrice(BigDecimal.valueOf(plan.monthlyPrice()));
                         planItem.setLineTotal(BigDecimal.valueOf(plan.monthlyPrice()));
                         planItem.setDiscountAmount(BigDecimal.ZERO);
+                        planItem.setItemType("plan");
+                        planItem.setServiceType(plan.serviceType());
                         itemRepo.save(planItem);
                     });
 
@@ -310,6 +312,8 @@ public class CheckoutService {
                         addonItem.setUnitPrice(BigDecimal.valueOf(addon.monthlyPrice()));
                         addonItem.setLineTotal(BigDecimal.valueOf(addon.monthlyPrice()));
                         addonItem.setDiscountAmount(BigDecimal.ZERO);
+                        addonItem.setItemType("addon");
+                        addonItem.setServiceType(addon.serviceType());
                         itemRepo.save(addonItem);
                     }
                 }
@@ -368,6 +372,8 @@ public class CheckoutService {
                             ? BigDecimal.valueOf(dto.getDiscountAmount())
                             : BigDecimal.ZERO
             );
+            item.setItemType(dto.getItemType());
+            item.setServiceType(dto.getServiceType());
 
             InvoiceItems savedItem = itemRepo.save(item);
 

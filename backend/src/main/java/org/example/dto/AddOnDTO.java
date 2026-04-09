@@ -5,9 +5,7 @@ public record AddOnDTO(
         String addOnName,
         double monthlyPrice,
         String description,
-        Boolean isActive
+        Boolean isActive,
+        String serviceType
 ) {
-
-
-
 }

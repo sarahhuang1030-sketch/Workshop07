@@ -80,5 +80,7 @@ public class InvoiceDTO {
         public BigDecimal unitPrice;
         public BigDecimal discountAmount;
         public BigDecimal lineTotal;
+        public String itemType;
+        public String serviceType;
     }
 }

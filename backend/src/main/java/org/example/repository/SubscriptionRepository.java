@@ -188,6 +188,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
     @Query("SELECT COUNT(s) FROM Subscription s WHERE s.status = 'Active'")
     long countActiveSubscriptions();
 
+    List<Subscription> findByCustomerIdAndStatus(Integer customerId, String status);
+
     @Query(value = """
         SELECT 
             s.SubscriptionId,

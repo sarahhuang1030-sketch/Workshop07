@@ -14,6 +14,7 @@ public class CheckoutItemDTO {
     // NEW FIELDS
     private Integer id; // PlanId or AddonId
     private String itemType;   // "plan", "addon", "device"
+    private String serviceType;
     private Integer phoneId;
     private String pricingType;
 
@@ -47,4 +48,7 @@ public class CheckoutItemDTO {
 
     public String getPricingType() { return pricingType; }
     public void setPricingType(String pricingType) { this.pricingType = pricingType; }
+
+    public String getServiceType() { return serviceType; }
+    public void setServiceType(String serviceType) { this.serviceType = serviceType; }
 }

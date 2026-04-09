@@ -250,6 +250,49 @@ export default function CheckoutPage() {
                 return;
             }
 
+            const checkoutItems = [];
+
+            // Add plans
+            plans.forEach(p => {
+                checkoutItems.push({
+                    description: p.name,
+                    quantity: p.lines || 1,
+                    unitPrice: p.pricePerLine || p.totalPrice || p.price || 0,
+                    lineTotal: p.totalPrice || p.price || 0,
+                    itemType: "plan",
+                    serviceType: p.serviceType,
+                    id: p.planId,
+                    subscribers: p.subscribers?.map(s => s.fullName) || []
+                });
+            });
+
+            // Add addons
+            addOns.forEach(a => {
+                checkoutItems.push({
+                    description: a.addOnName,
+                    quantity: 1,
+                    unitPrice: a.monthlyPrice || a.price || 0,
+                    lineTotal: a.monthlyPrice || a.price || 0,
+                    itemType: "addon",
+                    serviceType: a.serviceType,
+                    id: a.addOnId
+                });
+            });
+
+            // Add devices
+            devices.forEach(d => {
+                checkoutItems.push({
+                    description: `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
+                    quantity: 1,
+                    unitPrice: d.totalPrice || 0,
+                    lineTotal: d.totalPrice || 0,
+                    itemType: "device",
+                    phoneId: d.phoneId || d.id,
+                    pricingType: d.pricingType,
+                    subscribers: [d.assignedSubscriberName]
+                });
+            });
+
             const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -261,7 +304,7 @@ export default function CheckoutPage() {
                     billingCycle: pricing.hasRecurringItems ? billingCycle : "one-time",
                     paymentIntentId: result.paymentIntent.id,
                     quoteId: quoteId || null,
-                    items: [],
+                    items: checkoutItems,
                     ...billingAddress
                 }),
             });

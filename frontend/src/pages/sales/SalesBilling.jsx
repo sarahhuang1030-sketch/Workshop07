@@ -120,6 +120,8 @@ export default function SalesBilling({ darkMode = false }) {
                                 <Table bordered size="sm">
                                     <thead>
                                     <tr>
+                                        <th>Type</th>
+                                        <th>Service</th>
                                         <th>Description</th>
                                         <th>Qty</th>
                                         <th>Total</th>
@@ -128,6 +130,8 @@ export default function SalesBilling({ darkMode = false }) {
                                     <tbody>
                                     {inv.items?.map((i, idx) => (
                                         <tr key={idx}>
+                                            <td className="text-capitalize">{i.itemType || "—"}</td>
+                                            <td className="text-capitalize">{i.serviceType || "—"}</td>
                                             <td>{i.description}</td>
                                             <td>{i.quantity}</td>
                                             <td>{formatMoney(i.lineTotal)}</td>

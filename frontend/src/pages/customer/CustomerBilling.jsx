@@ -112,7 +112,6 @@ export default function CustomerBilling({ darkMode = false }) {
                     </div>
 
                     <div>Status: {invoice.status}</div>
-                    <div>Package Name: {invoice.items?.[0]?.description || "—"}</div>
                     <div>Issue Date: {invoice.issueDate}</div>
                     <div>Due Date: {invoice.dueDate}</div>
 
@@ -122,7 +121,8 @@ export default function CustomerBilling({ darkMode = false }) {
                     <Table bordered hover responsive className={darkMode ? "table-dark" : ""}>
                         <thead>
                         <tr>
-                            <th>Package Name</th>
+                            <th>Item Type</th>
+                            <th>Service Type</th>
                             <th>Details</th>
                             <th>Qty</th>
                             <th>Price</th>
@@ -134,7 +134,8 @@ export default function CustomerBilling({ darkMode = false }) {
                         <tbody>
                         {invoice.items.map((item, i) => (
                             <tr key={i}>
-                                <td>{i === 0 ? item.description : "—"}</td>
+                                <td className="text-capitalize">{item.itemType || "—"}</td>
+                                <td className="text-capitalize">{item.serviceType || "—"}</td>
                                 <td>{item.description}</td>
                                 <td>{item.quantity}</td>
                                 <td>{formatMoney(item.unitPrice)}</td>
