@@ -17,14 +17,17 @@ public class ChatRequestService {
 
     private final ChatRequestRepository chatRequestRepository;
     private final ConversationRepository conversationRepository;
+    private final ChatNotificationService chatNotificationService;
 
     private static final DateTimeFormatter CHAT_TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
     public ChatRequestService(ChatRequestRepository chatRequestRepository,
-                              ConversationRepository conversationRepository) {
+                              ConversationRepository conversationRepository,
+                              ChatNotificationService chatNotificationService) {
         this.chatRequestRepository = chatRequestRepository;
         this.conversationRepository = conversationRepository;
+        this.chatNotificationService = chatNotificationService;
     }
 
     public List<ChatRequestDTO> getPendingRequests() {
@@ -49,7 +52,9 @@ public class ChatRequestService {
         request.setRequestedAt(LocalDateTime.now());
 
         ChatRequest saved = chatRequestRepository.save(request);
-        return toDto(saved);
+        ChatRequestDTO dto = toDto(saved);
+        chatNotificationService.notifyNewChatRequest(dto);
+        return dto;
     }
 
     public ChatRequestDTO acceptRequest(Integer requestId, Integer employeeUserId) {
@@ -75,11 +80,13 @@ public class ChatRequestService {
 
         request.setAssignedEmployeeUserId(employeeUserId);
         request.setConversationId(savedConversation.getConversationId());
-        request.setStatus("ACCEPTED");
+        request.setStatus("ACTIVE");
         request.setAcceptedAt(LocalDateTime.now());
 
         ChatRequest savedRequest = chatRequestRepository.save(request);
-        return toDto(savedRequest);
+        ChatRequestDTO dto = toDto(savedRequest);
+        chatNotificationService.notifyChatRequestAccepted(dto);
+        return dto;
     }
 
     public ChatRequestDTO closeRequest(Integer requestId) {
@@ -92,7 +99,9 @@ public class ChatRequestService {
         }
 
         ChatRequest saved = chatRequestRepository.save(request);
-        return toDto(saved);
+        ChatRequestDTO dto = toDto(saved);
+        chatNotificationService.notifyChatRequestClosed(dto);
+        return dto;
     }
 
     private ChatRequestDTO toDto(ChatRequest request) {
