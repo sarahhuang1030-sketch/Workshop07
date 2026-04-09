@@ -168,7 +168,13 @@ export default function CustomerQuotes() {
                     {quotes.map((q) => (
                         <tr key={q.id}>
                             <td>#{q.id}</td>
-                            <td>{q.createdAt ? new Date(q.createdAt).toLocaleDateString() : "N/A"}</td>
+                            <td>
+                                {q.status === "PAID" && q.paymentDate
+                                    ? new Date(q.paymentDate).toLocaleDateString()
+                                    : q.createdAt
+                                        ? new Date(q.createdAt).toLocaleDateString()
+                                        : "N/A"}
+                            </td>
 
                             <td>{formatMoney(q.amount)}</td>
 
@@ -218,7 +224,13 @@ export default function CustomerQuotes() {
                                     <Button
                                         variant="outline-success"
                                         size="sm"
-                                        onClick={() => navigate("/customer/billing/history")}
+                                        onClick={() => {
+                                            if (q.invoiceNumber) {
+                                                navigate(`/customer/invoice/${q.invoiceNumber}`);
+                                            } else {
+                                                navigate("/customer/billing/history");
+                                            }
+                                        }}
                                     >
                                         View Invoice
                                     </Button>

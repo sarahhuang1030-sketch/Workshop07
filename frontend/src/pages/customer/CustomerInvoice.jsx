@@ -186,7 +186,8 @@ export default function CustomerInvoice() {
                 <Table bordered hover responsive className="mb-4">
                     <thead className="table-light">
                     <tr>
-                        <th>Description</th>
+                        <th>Package Name</th>
+                        <th>Details</th>
                         <th className="text-center">Qty</th>
                         <th className="text-end">Unit Price</th>
                         <th className="text-end">Discount</th>
@@ -197,6 +198,7 @@ export default function CustomerInvoice() {
                     <tbody>
                     {invoice.items?.map((item, idx) => (
                         <tr key={idx}>
+                            <td>{idx === 0 ? item.description : "—"}</td>
                             <td>{item.description}</td>
 
                             <td className="text-center">

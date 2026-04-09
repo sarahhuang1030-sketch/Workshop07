@@ -6,12 +6,12 @@ import org.example.dto.QuoteUpdateDTO;
 import org.example.dto.InvoiceDTO;
 import org.example.entity.Invoices;
 import org.example.entity.Quote;
-import org.example.model.Customer;
+import org.example.repository.InvoiceRepository;
+import org.example.repository.PaymentRepository;
 import org.example.model.UserAccount;
 import org.example.repository.CustomerRepository;
 import org.example.repository.QuoteRepository;
 import org.example.repository.UserAccountRepository;
-import org.example.service.CustomerService;
 import org.example.service.InvoiceService;
 import org.example.service.QuoteService;
 import org.springframework.http.HttpStatus;
@@ -19,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.example.service.EmailService;
 
 import java.util.List;
 
@@ -32,8 +31,8 @@ public class QuoteController {
     private final InvoiceService invoiceService;
     private final CustomerRepository customerRepo;
     private final UserAccountRepository userAccountRepo;
-    private final CustomerService customerService;
-    private final EmailService emailService;
+    private final InvoiceRepository invoiceRepo;
+    private final PaymentRepository paymentRepo;
 
     public QuoteController(
             QuoteRepository repo,
@@ -41,15 +40,16 @@ public class QuoteController {
             InvoiceService invoiceService,
             CustomerRepository customerRepo,
             UserAccountRepository userAccountRepo,
-            CustomerService customerService,
-            EmailService emailService) {
+            InvoiceRepository invoiceRepo,
+            PaymentRepository paymentRepo
+    ) {
         this.repo = repo;
         this.quoteService = quoteService;
         this.invoiceService = invoiceService;
         this.customerRepo = customerRepo;
         this.userAccountRepo = userAccountRepo;
-        this.customerService = customerService;
-        this.emailService = emailService;
+        this.invoiceRepo = invoiceRepo;
+        this.paymentRepo = paymentRepo;
     }
 
     // ======================================================
@@ -100,25 +100,9 @@ public class QuoteController {
     // CREATE QUOTE
     // ======================================================
     @PostMapping
-//    public Quote create(@RequestBody QuoteRequestDTO dto) {
-//        return quoteService.createQuote(dto);
-    public ResponseEntity<QuoteDTO> create(@RequestBody QuoteRequestDTO dto){
-        Quote quote = quoteService.createQuote(dto);
-
-        System.out.println("🔥 Controller reached after quote creation");
-
-        try {
-            Customer customer = customerRepo.findById(quote.getCustomerId())
-                    .orElseThrow(() -> new RuntimeException("Customer not found"));
-
-            emailService.sendQuoteNotification(customer);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return ResponseEntity.ok(mapToDTO(quote));
+    public Quote create(@RequestBody QuoteRequestDTO dto) {
+        return quoteService.createQuote(dto);
     }
-
 
     // ======================================================
     // UPDATE QUOTE
@@ -179,6 +163,19 @@ public class QuoteController {
         dto.setPlanId(q.getPlanId());
         dto.setAmount(q.getAmount());
         dto.setStatus(q.getStatus());
+        dto.setCreatedAt(q.getCreatedAt() != null ? q.getCreatedAt().toString() : null);
+        dto.setInvoiceId(q.getInvoiceId());
+
+        if (q.getInvoiceId() != null) {
+            invoiceRepo.findById(q.getInvoiceId()).ifPresent(inv -> {
+                dto.setInvoiceNumber(inv.getInvoiceNumber());
+                paymentRepo.findByInvoiceId(inv.getInvoiceId()).stream()
+                        .findFirst()
+                        .ifPresent(p -> {
+                            dto.setPaymentDate(p.getPaymentDate() != null ? p.getPaymentDate().toString() : null);
+                        });
+            });
+        }
 
         String name = customerRepo.findById(q.getCustomerId())
                 .map(c -> c.getFirstName() + " " + c.getLastName())

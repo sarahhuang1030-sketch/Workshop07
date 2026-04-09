@@ -17,6 +17,10 @@ public class QuoteDTO {
     private String status;
     private Integer planId;
     private List<Integer> addonIds;
+    private String createdAt;
+    private Integer invoiceId;
+    private String invoiceNumber;
+    private String paymentDate;
 
     private List<QuoteItemDTO> items;
 
@@ -78,6 +82,38 @@ public class QuoteDTO {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Integer getInvoiceId() {
+        return invoiceId;
+    }
+
+    public void setInvoiceId(Integer invoiceId) {
+        this.invoiceId = invoiceId;
+    }
+
+    public String getInvoiceNumber() {
+        return invoiceNumber;
+    }
+
+    public void setInvoiceNumber(String invoiceNumber) {
+        this.invoiceNumber = invoiceNumber;
+    }
+
+    public String getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(String paymentDate) {
+        this.paymentDate = paymentDate;
     }
 
     public List<QuoteItemDTO> getItems() {

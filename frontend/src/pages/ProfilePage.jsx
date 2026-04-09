@@ -435,21 +435,110 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         </div>
                     </div>
                 </Alert>
-            ) : (
-                <div className="mt-3 d-flex gap-2 flex-wrap">
-                    {isMissingEmail && (
-                        <Alert variant="warning" className="d-flex align-items-start gap-2 py-2" style={{ borderRadius: 12 }}>
-                            <AlertTriangle size={16} className="mt-1" />
-                            <div className="small">Email is missing.</div>
-                        </Alert>
-                    )}
-                    {isMissingPhone && (
-                        <Alert variant="warning" className="d-flex align-items-start gap-2 py-2" style={{ borderRadius: 12 }}>
-                            <AlertTriangle size={16} className="mt-1" />
-                            <div className="small">Phone number is missing.</div>
-                        </Alert>
-                    )}
-                </div>
+            ) : !hasCompletedBillingSetup && (
+                <Alert
+                    variant="warning"
+                    className="d-flex align-items-start gap-2"
+                    style={{ borderRadius: 16 }}
+                >
+                    <AlertTriangle size={18} className="mt-1" />
+                    <div>
+                        <div className="fw-bold">Complete your billing setup first</div>
+                        <div className="small">
+                            Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
+                        </div>
+
+                        {/* Missing components section */}
+                        <div className="mt-3 d-flex gap-2 flex-wrap">
+
+                            {/* Missing billing address */}
+                            {!hasBillingAddress && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">Missing billing address</div>
+                                        <div className="small">
+                                            Please add your billing address to continue.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={() => setShowBillingModal(true)}
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Add Billing Address
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {/* Missing payment method */}
+                            {!hasPaymentMethod && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">Missing payment method</div>
+                                        <div className="small">
+                                            Please add a valid billing card to continue.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline-primary"
+                                                onClick={() => setShowPaymentModal(true)}
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Add Payment Method
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {/* Missing plan */}
+                            {!hasPlan && (
+                                <Alert
+                                    variant="warning"
+                                    className="d-flex align-items-start gap-2"
+                                    style={{ borderRadius: 16 }}
+                                >
+                                    <AlertTriangle size={18} className="mt-1" />
+                                    <div>
+                                        <div className="fw-bold">No active plan</div>
+                                        <div className="small">
+                                            You don’t have an active subscription plan yet.
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="dark"
+                                                as={Link}
+                                                to="/plans"
+                                                style={{ borderRadius: 12 }}
+                                            >
+                                                Choose Plan
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Alert>
+                            )}
+
+                        </div>
+                    </div>
+                </Alert>
             )}
 
             <Row className="g-4">
