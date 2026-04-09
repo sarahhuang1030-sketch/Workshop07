@@ -46,6 +46,9 @@ public class MeController {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository subscriptionAddOnRepository;
     private final LocationRepository locationRepo;
+    private final PaymentRepository paymentRepository;
+    private final PlanRepository planRepository;
+    private final AddOnRepository addOnRepository;
 
     public MeController(UserAccountRepository userAccountRepo,
                         AgentCustomerService agentCustomerService,
@@ -61,7 +64,10 @@ public class MeController {
                         SubscriptionService subscriptionService,
                         SubscriptionRepository subscriptionRepository,
                         SubscriptionAddOnRepository subscriptionAddOnRepository,
-                        LocationRepository locationRepo) {
+                        LocationRepository locationRepo,
+                        PaymentRepository paymentRepository,
+                        PlanRepository planRepository,
+                        AddOnRepository addOnRepository) {
         this.userAccountRepo = userAccountRepo;
         this.agentCustomerService = agentCustomerService;
         this.customerAddressRepo = customerAddressRepo;
@@ -77,6 +83,9 @@ public class MeController {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
         this.locationRepo = locationRepo;
+        this.paymentRepository = paymentRepository;
+        this.planRepository = planRepository;
+        this.addOnRepository = addOnRepository;
     }
 
     // -------------------- GET /api/me --------------------
@@ -182,7 +191,7 @@ public class MeController {
                     ua.getCustomerId() != null ? "CUSTOMER" : "GUEST");
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
-
+            out.put("points", ua.getPoints());
 
             if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
@@ -495,7 +504,7 @@ public class MeController {
         return ResponseEntity.ok(plan);
     }
 
-        //workshop 06 - get all active plans for customer (including addons)
+    //workshop 06 - get all active plans for customer (including addons)
 
     private BigDecimal toBigDecimal(Object val) {
         if (val == null) return BigDecimal.ZERO;
@@ -509,31 +518,31 @@ public class MeController {
         return BigDecimal.ZERO;
     }
 
-        @GetMapping("/api/me/plans")
-        public ResponseEntity<?> getMyPlans(Authentication authentication) {
-            String username = authentication.getName();
+    @GetMapping("/api/me/plans")
+    public ResponseEntity<?> getMyPlans(Authentication authentication) {
+        String username = authentication.getName();
 
-            UserAccount ua = userAccountRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+        UserAccount ua = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-            if (ua.getCustomerId() == null) {
-                return ResponseEntity.badRequest().body("This account is not linked to a customer");
-            }
-
-            List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
-
-            List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
-                    ((Number) r[0]).intValue(),
-                    ((Number) r[1]).intValue(),
-                    (String) r[2],
-                    toBigDecimal(r[3]),
-                    toBigDecimal(r[4]),
-                    toBigDecimal(r[5]),
-                    null
-            )).toList();
-
-            return ResponseEntity.ok(result);
+        if (ua.getCustomerId() == null) {
+            return ResponseEntity.badRequest().body("This account is not linked to a customer");
         }
+
+        List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
+
+        List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
+                ((Number) r[0]).intValue(),
+                ((Number) r[1]).intValue(),
+                (String) r[2],
+                toBigDecimal(r[3]),
+                toBigDecimal(r[4]),
+                toBigDecimal(r[5]),
+                null
+        )).toList();
+
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping("/api/me/addons")
     public ResponseEntity<?> getMyAddOns(Authentication authentication) {
@@ -580,5 +589,81 @@ public class MeController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/api/me/subscription/details")
+    public ResponseEntity<?> getMySubscriptionDetails(Authentication authentication) {
+        String username = authentication.getName();
+        UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(username).orElse(null);
+        if (ua == null || ua.getCustomerId() == null) {
+            return ResponseEntity.status(404).body("UserAccount or customerId not found");
+        }
 
+        Integer customerId = ua.getCustomerId();
+        SubscriptionDetailsDTO details = new SubscriptionDetailsDTO();
+
+        // 1. Subscription
+        List<org.example.model.Subscription> subs = subscriptionRepository.findByCustomerIdAndStatus(customerId, "Active");
+        if (!subs.isEmpty()) {
+            org.example.model.Subscription sub = subs.get(0);
+            SubscriptionDetailsDTO.SubscriptionDTO subDTO = new SubscriptionDetailsDTO.SubscriptionDTO();
+            subDTO.setSubscriptionId(sub.getSubscriptionId());
+            subDTO.setStatus(sub.getStatus());
+            subDTO.setStartDate(sub.getStartDate() != null ? sub.getStartDate().toString() : null);
+            subDTO.setEndDate(sub.getEndDate() != null ? sub.getEndDate().toString() : null);
+            subDTO.setBillingCycleDay(sub.getBillingCycleDay());
+            details.setSubscription(subDTO);
+
+            // 2. Plan
+            PlanRepository.PlanRow planRow = planRepository.findPlanById(sub.getPlanId());
+            if (planRow != null) {
+                SubscriptionDetailsDTO.PlanInfoDTO planDTO = new SubscriptionDetailsDTO.PlanInfoDTO();
+                planDTO.setPlanName(planRow.planName());
+                planDTO.setMonthlyPrice(planRow.monthlyPrice());
+                planDTO.setDescription(planRow.tagline());
+                details.setPlan(planDTO);
+
+                // 3. Features
+                Map<Integer, List<PlanRepository.PlanFeatureRow>> featuresMap = planRepository.findPlanFeaturesByPlanIds(List.of(sub.getPlanId()));
+                List<PlanRepository.PlanFeatureRow> featureRows = featuresMap.getOrDefault(sub.getPlanId(), List.of());
+                details.setFeatures(featureRows.stream().map(fr -> {
+                    SubscriptionDetailsDTO.FeatureInfoDTO f = new SubscriptionDetailsDTO.FeatureInfoDTO();
+                    f.setName(fr.featureName());
+                    f.setValue(fr.featureValue());
+                    f.setUnit(fr.unit());
+                    return f;
+                }).toList());
+            }
+
+            // 4. Add-ons
+            List<org.example.model.SubscriptionAddOn> saList = subscriptionAddOnRepository.findBySubscriptionId(sub.getSubscriptionId());
+            details.setAddOns(saList.stream().map(sa -> {
+                SubscriptionDetailsDTO.AddOnInfoDTO addOnDTO = new SubscriptionDetailsDTO.AddOnInfoDTO();
+                org.example.dto.AddOnDTO a = addOnRepository.findById(sa.getAddOnId());
+                if (a != null) {
+                    addOnDTO.setAddOnName(a.addOnName());
+                    addOnDTO.setMonthlyPrice(a.monthlyPrice());
+                } else {
+                    addOnDTO.setAddOnName("Unknown Add-on");
+                    addOnDTO.setMonthlyPrice(0.0);
+                }
+                return addOnDTO;
+            }).toList());
+        }
+
+        // 5. Payments
+        List<org.example.entity.Payments> payments = paymentRepository.findByCustomerIdOrderByPaymentDateDesc(customerId);
+        details.setPayments(payments.stream().map(p -> {
+            SubscriptionDetailsDTO.PaymentInfoDTO pDTO = new SubscriptionDetailsDTO.PaymentInfoDTO();
+            pDTO.setAmount(p.getAmount() != null ? p.getAmount().doubleValue() : 0.0);
+            pDTO.setPaymentDate(p.getPaymentDate() != null ? p.getPaymentDate().toString() : null);
+            pDTO.setMethod(p.getMethod());
+            pDTO.setStatus(p.getStatus());
+            return pDTO;
+        }).toList());
+
+        // 6. Invoices
+        List<org.example.entity.Invoices> invoices = invoiceService.findAllByCustomerId(customerId);
+        details.setInvoices(invoices.stream().map(invoiceService::convertToDTO).toList());
+
+        return ResponseEntity.ok(details);
+    }
 }

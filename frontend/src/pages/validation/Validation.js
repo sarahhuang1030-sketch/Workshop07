@@ -8,7 +8,7 @@
 
 
 // ---- regex (shared) ----
-export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const emailRegex = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
 export const usernameRegex = /^[a-zA-Z0-9]{8,20}$/;
 export const postalCodeCA = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/;
 

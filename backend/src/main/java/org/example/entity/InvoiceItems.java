@@ -26,6 +26,10 @@ public class InvoiceItems {
 
         private BigDecimal lineTotal;
 
+        private String itemType;
+
+        private String serviceType;
+
         // ================= getters/setters =================
 
         public Integer getInvoiceItemId() { return invoiceItemId; }
@@ -48,4 +52,10 @@ public class InvoiceItems {
 
         public BigDecimal getLineTotal() { return lineTotal; }
         public void setLineTotal(BigDecimal lineTotal) { this.lineTotal = lineTotal; }
+
+        public String getItemType() { return itemType; }
+        public void setItemType(String itemType) { this.itemType = itemType; }
+
+        public String getServiceType() { return serviceType; }
+        public void setServiceType(String serviceType) { this.serviceType = serviceType; }
 }

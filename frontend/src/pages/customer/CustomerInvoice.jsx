@@ -186,7 +186,9 @@ export default function CustomerInvoice() {
                 <Table bordered hover responsive className="mb-4">
                     <thead className="table-light">
                     <tr>
-                        <th>Description</th>
+                        <th>Item Type</th>
+                        <th>Service Type</th>
+                        <th>Details</th>
                         <th className="text-center">Qty</th>
                         <th className="text-end">Unit Price</th>
                         <th className="text-end">Discount</th>
@@ -197,6 +199,8 @@ export default function CustomerInvoice() {
                     <tbody>
                     {invoice.items?.map((item, idx) => (
                         <tr key={idx}>
+                            <td className="text-capitalize">{item.itemType || "—"}</td>
+                            <td className="text-capitalize">{item.serviceType || "—"}</td>
                             <td>{item.description}</td>
 
                             <td className="text-center">

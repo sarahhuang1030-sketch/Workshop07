@@ -20,7 +20,7 @@ import {
     Repeat,
     ListChecks,
     TrendingUp,
-    ArrowRight
+    ArrowRight, Briefcase
 } from "lucide-react";
 import { Box } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -189,103 +189,99 @@ export default function SalesDashboard({ darkMode = false }) {
 
     useEffect(() => {
 
+        let isMounted = true;
+
         async function load() {
             try {
                 setLoading(true);
 
-                // ================= API CALLS =================
-                const [custRes, quoteRes, invRes, managerRes] = await Promise.all([
+                const [custRes, quoteRes, invRes, managerRes, serviceRes] = await Promise.all([
                     apiFetch("/api/customers/all"),
                     apiFetch("/api/quotes"),
                     apiFetch("/api/invoices/all"),
-                    apiFetch("/api/manager/summary")
+                    apiFetch("/api/manager/summary"),
+                    apiFetch("/api/manager/service-requests")
                 ]);
 
                 const customers = await custRes.json();
                 const quotes = await quoteRes.json();
                 const invoices = await invRes.json();
                 const manager = await managerRes.json();
+                const serviceData = await serviceRes.json();
 
-                // ================= SAFE NORMALIZATION =================
-                const c = Array.isArray(customers)
-                    ? customers
-                    : customers?.customers ?? [];
+                // ✅ FIX 1: safe unwrap (DO NOT change UI logic)
+                const c = Array.isArray(customers) ? customers : customers?.customers ?? [];
+                const q = Array.isArray(quotes) ? quotes : quotes?.quotes ?? [];
+                const i = Array.isArray(invoices) ? invoices : [];
 
-                const q = Array.isArray(quotes)
-                    ? quotes
-                    : quotes?.quotes ?? [];
+                // 🔥 FIX 2: service requests safe parse (IMPORTANT BUG FIX)
+                const requests = Array.isArray(serviceData)
+                    ? serviceData
+                    : serviceData?.data || serviceData?.requests || [];
 
-                const i = Array.isArray(invoices)
-                    ? invoices
-                    : [];
+                // 🔥 FIX 3: correct id mapping
+                const apptPromises = requests.map(r =>
+                    apiFetch(
+                        `/api/manager/service-requests/${
+                            r.requestId || r.id || r.serviceRequestId
+                        }/appointments`
+                    )
+                        .then(res => res.ok ? res.json() : [])
+                        .catch(() => [])
+                );
 
-                // ================= DATE CONTEXT =================
+                const apptsNested = await Promise.all(apptPromises);
+                const flatAppts = apptsNested.flat();
+
                 const now = new Date();
                 const currentMonth = now.getMonth();
                 const currentYear = now.getFullYear();
 
-                // ================= REVENUE CALCULATION =================
-                // ================= REVENUE CALCULATION =================
                 let totalRevenue = 0;
                 let monthlyRevenue = 0;
 
-                console.log("INVOICES RAW:", invoices);
-                console.log("FIRST ITEM:", invoices?.[0]);
-
-                // i.forEach(inv => {
-                //
-                //     const amount =
-                //         Number(inv?.total) ||
-                //         (Number(inv?.subtotal || 0) + Number(inv?.taxTotal || 0));
-                //
-                //     const dateStr = inv?.issueDate;
-                //
-                //     const date = new Date(dateStr);
-                //
-                //     if (!isFinite(amount)) return;
-                //
-                //     totalRevenue += amount;
-                //
-                //     if (dateStr && dateStr.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`)) {
-                //         monthlyRevenue += amount;
-                //     }
-                // });
                 i.forEach(inv => {
-
                     const amount = Number(inv?.total ?? 0);
                     if (!isFinite(amount)) return;
 
                     totalRevenue += amount;
 
-                    const [year, month] = (inv?.issueDate || "").split("-").map(Number);
+                    const [year, month] = (inv?.issueDate || "")
+                        .split("-")
+                        .map(Number);
 
-                    if (
-                        year === currentYear &&
-                        (month - 1) === currentMonth
-                    ) {
+                    if (year === currentYear && (month - 1) === currentMonth) {
                         monthlyRevenue += amount;
                     }
                 });
 
-                // ================= STATE UPDATE =================
-                setSummary({
+                if (!isMounted) return;
+
+                // ✅ FIX 4: ONLY use existing state fields (NO UI CHANGE)
+                setSummary(prev => ({
+                    ...prev,
                     customers: c.length,
                     invoices: i.length,
                     pendingQuotes: q.filter(x => x.status === "PENDING").length,
-
                     monthlyRevenue,
                     revenue: totalRevenue,
-
                     activeSubs: manager?.activeSubs ?? 0,
                     addOns: manager?.addOns ?? 0,
                     planFeatures: manager?.planFeatures ?? 0,
                     pastDue: manager?.pastDue ?? 0,
-                });
+
+                    // FIXED VALUES
+                    serviceRequests: requests.length,
+                    serviceAppointments: flatAppts.length
+                }));
 
             } catch (err) {
                 console.error("Dashboard load failed:", err);
 
-                setSummary({
+                if (!isMounted) return;
+
+                setSummary(prev => ({
+                    ...prev,
                     customers: 0,
                     invoices: 0,
                     pendingQuotes: 0,
@@ -295,14 +291,20 @@ export default function SalesDashboard({ darkMode = false }) {
                     addOns: 0,
                     planFeatures: 0,
                     pastDue: 0,
-                });
+                    serviceRequests: 0,
+                    serviceAppointments: 0
+                }));
 
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         }
 
         load();
+
+        return () => {
+            isMounted = false;
+        };
 
     }, []);
 
@@ -369,6 +371,30 @@ export default function SalesDashboard({ darkMode = false }) {
                 <Col md={3}>
                     <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>
                         <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>
+                            Details
+                        </Button>
+                    </Stat>
+                </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat
+                        darkMode={darkMode}
+                        title="Service"
+                        value={
+                            loading ? (
+                                <Spinner animation="border" size="sm" />
+                            ) : (
+                                `${summary.serviceRequests} / ${summary.serviceAppointments}`
+                            )
+                        }
+                        hint="Requests / Appointments"
+                        icon={Briefcase}
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => nav("/sales/services")}
+                        >
                             Details
                         </Button>
                     </Stat>

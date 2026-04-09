@@ -5,10 +5,11 @@ export default function CustomerDashboard() {
         <div className="container py-4">
             <h2>Customer Dashboard</h2>
             <ul>
-                <li>Current Plan (placeholder)</li>
+                <li><a href="/customer/plan">Current Plan</a></li>
                 <li>Data usage (placeholder)</li>
-                <li>Recent bills (placeholder)</li>
-                <li>Create support ticket (placeholder)</li>
+                <li><a href="/customer/billing/history">Recent bills</a></li>
+                <li><a href="/customer/quotes">My Quotes</a></li>
+                <li><a href="/customer/support">Create support ticket</a></li>
             </ul>
         </div>
     );

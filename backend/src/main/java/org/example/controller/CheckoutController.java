@@ -3,11 +3,11 @@ package org.example.controller;
 import org.example.dto.CheckoutRequestDTO;
 import org.example.entity.Invoices;
 import org.example.service.CheckoutService;
+import org.example.service.AuditService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/checkout")
@@ -22,16 +22,18 @@ public class CheckoutController {
         this.auditService = auditService;
     }
 
-    @PostMapping
-    public ResponseEntity<?> checkout(@RequestBody CheckoutRequestDTO dto,
-                                      Authentication authentication) {
+    /**
+     * =========================
+     * VERSION 1: Checkout with Address Info
+     * =========================
+     */
+    @PostMapping("/v1")
+    public ResponseEntity<?> checkoutV1(@RequestBody CheckoutRequestDTO dto,
+                                        Authentication authentication) {
 
         String username = (authentication != null) ? authentication.getName() : "system";
 
         try {
-            // Log incoming request
-            System.out.println("CheckoutRequestDTO received: " + dto);
-
             Invoices invoice = checkoutService.checkout(
                     dto.getPaymentAccountId(),
                     dto.getSubtotal(),
@@ -40,10 +42,19 @@ public class CheckoutController {
                     dto.getPromoCode(),
                     dto.getBillingCycle(),
                     dto.getPaymentIntentId(),
-                    dto.getItems()
+                    dto.getInvoiceNumber(),
+
+                    dto.getQuoteId(),
+
+                    dto.getItems(),
+                    dto.getStreet1(),
+                    dto.getStreet2(),
+                    dto.getCity(),
+                    dto.getProvince(),
+                    dto.getPostalCode(),
+                    dto.getCountry()
             );
 
-            // Audit log for successful payment
             String target = "Invoice " + invoice.getInvoiceId()
                     + " Total $" + dto.getTotal();
 
@@ -53,7 +64,7 @@ public class CheckoutController {
 
         } catch (Exception e) {
 
-            System.err.println("Checkout failed: " + e.getMessage());
+            System.err.println("Checkout V1 failed: " + e.getMessage());
             e.printStackTrace();
 
             String target = "Checkout Total $" + dto.getTotal();
@@ -65,7 +76,22 @@ public class CheckoutController {
         }
     }
 
-    // Nested class for error response
+    /**
+     * =========================
+     * VERSION 2: Checkout with QuoteId (Deprecated - use V1)
+     * =========================
+     */
+    @PostMapping("/v2")
+    public ResponseEntity<?> checkoutV2(@RequestBody CheckoutRequestDTO dto,
+                                        Authentication authentication) {
+        return checkoutV1(dto, authentication);
+    }
+
+    /**
+     * =========================
+     * Shared Error Response
+     * =========================
+     */
     public static class ErrorResponse {
         private String error;
         private String details;
@@ -75,7 +101,12 @@ public class CheckoutController {
             this.details = details;
         }
 
-        public String getError() { return error; }
-        public String getDetails() { return details; }
+        public String getError() {
+            return error;
+        }
+
+        public String getDetails() {
+            return details;
+        }
     }
 }

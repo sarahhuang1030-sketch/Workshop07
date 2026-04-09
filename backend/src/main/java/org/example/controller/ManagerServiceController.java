@@ -1,298 +1,384 @@
 package org.example.controller;
 
+import org.example.dto.CustomerAddressDTO;
 import org.example.dto.ManagerServiceAppointmentDTO;
 import org.example.dto.ManagerServiceRequestDTO;
+import org.example.model.CustomerAddress;
+import org.example.model.Employee;
 import org.example.model.ServiceAppointment;
 import org.example.model.ServiceRequest;
+import org.example.model.UserAccount;
 import org.example.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/manager/service-requests")
 public class ManagerServiceController {
 
-    private final ManagerServiceRequestRepository serviceRequestRepository;
-    private final ManagerServiceAppointmentRepository serviceAppointmentRepository;
+    private final ManagerServiceRequestRepository requestRepository;
+    private final ManagerServiceAppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
+    private final CustomerAddressRepository addressRepository;
+    private final UserAccountRepository userAccountRepository;
     private final EmployeeRepository employeeRepository;
-    private final CustomerAddressRepository customerAddressRepository;
 
     public ManagerServiceController(
-            ManagerServiceRequestRepository serviceRequestRepository,
-            ManagerServiceAppointmentRepository serviceAppointmentRepository,
+            ManagerServiceRequestRepository requestRepository,
+            ManagerServiceAppointmentRepository appointmentRepository,
             CustomerRepository customerRepository,
-            EmployeeRepository employeeRepository,
-            CustomerAddressRepository customerAddressRepository
+            CustomerAddressRepository addressRepository,
+            UserAccountRepository userAccountRepository,
+            EmployeeRepository employeeRepository
     ) {
-        this.serviceRequestRepository = serviceRequestRepository;
-        this.serviceAppointmentRepository = serviceAppointmentRepository;
+        this.requestRepository = requestRepository;
+        this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
+        this.addressRepository = addressRepository;
+        this.userAccountRepository = userAccountRepository;
         this.employeeRepository = employeeRepository;
-        this.customerAddressRepository = customerAddressRepository;
     }
 
     @GetMapping
-    public List<ManagerServiceRequestDTO> getAllServiceRequests() {
-        return serviceRequestRepository.findAll()
+    public List<ManagerServiceRequestDTO> getAllRequests() {
+        return requestRepository.findAll()
                 .stream()
+                .sorted(Comparator.comparing(ServiceRequest::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toRequestDTO)
-                .toList();
+                .collect(Collectors.toList());
     }
 
-
-
-    // ✅ GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<ServiceRequest> getById(@PathVariable Integer id) {
-        return serviceRequestRepository.findById(id)
-                .map(ResponseEntity::ok)
+    public ResponseEntity<ManagerServiceRequestDTO> getRequestById(@PathVariable Integer id) {
+        return requestRepository.findById(id)
+                .map(request -> ResponseEntity.ok(toRequestDTO(request)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // ✅ CREATE
     @PostMapping
-    public ServiceRequest create(@RequestBody ServiceRequest request) {
+    public ResponseEntity<?> createRequest(@RequestBody ManagerServiceRequestDTO dto) {
+        if (dto.getCustomerId() == null) return bad("CustomerId is required");
+        if (dto.getCreatedByUserId() == null) return bad("CreatedByUserId is required");
+        if (dto.getRequestType() == null || dto.getRequestType().isBlank()) return bad("RequestType is required");
+        if (dto.getStatus() == null || dto.getStatus().isBlank()) return bad("Status is required");
 
-        request.setCreatedAt(LocalDateTime.now());
-        request.setUpdatedAt(LocalDateTime.now());
+        ServiceRequest req = new ServiceRequest();
+        req.setCustomerId(dto.getCustomerId());
+        req.setCreatedByUserId(dto.getCreatedByUserId());
+        req.setAssignedTechnicianUserId(dto.getAssignedTechnicianUserId());
+        req.setRequestType(dto.getRequestType());
+        req.setPriority(parsePriority(dto.getPriority()));
+        req.setStatus(normalizeStatus(dto.getStatus()));
+        req.setDescription(dto.getDescription());
+        req.setCreatedAt(LocalDateTime.now());
+        req.setUpdatedAt(LocalDateTime.now());
 
-        return serviceRequestRepository.save(request);
+        ServiceRequest saved = requestRepository.save(req);
+        return ResponseEntity.ok(toRequestDTO(saved));
     }
 
-    // ✅ UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<ServiceRequest> update(
-            @PathVariable Integer id,
-            @RequestBody ServiceRequest updated
-    ) {
-        return serviceRequestRepository.findById(id)
-                .map(existing -> {
+    public ResponseEntity<?> updateRequest(@PathVariable Integer id,
+                                           @RequestBody ManagerServiceRequestDTO dto) {
+        ServiceRequest req = requestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Service request not found"));
 
-                    existing.setCustomerId(updated.getCustomerId());
-                    existing.setCreatedByUserId(updated.getCreatedByUserId());
-                    existing.setAssignedTechnicianUserId(updated.getAssignedTechnicianUserId());
-                    existing.setParentRequestId(updated.getParentRequestId());
-                    existing.setRequestType(updated.getRequestType());
-                    existing.setPriority(updated.getPriority());
-                    existing.setStatus(updated.getStatus());
-                    existing.setDescription(updated.getDescription());
-                    existing.setUpdatedAt(LocalDateTime.now());
+        if (dto.getCustomerId() != null) req.setCustomerId(dto.getCustomerId());
+        if (dto.getCreatedByUserId() != null) req.setCreatedByUserId(dto.getCreatedByUserId());
+        req.setAssignedTechnicianUserId(dto.getAssignedTechnicianUserId());
+        if (dto.getRequestType() != null && !dto.getRequestType().isBlank()) req.setRequestType(dto.getRequestType());
+        if (dto.getPriority() != null) req.setPriority(parsePriority(dto.getPriority()));
+        if (dto.getStatus() != null && !dto.getStatus().isBlank()) req.setStatus(normalizeStatus(dto.getStatus()));
+        req.setDescription(dto.getDescription());
+        req.setUpdatedAt(LocalDateTime.now());
 
-                    return ResponseEntity.ok(serviceRequestRepository.save(existing));
-                })
-                .orElse(ResponseEntity.notFound().build());
+        ServiceRequest saved = requestRepository.save(req);
+        return ResponseEntity.ok(toRequestDTO(saved));
     }
 
-    // ✅ DELETE
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
-
-        if (!serviceRequestRepository.existsById(id)) {
+    public ResponseEntity<?> deleteRequest(@PathVariable Integer id) {
+        if (!requestRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
 
-        serviceRequestRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-// service appointment endpoints
-private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
-    if (value == null || value.isBlank()) {
-        return null;
-    }
+        appointmentRepository.findByRequestId(id)
+                .forEach(a -> appointmentRepository.deleteById(a.getAppointmentId()));
 
-    for (ServiceAppointment.ServiceLocationType type : ServiceAppointment.ServiceLocationType.values()) {
-        if (type.name().equalsIgnoreCase(value.trim())) {
-            return type;
-        }
+        requestRepository.deleteById(id);
+        return ResponseEntity.ok().build();
     }
-
-    throw new IllegalArgumentException("Invalid locationType: " + value);
-}
 
     @GetMapping("/{requestId}/appointments")
-    public List<ManagerServiceAppointmentDTO> getAppointmentsByRequestId(@PathVariable Integer requestId) {
-        return serviceAppointmentRepository.findByRequestId(requestId)
+    public ResponseEntity<List<ManagerServiceAppointmentDTO>> getAppointments(@PathVariable Integer requestId) {
+        if (!requestRepository.existsById(requestId)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<ManagerServiceAppointmentDTO> data = appointmentRepository.findByRequestId(requestId)
                 .stream()
+                .sorted(Comparator.comparing(ServiceAppointment::getScheduledStart,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(this::toAppointmentDTO)
-                .toList();
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(data);
     }
 
     @PostMapping("/{requestId}/appointments")
-    public ResponseEntity<ManagerServiceAppointmentDTO> createAppointment(
-            @PathVariable Integer requestId,
-            @RequestBody ManagerServiceAppointmentDTO dto
-    ) {
-        try {
-            ServiceAppointment appointment = new ServiceAppointment();
+    public ResponseEntity<?> createAppointment(@PathVariable Integer requestId,
+                                               @RequestBody ManagerServiceAppointmentDTO dto) {
+        if (dto.getTechnicianUserId() == null) return bad("TechnicianUserId is required");
+        if (dto.getAddressId() == null) return bad("AddressId is required");
+        if (dto.getScheduledStart() == null) return bad("ScheduledStart is required");
+        if (dto.getScheduledEnd() == null) return bad("ScheduledEnd is required");
+        if (dto.getLocationType() == null || dto.getLocationType().isBlank()) return bad("LocationType is required");
 
-            appointment.setRequestId(requestId);
-            appointment.setTechnicianUserId(dto.getTechnicianUserId());
-            appointment.setAddressId(dto.getAddressId());
-            appointment.setLocationId(dto.getLocationId());
-            appointment.setLocationType(parseLocationType(dto.getLocationType()));
-            appointment.setScheduledStart(dto.getScheduledStart());
-            appointment.setScheduledEnd(dto.getScheduledEnd());
-            appointment.setStatus(dto.getStatus());
-            appointment.setNotes(dto.getNotes());
-
-            ServiceAppointment saved = serviceAppointmentRepository.save(appointment);
-            return ResponseEntity.ok(toAppointmentDTO(saved));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+        if (dto.getScheduledEnd().isBefore(dto.getScheduledStart()) || dto.getScheduledEnd().isEqual(dto.getScheduledStart())) {
+            return bad("ScheduledEnd must be after ScheduledStart");
         }
+
+        if (!requestRepository.existsById(requestId)) {
+            return bad("ServiceRequest not found");
+        }
+
+        ServiceAppointment appt = new ServiceAppointment();
+        appt.setRequestId(requestId);
+        appt.setTechnicianUserId(dto.getTechnicianUserId());
+        appt.setAddressId(dto.getAddressId());
+        appt.setLocationId(dto.getLocationId());
+        appt.setLocationType(parseLocationType(dto.getLocationType()));
+        appt.setScheduledStart(dto.getScheduledStart());
+        appt.setScheduledEnd(dto.getScheduledEnd());
+        appt.setStatus(normalizeStatus(dto.getStatus()));
+        appt.setNotes(dto.getNotes());
+
+        ServiceAppointment saved = appointmentRepository.save(appt);
+
+        ServiceRequest req = requestRepository.findById(requestId).get();
+        req.setAssignedTechnicianUserId(dto.getTechnicianUserId());
+        req.setStatus("Assigned");
+        req.setUpdatedAt(LocalDateTime.now());
+        requestRepository.save(req);
+
+        return ResponseEntity.ok(toAppointmentDTO(saved));
     }
 
-    @PutMapping("/{requestId}/appointments/{appointmentId}")
-    public ResponseEntity<ManagerServiceAppointmentDTO> updateAppointment(
-            @PathVariable Integer requestId,
-            @PathVariable Integer appointmentId,
-            @RequestBody ManagerServiceAppointmentDTO dto
-    ) {
-        ServiceAppointment existing = serviceAppointmentRepository.findById(appointmentId)
+    @PutMapping("/{requestId}/appointments/{id}")
+    public ResponseEntity<?> updateAppointment(@PathVariable Integer requestId,
+                                               @PathVariable Integer id,
+                                               @RequestBody ManagerServiceAppointmentDTO dto) {
+        ServiceAppointment appt = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+
+        if (!appt.getRequestId().equals(requestId)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (dto.getTechnicianUserId() != null) appt.setTechnicianUserId(dto.getTechnicianUserId());
+        if (dto.getAddressId() != null) appt.setAddressId(dto.getAddressId());
+        if (dto.getLocationId() != null) appt.setLocationId(dto.getLocationId());
+        if (dto.getLocationType() != null && !dto.getLocationType().isBlank()) {
+            appt.setLocationType(parseLocationType(dto.getLocationType()));
+        }
+        if (dto.getScheduledStart() != null) appt.setScheduledStart(dto.getScheduledStart());
+        if (dto.getScheduledEnd() != null) appt.setScheduledEnd(dto.getScheduledEnd());
+        if (dto.getScheduledStart() != null && dto.getScheduledEnd() != null) {
+            if (dto.getScheduledEnd().isBefore(dto.getScheduledStart()) || dto.getScheduledEnd().isEqual(dto.getScheduledStart())) {
+                return bad("ScheduledEnd must be after ScheduledStart");
+            }
+        }
+        if (dto.getStatus() != null) appt.setStatus(normalizeStatus(dto.getStatus()));
+        if (dto.getNotes() != null) appt.setNotes(dto.getNotes());
+
+        ServiceAppointment saved = appointmentRepository.save(appt);
+
+        ServiceRequest req = requestRepository.findById(requestId).orElse(null);
+        if (req != null && saved.getTechnicianUserId() != null) {
+            req.setAssignedTechnicianUserId(saved.getTechnicianUserId());
+            req.setUpdatedAt(LocalDateTime.now());
+            requestRepository.save(req);
+        }
+
+        return ResponseEntity.ok(toAppointmentDTO(saved));
+    }
+
+    @DeleteMapping("/{requestId}/appointments/{id}")
+    public ResponseEntity<?> deleteAppointment(@PathVariable Integer requestId,
+                                               @PathVariable Integer id) {
+        ServiceAppointment appt = appointmentRepository.findById(id)
                 .orElse(null);
 
-        if (existing == null) {
+        if (appt == null || !appt.getRequestId().equals(requestId)) {
             return ResponseEntity.notFound().build();
         }
 
-        if (!existing.getRequestId().equals(requestId)) {
-            return ResponseEntity.notFound().build();
-        }
-
-        try {
-            existing.setTechnicianUserId(dto.getTechnicianUserId());
-            existing.setAddressId(dto.getAddressId());
-            existing.setLocationId(dto.getLocationId());
-            existing.setLocationType(parseLocationType(dto.getLocationType()));
-            existing.setScheduledStart(dto.getScheduledStart());
-            existing.setScheduledEnd(dto.getScheduledEnd());
-            existing.setStatus(dto.getStatus());
-            existing.setNotes(dto.getNotes());
-
-            ServiceAppointment saved = serviceAppointmentRepository.save(existing);
-            return ResponseEntity.ok(toAppointmentDTO(saved));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        appointmentRepository.delete(appt);
+        return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{requestId}/appointments/{appointmentId}")
-    public ResponseEntity<Void> deleteAppointment(
-            @PathVariable Integer requestId,
-            @PathVariable Integer appointmentId
-    ) {
-        ServiceAppointment existing = serviceAppointmentRepository.findById(appointmentId)
-                .orElse(null);
+    @GetMapping("/customers/{customerId}/addresses")
+    public ResponseEntity<List<CustomerAddressDTO>> getCustomerAddresses(@PathVariable Integer customerId) {
+        List<CustomerAddressDTO> data = addressRepository.findByCustomerId(customerId)
+                .stream()
+                .map(this::toAddressDTO)
+                .collect(Collectors.toList());
 
-        if (existing == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        if (!existing.getRequestId().equals(requestId)) {
-            return ResponseEntity.notFound().build();
-        }
-
-        serviceAppointmentRepository.delete(existing);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(data);
     }
 
-    private ManagerServiceRequestDTO toRequestDTO(ServiceRequest request) {
+    private ManagerServiceRequestDTO toRequestDTO(ServiceRequest req) {
         ManagerServiceRequestDTO dto = new ManagerServiceRequestDTO();
-        dto.setRequestId(request.getRequestId());
-        dto.setCustomerId(request.getCustomerId());
-        dto.setCreatedByUserId(request.getCreatedByUserId());
-        dto.setAssignedTechnicianUserId(request.getAssignedTechnicianUserId());
-        dto.setRequestType(request.getRequestType());
-        dto.setStatus(request.getStatus());
-        dto.setDescription(request.getDescription());
-        dto.setPriority(request.getPriority() != null ? request.getPriority().name() : null);
-        dto.setCreatedAt(request.getCreatedAt());
-        dto.setCustomerName(
-                request.getCustomerId() != null
-                        ? customerRepository.findById(request.getCustomerId())
-                        .map(c -> c.getFirstName() + " " + c.getLastName())
-                        .orElse("—")
-                        : "—"
+
+        dto.setRequestId(req.getRequestId());
+        dto.setCustomerId(req.getCustomerId());
+        dto.setCreatedByUserId(req.getCreatedByUserId());
+        dto.setAssignedTechnicianUserId(req.getAssignedTechnicianUserId());
+        dto.setRequestType(req.getRequestType());
+        dto.setStatus(normalizeStatus(req.getStatus()));
+        dto.setDescription(req.getDescription());
+        dto.setCreatedAt(req.getCreatedAt());
+        dto.setPriority(req.getPriority() != null ? req.getPriority().name() : null);
+
+        customerRepository.findById(req.getCustomerId()).ifPresent(c ->
+                dto.setCustomerName(c.getFirstName() + " " + c.getLastName())
         );
 
-        dto.setCreatedByName(
-                request.getCreatedByUserId() != null
-                        ? employeeRepository.findById(request.getCreatedByUserId())
-                        .map(e -> e.getFirstName() + " " + e.getLastName())
-                        .orElse("—")
-                        : "—"
-        );
+        dto.setCreatedByName(resolveEmployeeNameFromUserId(req.getCreatedByUserId()));
+        dto.setTechnicianName(resolveEmployeeNameFromUserId(req.getAssignedTechnicianUserId()));
 
-        dto.setTechnicianName(
-                request.getAssignedTechnicianUserId() != null
-                        ? employeeRepository.findById(request.getAssignedTechnicianUserId())
-                        .map(e -> e.getFirstName() + " " + e.getLastName())
-                        .orElse("—")
-                        : "—"
-        );
-
-        customerAddressRepository.findFirstByCustomerIdOrderByIsPrimaryDesc(request.getCustomerId())
-                .ifPresent(address -> {
-                    dto.setAddressId(address.getAddressId().intValue());
-                    dto.setAddressText(
-                            ((address.getStreet1() != null ? address.getStreet1() : "") + " " +
-                                    (address.getStreet2() != null ? address.getStreet2() : "") + ", " +
-                                    (address.getCity() != null ? address.getCity() : "") + ", " +
-                                    (address.getProvince() != null ? address.getProvince() : "") + " " +
-                                    (address.getPostalCode() != null ? address.getPostalCode() : ""))
-                                    .trim()
-                    );
-                });
+        List<CustomerAddress> addresses = addressRepository.findByCustomerId(req.getCustomerId());
+        if (!addresses.isEmpty()) {
+            CustomerAddress a = addresses.get(0);
+            dto.setAddressId(a.getAddressId().intValue());
+            dto.setAddressText(buildAddressText(a));
+        }
 
         return dto;
     }
 
-    private ManagerServiceAppointmentDTO toAppointmentDTO(ServiceAppointment appointment) {
+    private ManagerServiceAppointmentDTO toAppointmentDTO(ServiceAppointment appt) {
         ManagerServiceAppointmentDTO dto = new ManagerServiceAppointmentDTO();
 
-        dto.setAppointmentId(appointment.getAppointmentId());
-        dto.setRequestId(appointment.getRequestId());
-        dto.setTechnicianUserId(appointment.getTechnicianUserId());
-        dto.setAddressId(appointment.getAddressId());
-        dto.setLocationId(appointment.getLocationId());
-        dto.setLocationType(
-                appointment.getLocationType() != null
-                        ? appointment.getLocationType().name()
-                        : null
-        );
-        dto.setScheduledStart(appointment.getScheduledStart());
-        dto.setScheduledEnd(appointment.getScheduledEnd());
-        dto.setStatus(appointment.getStatus());
-        dto.setNotes(appointment.getNotes());
+        dto.setAppointmentId(appt.getAppointmentId());
+        dto.setRequestId(appt.getRequestId());
+        dto.setTechnicianUserId(appt.getTechnicianUserId());
+        dto.setAddressId(appt.getAddressId());
+        dto.setLocationId(appt.getLocationId());
+        dto.setLocationType(appt.getLocationType() != null ? appt.getLocationType().name() : null);
+        dto.setScheduledStart(appt.getScheduledStart());
+        dto.setScheduledEnd(appt.getScheduledEnd());
+        dto.setStatus(normalizeStatus(appt.getStatus()));
+        dto.setNotes(appt.getNotes());
+        dto.setTechnicianName(resolveEmployeeNameFromUserId(appt.getTechnicianUserId()));
 
-        dto.setTechnicianName(
-                appointment.getTechnicianUserId() != null
-                        ? employeeRepository.findById(appointment.getTechnicianUserId())
-                        .map(e -> e.getFirstName() + " " + e.getLastName())
-                        .orElse("—")
-                        : "—"
-        );
-
-        dto.setAddressText(
-                appointment.getAddressId() != null
-                        ? customerAddressRepository.findById(Long.valueOf(appointment.getAddressId()))
-                        .map(a -> {
-                            String street1 = a.getStreet1() != null ? a.getStreet1() : "";
-                            String street2 = a.getStreet2() != null ? a.getStreet2() : "";
-                            String city = a.getCity() != null ? a.getCity() : "";
-                            String province = a.getProvince() != null ? a.getProvince() : "";
-                            String postalCode = a.getPostalCode() != null ? a.getPostalCode() : "";
-
-                            return (street1 + " " + street2 + ", " + city + ", " + province + " " + postalCode).trim();
-                        })
-                        .orElse("—")
-                        : "—"
-        );
+        if (appt.getAddressId() != null) {
+            addressRepository.findById(Long.valueOf(appt.getAddressId()))
+                    .ifPresent(a -> dto.setAddressText(buildAddressText(a)));
+        }
 
         return dto;
+    }
+
+    private CustomerAddressDTO toAddressDTO(CustomerAddress a) {
+        CustomerAddressDTO dto = new CustomerAddressDTO();
+        dto.setAddressId(a.getAddressId());
+        dto.setCustomerId(a.getCustomerId());
+        dto.setAddressType(a.getAddressType());
+        dto.setStreet1(a.getStreet1());
+        dto.setStreet2(a.getStreet2());
+        dto.setCity(a.getCity());
+        dto.setProvince(a.getProvince());
+        dto.setPostalCode(a.getPostalCode());
+        dto.setCountry(a.getCountry());
+        dto.setIsPrimary(a.getIsPrimary());
+        dto.setFullAddress(buildFullAddress(a));
+        return dto;
+    }
+
+    private String resolveEmployeeNameFromUserId(Integer userId) {
+        if (userId == null) return null;
+
+        Optional<UserAccount> user = userAccountRepository.findById(userId);
+        if (user.isEmpty() || user.get().getEmployeeId() == null) return null;
+
+        Optional<Employee> emp = employeeRepository.findById(user.get().getEmployeeId());
+        if (emp.isEmpty()) return null;
+
+        return (emp.get().getFirstName() + " " + emp.get().getLastName()).trim();
+    }
+
+    private ServiceRequest.Priority parsePriority(String raw) {
+        if (raw == null || raw.isBlank()) return ServiceRequest.Priority.Medium;
+
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (s) {
+            case "low" -> ServiceRequest.Priority.Low;
+            case "high" -> ServiceRequest.Priority.High;
+            default -> ServiceRequest.Priority.Medium;
+        };
+    }
+
+    private ServiceAppointment.ServiceLocationType parseLocationType(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("LocationType is required");
+        }
+
+        for (ServiceAppointment.ServiceLocationType type : ServiceAppointment.ServiceLocationType.values()) {
+            if (type.name().equalsIgnoreCase(raw.trim())) {
+                return type;
+            }
+        }
+
+        throw new IllegalArgumentException("Invalid locationType: " + raw);
+    }
+
+    private String normalizeStatus(String raw) {
+        if (raw == null || raw.isBlank()) return "Assigned";
+
+        String s = raw.trim().toLowerCase(Locale.ROOT).replace("_", " ");
+
+        return switch (s) {
+            case "open" -> "Open";
+            case "assigned" -> "Assigned";
+            case "in progress" -> "In Progress";
+            case "completed" -> "Completed";
+            case "cancelled", "canceled" -> "Cancelled";
+            default -> raw;
+        };
+    }
+
+    private String buildAddressText(CustomerAddress a) {
+        String street1 = a.getStreet1() != null ? a.getStreet1() : "";
+        String street2 = a.getStreet2() != null ? a.getStreet2() : "";
+        String city = a.getCity() != null ? a.getCity() : "";
+
+        return (street1 + " " + street2 + ", " + city)
+                .trim()
+                .replaceAll(" +", " ");
+    }
+
+    private String buildFullAddress(CustomerAddress a) {
+        String street1 = a.getStreet1() != null ? a.getStreet1() : "";
+        String street2 = a.getStreet2() != null ? a.getStreet2() : "";
+        String city = a.getCity() != null ? a.getCity() : "";
+        String province = a.getProvince() != null ? a.getProvince() : "";
+        String postalCode = a.getPostalCode() != null ? a.getPostalCode() : "";
+
+        return (street1 + " " + street2 + ", " + city + ", " + province + " " + postalCode)
+                .trim()
+                .replaceAll(" +", " ");
+    }
+
+    private ResponseEntity<?> bad(String msg) {
+        return ResponseEntity.badRequest().body(msg);
     }
 }

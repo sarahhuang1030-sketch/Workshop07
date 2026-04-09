@@ -25,6 +25,8 @@ export default function SalesAddon({ darkMode = false }) {
     const [showModal, setShowModal] = useState(false);
     const [editingAddon, setEditingAddon] = useState(null);
 
+    const [serviceTypes, setServiceTypes] = useState([]);
+
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -58,8 +60,21 @@ export default function SalesAddon({ darkMode = false }) {
         }
     }
 
+    async function loadServiceTypes() {
+        try {
+            const res = await apiFetch("/api/service-types");
+            if (res.ok) {
+                const data = await res.json();
+                setServiceTypes(Array.isArray(data) ? data : []);
+            }
+        } catch (err) {
+            console.error("Failed to load service types", err);
+        }
+    }
+
     useEffect(() => {
         loadAddons();
+        loadServiceTypes();
     }, []);
 
     const filteredAddons = useMemo(() => {
@@ -323,21 +338,40 @@ export default function SalesAddon({ darkMode = false }) {
                     <Modal.Body>
                         <Form.Group className="mb-3">
                             <Form.Label>Service Type</Form.Label>
-                            <Form.Control
-                                type="number"
+                            <Form.Select
                                 name="serviceTypeId"
                                 value={formData.serviceTypeId}
                                 onChange={handleChange}
-                            />
+                                required
+                            >
+                                <option value="">Select Service Type</option>
+                                {serviceTypes.map(st => (
+                                    <option key={st.serviceTypeId} value={st.serviceTypeId}>
+                                        {st.name}
+                                    </option>
+                                ))}
+                            </Form.Select>
                         </Form.Group>
 
                         <Form.Group className="mb-3">
                             <Form.Label>Add-on Name</Form.Label>
-                            <Form.Control
+                            <Form.Select
                                 name="addOnName"
                                 value={formData.addOnName}
                                 onChange={handleChange}
                                 required
+                            >
+                                <option value="">Select or Enter Add-on Name</option>
+                                {[...new Set(addons.map(a => a.addOnName))].map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </Form.Select>
+                            <Form.Control
+                                className="mt-2"
+                                placeholder="Or enter new name..."
+                                name="addOnName"
+                                value={formData.addOnName}
+                                onChange={handleChange}
                             />
                         </Form.Group>
 

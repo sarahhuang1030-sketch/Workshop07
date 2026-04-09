@@ -1077,7 +1077,7 @@ export default function PlansPage() {
                                                 }}
                                                 onClick={() =>
                                                     window.open(
-                                                        "https://www.rogers.com/streaming-apps?icid=R_WIR_25FF_C2DC7A",
+                                                        import.meta.env.VITE_STREAMING_PERKS_URL || "https://www.rogers.com/streaming-apps?icid=R_WIR_25FF_C2DC7A",
                                                         "_blank"
                                                     )
                                                 }

@@ -17,7 +17,7 @@ import { apiFetch } from "../../services/api";
 
 const REQUESTS_API = "/api/manager/service-requests";
 
-export default function ManagerService({ darkMode = false }) {
+export default function SalesService({ darkMode = false }) {
     const navigate = useNavigate();
 
     const [requests, setRequests] = useState([]);

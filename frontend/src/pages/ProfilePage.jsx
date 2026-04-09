@@ -16,6 +16,7 @@ import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal, BillingAddressCard } from "../components";
 import { apiFetch } from "../services/api";
+import CustomerQuotes from "../pages/customer/CustomerQuotes";
 
 const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
@@ -49,6 +50,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         billing: { nextBillAmount: null, nextBillDate: null, paymentMethod: {}, address: {}, invoices: [] },
     });
 
+    const [quotes, setQuotes] = useState([]);
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -58,11 +60,8 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         const invoices = profile.billing?.invoices || [];
 
         const totalSpentFromInvoices = invoices.reduce((sum, inv) => {
-            const itemsTotal = (inv.items || []).reduce((s, item) => {
-                return s + (Number(item.lineTotal) || 0);
-            }, 0);
-
-            return sum + itemsTotal;
+            if (inv.status !== "PAID") return sum;
+            return sum + (Number(inv.total) || 0);
         }, 0);
 
         return Math.floor(totalSpentFromInvoices * POINTS_PER_DOLLAR);
@@ -97,6 +96,17 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
         } catch (err) {
             console.error("Failed to load invoices", err);
+        }
+    }, []);
+
+    const loadQuotes = useCallback(async () => {
+        try {
+            const res = await apiFetch("/api/quotes/my");
+            if (!res.ok) return;
+            const data = await res.json();
+            setQuotes(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Failed to load quotes", err);
         }
     }, []);
 
@@ -246,10 +256,11 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             loadAddress();
             loadPaymentMethod();
             loadInvoices();
+            loadQuotes();
         }
 
         setLoading(false);
-    }, [userProp, loadAddress, loadPaymentMethod, loadInvoices]);
+    }, [userProp, loadAddress, loadPaymentMethod, loadInvoices, loadQuotes]);
 
     useEffect(() => {
         const customerId = userProp?.customerId;
@@ -331,14 +342,13 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         return missing;
     }, [profile, needsCustomerRegistration]);
 
+    const isMissingEmail = isBlank(profile.email);
+    const isMissingPhone = isBlank(profile.phone);
+
     const billingAddress = profile.billing?.address || {};
     const paymentMethod = profile.billing?.paymentMethod || {};
 
-    const hasPlan =
-        profile?.plan?.status &&
-        profile.plan.status !== "Inactive" &&
-        profile.plan.name &&
-        profile.plan.name !== "—";
+    const hasPlan = profile.billing?.invoices?.length > 0;
 
     const hasBillingAddress =
         !isBlank(billingAddress.street1) &&
@@ -438,8 +448,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                             Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
                         </div>
 
+                        {/* Missing components section */}
                         <div className="mt-3 d-flex gap-2 flex-wrap">
 
+                            {/* Missing billing address */}
                             {!hasBillingAddress && (
                                 <Alert
                                     variant="warning"
@@ -467,6 +479,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 </Alert>
                             )}
 
+                            {/* Missing payment method */}
                             {!hasPaymentMethod && (
                                 <Alert
                                     variant="warning"
@@ -494,6 +507,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                 </Alert>
                             )}
 
+                            {/* Missing plan */}
                             {!hasPlan && (
                                 <Alert
                                     variant="warning"
@@ -536,57 +550,59 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         onDeleteAvatar={deleteAvatar}
                     />
 
-                    <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
-                        <Card.Body className="p-4">
-                            <div className="d-flex align-items-center justify-content-between">
-                                <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                    Rewards Points
-                                </div>
-                                <Star size={18} />
-                            </div>
-
-                            <div className="mt-3">
-                                <div
-                                    className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
-                                    style={{ fontWeight: 900, fontSize: "2rem" }}
-                                >
-                                    {(computedPoints || 0).toLocaleString()} pts
-                                </div>
-                                <div className={mutedClass}>
-                                    Earn {POINTS_PER_DOLLAR} point per $1 spent •
-                                    Spend tracked: {formatMoney(computedPoints)}
-                                    • {computedPoints} pts earned
-                                </div>
-                            </div>
-
-                            <div className="mt-3">
-                                <div className="d-flex justify-content-between small">
-                                    <span className={mutedClass}>
-                                        Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                                    </span>
-                                    <span className={mutedClass}>{tierInfo.progress}%</span>
+                    {computedPoints > 0 && (
+                        <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
+                            <Card.Body className="p-4">
+                                <div className="d-flex align-items-center justify-content-between">
+                                    <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                                        Rewards Points
+                                    </div>
+                                    <Star size={18} />
                                 </div>
 
-                                <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                <div className="mt-3">
                                     <div
-                                        className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
-                                        style={{ width: `${tierInfo.progress}%` }}
-                                    />
+                                        className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
+                                        style={{ fontWeight: 900, fontSize: "2rem" }}
+                                    >
+                                        {(computedPoints || 0).toLocaleString()} pts
+                                    </div>
+                                    <div className={mutedClass}>
+                                        Earn {POINTS_PER_DOLLAR} point per $1 spent •
+                                        Spend tracked: {formatMoney(computedPoints)}
+                                        • {computedPoints} pts earned
+                                    </div>
                                 </div>
 
-                                {!tierInfo.isBronze ? (
-                                    <div className={`small mt-2 ${mutedClass}`}>
-                                        {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                <div className="mt-3">
+                                    <div className="d-flex justify-content-between small">
+                                        <span className={mutedClass}>
+                                            Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                                        </span>
+                                        <span className={mutedClass}>{tierInfo.progress}%</span>
                                     </div>
-                                ) : (
-                                    <div className="small mt-2 text-warning">
-                                        <Crown size={16} className="me-1" />
-                                        Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+
+                                    <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                        <div
+                                            className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
+                                            style={{ width: `${tierInfo.progress}%` }}
+                                        />
                                     </div>
-                                )}
-                            </div>
-                        </Card.Body>
-                    </Card>
+
+                                    {!tierInfo.isBronze ? (
+                                        <div className={`small mt-2 ${mutedClass}`}>
+                                            {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                        </div>
+                                    ) : (
+                                        <div className="small mt-2 text-warning">
+                                            <Crown size={16} className="me-1" />
+                                            Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+                                        </div>
+                                    )}
+                                </div>
+                            </Card.Body>
+                        </Card>
+                    )}
                 </Col>
 
                 {/*<Col lg={8}>*/}
@@ -649,6 +665,16 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                         />
                     )}
 
+                    {/* =========================
+                            CUSTOMER QUOTES (NEW)
+                        ========================= */}
+                    {profile.role === "CUSTOMER" && quotes.length > 0 && (
+                        <Card className={`mt-4 ${cardBase}`} style={{ borderRadius: 22 }}>
+                            <Card.Body>
+                                <CustomerQuotes />
+                            </Card.Body>
+                        </Card>
+                    )}
                 </Col>
             </Row>
 

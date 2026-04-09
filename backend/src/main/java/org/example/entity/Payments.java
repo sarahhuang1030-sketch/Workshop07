@@ -6,39 +6,45 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payments")
-    public class Payments {
+public class Payments {
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Integer paymentId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer paymentId;
 
-        private Integer customerId;
+    private Integer customerId;
 
-        private LocalDateTime paymentDate;
+    private LocalDateTime paymentDate;
 
-        private BigDecimal amount;
+    private BigDecimal amount;
 
-        private String method; // e.g., Credit Card, PayPal
+    private String method; // e.g., Credit Card, PayPal
 
-        private String status; // e.g., SUCCESS, FAILED
+    private String status; // e.g., SUCCESS, FAILED
 
-        // Getters and Setters
-        public Integer getPaymentId() { return paymentId; }
-        public void setPaymentId(Integer paymentId) { this.paymentId = paymentId; }
+    @Column(name = "invoice_id")
+    private Integer invoiceId;
 
-        public Integer getCustomerId() { return customerId; }
-        public void setCustomerId(Integer customerId) { this.customerId = customerId; }
+    // Getters and Setters
+    public Integer getPaymentId() { return paymentId; }
+    public void setPaymentId(Integer paymentId) { this.paymentId = paymentId; }
 
-        public LocalDateTime getPaymentDate() { return paymentDate; }
-        public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
+    public Integer getCustomerId() { return customerId; }
+    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
 
-        public BigDecimal getAmount() { return amount; }
-        public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public LocalDateTime getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
 
-        public String getMethod() { return method; }
-        public void setMethod(String method) { this.method = method; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
-    }
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public Integer getInvoiceId() { return invoiceId; }
+    public void setInvoiceId(Integer invoiceId) { this.invoiceId = invoiceId; }
+}
 

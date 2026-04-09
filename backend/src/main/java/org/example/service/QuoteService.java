@@ -41,7 +41,7 @@ public class QuoteService {
 
         List<QuoteAddOn> addons = new ArrayList<>();
 
-        double total = 0;
+        double subtotal = 0;
 
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
 
@@ -49,7 +49,7 @@ public class QuoteService {
 
                 if ("plan".equalsIgnoreCase(item.getType())) {
                     q.setPlanId(item.getId());
-                    total += item.getPrice();
+                    subtotal += item.getPrice();
                 }
 
                 if ("addon".equalsIgnoreCase(item.getType())) {
@@ -59,7 +59,7 @@ public class QuoteService {
                     qa.setAddonId(item.getId());
 
                     addons.add(qa);
-                    total += item.getPrice();
+                    subtotal += item.getPrice();
                 }
             }
 
@@ -67,7 +67,7 @@ public class QuoteService {
 
             q.setPlanId(dto.getPlanId());
 
-            total = calculate(dto.getPlanId(), dto.getAddonIds());
+            subtotal = calculate(dto.getPlanId(), dto.getAddonIds());
 
             if (dto.getAddonIds() != null) {
                 for (Integer id : dto.getAddonIds()) {
@@ -81,7 +81,8 @@ public class QuoteService {
             }
         }
 
-        q.setAmount(total);
+        q.setAmount(subtotal);
+
         q.setAddons(addons);
 
         return repo.save(q);
@@ -106,8 +107,10 @@ public class QuoteService {
             q.getAddons().clear();
         }
 
-        if (dto.getAddonIds() != null) {
-            for (Integer addonId : dto.getAddonIds()) {
+        List<Integer> addonIds = dto.getAddonIds();
+
+        if (addonIds != null) {
+            for (Integer addonId : addonIds) {
                 QuoteAddOn qa = new QuoteAddOn();
                 qa.setQuote(q);
                 qa.setAddonId(addonId);
@@ -115,14 +118,14 @@ public class QuoteService {
             }
         }
 
-        q.setAmount(calculate(dto.getPlanId(), dto.getAddonIds()));
+        double subtotal = calculate(dto.getPlanId(), addonIds);
+
+        q.setAmount(subtotal);
 
         return repo.save(q);
     }
 
-    // =========================
-    // PRICE ENGINE (FIXED)
-    // =========================
+    // PRICE ENGINE
     private Double calculate(Integer planId, List<Integer> addonIds) {
 
         var planRow = planRepo.findPlanById(planId);

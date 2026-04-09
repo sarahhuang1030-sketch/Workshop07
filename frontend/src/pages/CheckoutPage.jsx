@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from "react";
-import { Container, Card, Button, Form, Alert } from "react-bootstrap";
+import React, { useState, useMemo, useEffect } from "react";
+import { Container, Card, Button, Form, Alert, Spinner, Row, Col } from "react-bootstrap";
 import { useStripe } from "@stripe/react-stripe-js";
 import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
 import PaymentCardUI from "../components/PaymentCardUI";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 /* =========================
    Province tax rates
@@ -26,81 +26,211 @@ export default function CheckoutPage() {
     const [billingCycle, setBillingCycle] = useState("monthly");
     const [province, setProvince] = useState("ON");
 
+    const [externalInvoice, setExternalInvoice] = useState(null);
+    const [loadingInvoice, setLoadingInvoice] = useState(false);
+
+    const [quote, setQuote] = useState(null);
+    const [loadingQuote, setLoadingQuote] = useState(false);
+
+    const [billingAddress, setBillingAddress] = useState({
+        street1: "",
+        street2: "",
+        city: "",
+        province: "ON",
+        postalCode: "",
+        country: "Canada",
+    });
+    const [addressLoaded, setAddressLoaded] = useState(false);
+
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const queryParams = new URLSearchParams(location.search);
+    const invoiceNumber = queryParams.get("invoiceNumber");
+    const quoteId = queryParams.get("quoteId");
+
+    /* =========================
+       LOAD INVOICE / QUOTE / ADDRESS
+    ========================= */
+    useEffect(() => {
+        if (invoiceNumber) {
+            loadInvoice(invoiceNumber);
+        }
+        if (quoteId) {
+            loadQuote(quoteId);
+        }
+        loadAddress();
+    }, [invoiceNumber, quoteId]);
+
+    const loadInvoice = async (num) => {
+        try {
+            setLoadingInvoice(true);
+            const res = await apiFetch(`/api/invoices/${num}`);
+            if (!res.ok) throw new Error("Invoice not found");
+
+            const data = await res.json();
+            setExternalInvoice(data);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to load invoice details.");
+        } finally {
+            setLoadingInvoice(false);
+        }
+    };
+
+    const loadQuote = async (id) => {
+        try {
+            setLoadingQuote(true);
+            const res = await apiFetch(`/api/quotes/${id}`);
+            if (!res.ok) throw new Error("Quote not found");
+
+            const data = await res.json();
+            setQuote(data);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to load quote details.");
+        } finally {
+            setLoadingQuote(false);
+        }
+    };
+
+    const loadAddress = async () => {
+        try {
+            const res = await apiFetch("/api/billing/address");
+            if (res.ok) {
+                const data = await res.json();
+                if (data.street1) {
+                    setBillingAddress({
+                        street1: data.street1,
+                        street2: data.street2,
+                        city: data.city,
+                        province: data.province || "ON",
+                        postalCode: data.postalCode,
+                        country: data.country || "Canada",
+                    });
+                    setProvince(data.province || "ON");
+                    setAddressLoaded(true);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load address", err);
+        }
+    };
 
     /* =========================
        PRICING CALCULATION
-       Separate recurring vs one-time
     ========================= */
     const pricing = useMemo(() => {
         const taxRate = PROVINCE_TAX[province] || 0.13;
 
-        const recurringPlans = plans.reduce(
-            (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
-            0
-        );
+        if (externalInvoice) {
+            const subtotal = Number(externalInvoice.subtotal ?? 0);
+            const taxRate = PROVINCE_TAX[province] || 0.13;
 
-        const recurringAddOns = addOns.reduce(
-            (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
-            0
-        );
+            const yearlyDiscount = 0;
 
-        const financedDevices = devices
-            .filter((d) => d.pricingType === "monthly")
-            .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
+            const tax = subtotal * taxRate;
+            const finalTotal = subtotal + tax;
 
-        const outrightDevices = devices
-            .filter((d) => d.pricingType === "full")
-            .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
+            return {
+                subtotal,
+                yearlyDiscount,
+                tax,
+                finalTotal,
+                hasRecurringItems: true,
+                hasOneTimeItems: false,
+                isExternal: true,
+            };
+        }
 
-        const recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
+        let baseSubtotal = 0;
+        let recurringMonthly = 0;
+        let hasRecurring = false;
+        let isQuote = false;
+
+        if (quote) {
+            baseSubtotal = Number(quote.amount || 0);
+            recurringMonthly = baseSubtotal;
+            hasRecurring = true;
+            isQuote = true;
+        } else {
+            const recurringPlans = plans.reduce(
+                (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
+                0
+            );
+
+            const recurringAddOns = addOns.reduce(
+                (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
+                0
+            );
+
+            const financedDevices = devices
+                .filter((d) => d.pricingType === "monthly")
+                .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
+
+            const outrightDevices = devices
+                .filter((d) => d.pricingType === "full")
+                .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
+
+            recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
+            const oneTimeSubtotal = outrightDevices;
+
+            baseSubtotal = recurringMonthly + oneTimeSubtotal;
+            hasRecurring = recurringMonthly > 0;
+        }
 
         const yearlyBase = recurringMonthly * 12;
-        const yearlyDiscount = billingCycle === "yearly" ? yearlyBase * 0.1 : 0;
+        const yearlyDiscount = (billingCycle === "yearly" && hasRecurring)
+            ? yearlyBase * 0.1
+            : 0;
 
-        const recurringSubtotal =
-            billingCycle === "yearly"
-                ? yearlyBase - yearlyDiscount
-                : recurringMonthly;
+        const yearlyNet = yearlyBase - yearlyDiscount;
 
-        const oneTimeSubtotal = outrightDevices;
+        let calculatedSubtotal;
 
-        const subtotal = recurringSubtotal + oneTimeSubtotal;
-        const tax = subtotal * taxRate;
-        const finalTotal = subtotal + tax;
+        if (billingCycle === "yearly" && hasRecurring) {
+            calculatedSubtotal = yearlyNet + (baseSubtotal - recurringMonthly);
+        } else {
+            calculatedSubtotal = baseSubtotal;
+        }
+
+        const tax = calculatedSubtotal * taxRate;
+        const finalTotal = calculatedSubtotal + tax;
+
+        const monthlyRecurring = recurringMonthly;
 
         return {
-            recurringPlans,
-            recurringAddOns,
-            financedDevices,
-            outrightDevices,
-            recurringMonthly,
-            yearlyBase,
-            yearlyDiscount,
-            recurringSubtotal,
-            oneTimeSubtotal,
-            subtotal,
+            subtotal: calculatedSubtotal,
             tax,
             finalTotal,
-            hasRecurringItems: recurringMonthly > 0,
-            hasOneTimeItems: outrightDevices > 0,
+
+            monthlyRecurring,
+            yearlyBase,
+            yearlyDiscount,
+            yearlyNet,
+
+            hasRecurringItems: hasRecurring,
+            isExternal: false,
+            isQuote
         };
-    }, [plans, addOns, devices, billingCycle, province]);
+    }, [plans, addOns, devices, billingCycle, province, externalInvoice, quote]);
 
     /* =========================
        HANDLE CHECKOUT
     ========================= */
     const handleCheckout = async () => {
         if (!paymentMethod) return alert("Please select a payment card.");
-        if (!paymentMethod.stripePaymentMethodId) {
-            return alert("Invalid payment method.");
+        if (!stripe) return alert("Stripe not ready.");
+        if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode) {
+            return alert("Please complete your billing address.");
         }
 
         try {
             const payload = {
                 paymentMethodId: paymentMethod.stripePaymentMethodId,
-                amount: Math.round(pricing.finalTotal * 100),
+                amount: Math.round((pricing.finalTotal ?? 0) * 100),
                 saveCard: !paymentMethod.isTemporary,
+                quoteId: quoteId || null,
             };
 
             const intentRes = await apiFetch("/api/payment-intent", {
@@ -109,10 +239,7 @@ export default function CheckoutPage() {
             });
 
             const intentData = await intentRes.json();
-
-            if (!intentRes.ok) {
-                return alert(intentData.error || "Payment setup failed");
-            }
+            if (!intentRes.ok) return alert(intentData.error || "Payment setup failed");
 
             const result = await stripe.confirmCardPayment(intentData.clientSecret, {
                 payment_method: paymentMethod.stripePaymentMethodId,
@@ -123,104 +250,84 @@ export default function CheckoutPage() {
                 return;
             }
 
-            const invoiceItems = [
-                ...plans.map((plan) => {
-                    const basePrice = Number(
-                        plan.totalPrice ??
-                        plan.price ??
-                        plan.monthlyPrice ??
-                        0
-                    );
+            const checkoutItems = [];
 
-                    const isYearly = billingCycle === "yearly";
-                    const yearlyBase = basePrice * 12;
-                    const discount = isYearly ? yearlyBase * 0.1 : 0;
+            // Add plans
+            plans.forEach(p => {
+                checkoutItems.push({
+                    description: p.name,
+                    quantity: p.lines || 1,
+                    unitPrice: p.pricePerLine || p.totalPrice || p.price || 0,
+                    lineTotal: p.totalPrice || p.price || 0,
+                    itemType: "plan",
+                    serviceType: p.serviceType,
+                    id: p.planId,
+                    subscribers: p.subscribers?.map(s => s.fullName) || []
+                });
+            });
 
-                    return {
-                        description:
-                            plan.serviceType === "Mobile"
-                                ? `${plan.name} - ${(
-                                      plan.subscribers
-                                          ?.map((s) => s.fullName)
-                                          .filter(Boolean)
-                                          .join(", ")
-                                  ) || `${plan.lines ?? 1} line(s)`}`
-                                : plan.name,
-                        quantity: 1,
-                        unitPrice: isYearly ? yearlyBase : basePrice,
-                        discountAmount: discount,
-                        lineTotal: isYearly ? yearlyBase - discount : basePrice,
-                        subscribers: plan.subscribers?.map((s) => s.fullName) || [],
-                        itemType: "plan",
-                    };
-                }),
+            // Add addons
+            addOns.forEach(a => {
+                checkoutItems.push({
+                    description: a.addOnName,
+                    quantity: 1,
+                    unitPrice: a.monthlyPrice || a.price || 0,
+                    lineTotal: a.monthlyPrice || a.price || 0,
+                    itemType: "addon",
+                    serviceType: a.serviceType,
+                    id: a.addOnId
+                });
+            });
 
-                ...addOns.map((a) => {
-                    const basePrice = Number(a.monthlyPrice ?? a.price ?? 0);
-                    const isYearly = billingCycle === "yearly";
-                    const yearlyBase = basePrice * 12;
-                    const discount = isYearly ? yearlyBase * 0.1 : 0;
+            // Add devices
+            devices.forEach(d => {
+                checkoutItems.push({
+                    description: `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
+                    quantity: 1,
+                    unitPrice: d.totalPrice || 0,
+                    lineTotal: d.totalPrice || 0,
+                    itemType: "device",
+                    phoneId: d.phoneId || d.id,
+                    pricingType: d.pricingType,
+                    subscribers: [d.assignedSubscriberName]
+                });
+            });
 
-                    return {
-                        description: a.addOnName,
-                        quantity: 1,
-                        unitPrice: isYearly ? yearlyBase : basePrice,
-                        discountAmount: discount,
-                        lineTotal: isYearly ? yearlyBase - discount : basePrice,
-                        itemType: "addon",
-                    };
-                }),
-
-                ...devices.map((d) => {
-                    const isMonthly = d.pricingType === "monthly";
-
-                    return {
-                        description:
-                            `${d.brand} ${d.model} (${d.storage})` +
-                            (isMonthly
-                                ? ` - Financed (${d.assignedSubscriberName})`
-                                : " - Device Purchase"),
-                        quantity: 1,
-                        unitPrice: isMonthly
-                            ? Number(d.monthlyPrice ?? 0)
-                            : Number(d.fullPrice ?? 0),
-                        discountAmount: 0,
-                        lineTotal: isMonthly
-                            ? Number(d.monthlyPrice ?? 0)
-                            : Number(d.fullPrice ?? 0),
-                        itemType: "device",
-                        phoneId: d.phoneId,
-                        pricingType: d.pricingType,
-                    };
-                }),
-            ];
-
-            const invoiceRes = await apiFetch("/api/checkout", {
+            const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     paymentAccountId: paymentMethod.accountId || null,
-                    subtotal: pricing.subtotal,
-                    tax: pricing.tax,
-                    total: pricing.finalTotal,
+                    subtotal: pricing.subtotal ?? 0,
+                    tax: pricing.tax ?? 0,
+                    total: pricing.finalTotal ?? 0,
                     billingCycle: pricing.hasRecurringItems ? billingCycle : "one-time",
                     paymentIntentId: result.paymentIntent.id,
-                    promoCode: null,
-                    items: invoiceItems,
+                    quoteId: quoteId || null,
+                    items: checkoutItems,
+                    ...billingAddress
                 }),
             });
 
             const invoice = await invoiceRes.json();
 
+            if (!invoiceRes.ok) {
+                return alert(invoice.error || "Checkout failed");
+            }
+
             setOrderNumber(invoice.invoiceNumber);
             setSubmitted(true);
-            clearCart();
+
+            if (!pricing.isExternal && !pricing.isQuote) clearCart();
         } catch (err) {
             console.error(err);
             alert("Checkout failed.");
         }
     };
 
+    /* =========================
+       SUCCESS SCREEN
+    ========================= */
     if (submitted) {
         return (
             <Container className="py-5 text-center">
@@ -231,8 +338,6 @@ export default function CheckoutPage() {
                 </Alert>
 
                 <Button
-                    variant="primary"
-                    size="lg"
                     className="mt-3"
                     onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
                 >
@@ -242,23 +347,30 @@ export default function CheckoutPage() {
         );
     }
 
+    /* =========================
+       MAIN UI
+    ========================= */
     return (
         <Container style={{ maxWidth: 700 }} className="py-5">
             <h2 className="mb-4">Checkout</h2>
+
+            {loadingInvoice && (
+                <div className="text-center mb-3">
+                    <Spinner animation="border" />
+                </div>
+            )}
 
             {pricing.hasRecurringItems && (
                 <Card className="mb-3 p-3">
                     <h5>Billing Cycle</h5>
                     <Form.Check
                         type="radio"
-                        name="billingCycle"
                         label="Monthly"
                         checked={billingCycle === "monthly"}
                         onChange={() => setBillingCycle("monthly")}
                     />
                     <Form.Check
                         type="radio"
-                        name="billingCycle"
                         label="Yearly (10% OFF)"
                         checked={billingCycle === "yearly"}
                         onChange={() => setBillingCycle("yearly")}
@@ -268,10 +380,7 @@ export default function CheckoutPage() {
 
             <Card className="mb-3 p-3">
                 <h5>Province</h5>
-                <Form.Select
-                    value={province}
-                    onChange={(e) => setProvince(e.target.value)}
-                >
+                <Form.Select value={province} onChange={(e) => setProvince(e.target.value)}>
                     {Object.keys(PROVINCE_TAX).map((p) => (
                         <option key={p} value={p}>
                             {p}
@@ -280,38 +389,97 @@ export default function CheckoutPage() {
                 </Form.Select>
             </Card>
 
+            <Card className="mb-3 p-3">
+                <h5>Billing Address</h5>
+                {addressLoaded ? (
+                    <div className="small text-muted mb-2">
+                        {billingAddress.street1}, {billingAddress.city}, {billingAddress.province}, {billingAddress.postalCode}
+                    </div>
+                ) : (
+                    <Alert variant="warning" className="py-2 small">
+                        No billing address found. Please enter it below.
+                    </Alert>
+                )}
+                <Row className="g-2">
+                    <Col md={12}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="Street Address"
+                            value={billingAddress.street1}
+                            onChange={(e) => setBillingAddress({...billingAddress, street1: e.target.value})}
+                        />
+                    </Col>
+                    <Col md={6}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="City"
+                            value={billingAddress.city}
+                            onChange={(e) => setBillingAddress({...billingAddress, city: e.target.value})}
+                        />
+                    </Col>
+                    <Col md={6}>
+                        <Form.Control
+                            size="sm"
+                            placeholder="Postal Code"
+                            value={billingAddress.postalCode}
+                            onChange={(e) => setBillingAddress({...billingAddress, postalCode: e.target.value})}
+                        />
+                    </Col>
+                </Row>
+            </Card>
+
             <PaymentCardUI onCardSelect={setPaymentMethod} />
+
+            {/*<Card className="mt-3 p-3">*/}
+            {/*    <h5>Order Summary</h5>*/}
+            {/*    <hr />*/}
+
+
+
+            {/*    {billingCycle === "yearly" && pricing.yearlyDiscount > 0 && (*/}
+            {/*        <div className="d-flex justify-content-between text-success">*/}
+            {/*            <span>Yearly Discount (10%)</span>*/}
+            {/*            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>*/}
+            {/*        </div>*/}
+            {/*    )}*/}
+
+            {/*    <div className="d-flex justify-content-between">*/}
+            {/*        <span>Subtotal</span>*/}
+            {/*        <span>${pricing.subtotal.toFixed(2)}</span>*/}
+            {/*    </div>*/}
+
+            {/*    <div className="d-flex justify-content-between">*/}
+            {/*        <span>Tax</span>*/}
+            {/*        <span>${(pricing.tax ?? 0).toFixed(2)}</span>*/}
+            {/*    </div>*/}
+
+            {/*    <hr />*/}
+
+            {/*    <div className="d-flex justify-content-between fw-bold fs-5">*/}
+            {/*        <span>Total</span>*/}
+            {/*        <span>${(pricing.finalTotal ?? 0).toFixed(2)}</span>*/}
+            {/*    </div>*/}
+            {/*</Card>*/}
 
             <Card className="mt-3 p-3">
                 <h5>Order Summary</h5>
                 <hr />
 
-                {pricing.hasRecurringItems && billingCycle === "monthly" && (
-                    <div className="d-flex justify-content-between">
-                        <span>Monthly Services</span>
-                        <span>${pricing.recurringMonthly.toFixed(2)}</span>
-                    </div>
-                )}
-
-                {pricing.hasRecurringItems && billingCycle === "yearly" && (
+                {/* YEARLY BREAKDOWN */}
+                {billingCycle === "yearly" && pricing.hasRecurringItems && (
                     <>
                         <div className="d-flex justify-content-between">
-                            <span>Yearly Services Base</span>
+                            <span>12-Month Recurring Total</span>
                             <span>${pricing.yearlyBase.toFixed(2)}</span>
                         </div>
 
                         <div className="d-flex justify-content-between text-success">
-                            <span>Service Discount (10%)</span>
+                            <span>Yearly Discount (10%)</span>
                             <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
                         </div>
-                    </>
-                )}
 
-                {pricing.hasOneTimeItems && (
-                    <div className="d-flex justify-content-between">
-                        <span>One-time Device Charges</span>
-                        <span>${pricing.oneTimeSubtotal.toFixed(2)}</span>
-                    </div>
+                        <hr />
+                    </>
                 )}
 
                 <div className="d-flex justify-content-between">
@@ -320,9 +488,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="d-flex justify-content-between">
-                    <span>
-                        Tax ({(PROVINCE_TAX[province] * 100).toFixed(0)}%)
-                    </span>
+                    <span>Tax</span>
                     <span>${pricing.tax.toFixed(2)}</span>
                 </div>
 
@@ -334,12 +500,9 @@ export default function CheckoutPage() {
                 </div>
             </Card>
 
-            <Button
-                className="mt-4 w-100"
-                size="lg"
-                onClick={handleCheckout}
-            >
-                Pay ${pricing.finalTotal.toFixed(2)}
+
+            <Button className="mt-4 w-100" size="lg" onClick={handleCheckout}>
+                Pay ${(pricing.finalTotal ?? 0).toFixed(2)}
             </Button>
         </Container>
     );

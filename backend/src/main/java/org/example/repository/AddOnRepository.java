@@ -17,21 +17,24 @@ public class AddOnRepository {
     // FIND ALL ACTIVE ADDONS
     public List<AddOnDTO> findAllActiveAddOns() {
         return jdbc.query("""
-                SELECT AddOnId,
-                       AddOnName,
-                       MonthlyPrice,
-                       Description,
-                       IsActive
-                FROM AddOns
-                WHERE IsActive = TRUE
-                ORDER BY AddOnName
+                SELECT a.AddOnId,
+                       a.AddOnName,
+                       a.MonthlyPrice,
+                       a.Description,
+                       a.IsActive,
+                       s.Name AS ServiceType
+                FROM AddOns a
+                LEFT JOIN ServiceTypes s ON s.ServiceTypeId = a.ServiceTypeId
+                WHERE a.IsActive = TRUE
+                ORDER BY a.AddOnName
                 """,
                 (rs, rowNum) -> new AddOnDTO(
                         rs.getInt("AddOnId"),
                         rs.getString("AddOnName"),
                         rs.getDouble("MonthlyPrice"),
                         rs.getString("Description"),
-                        rs.getBoolean("IsActive")
+                        rs.getBoolean("IsActive"),
+                        rs.getString("ServiceType")
                 )
         );
     }
@@ -42,9 +45,11 @@ public class AddOnRepository {
                        a.AddOnName,
                        a.MonthlyPrice,
                        a.Description,
-                       a.IsActive
+                       a.IsActive,
+                       s.Name AS ServiceType
                 FROM PlanAddOns pa
                 INNER JOIN AddOns a ON a.AddOnId = pa.AddOnId
+                LEFT JOIN ServiceTypes s ON s.ServiceTypeId = a.ServiceTypeId
                 WHERE pa.PlanId = ?
                   AND a.IsActive = TRUE
                 ORDER BY a.AddOnName
@@ -54,7 +59,8 @@ public class AddOnRepository {
                         rs.getString("AddOnName"),
                         rs.getDouble("MonthlyPrice"),
                         rs.getString("Description"),
-                        rs.getBoolean("IsActive")
+                        rs.getBoolean("IsActive"),
+                        rs.getString("ServiceType")
                 ),
                 planId
         );
@@ -72,20 +78,23 @@ public class AddOnRepository {
 
     public AddOnDTO findById(Integer id) {
         List<AddOnDTO> list = jdbc.query("""
-                SELECT AddOnId,
-                       AddOnName,
-                       MonthlyPrice,
-                       Description,
-                       IsActive
-                FROM AddOns
-                WHERE AddOnId = ?
+                SELECT a.AddOnId,
+                       a.AddOnName,
+                       a.MonthlyPrice,
+                       a.Description,
+                       a.IsActive,
+                       s.Name AS ServiceType
+                FROM AddOns a
+                LEFT JOIN ServiceTypes s ON s.ServiceTypeId = a.ServiceTypeId
+                WHERE a.AddOnId = ?
                 """,
                 (rs, rowNum) -> new AddOnDTO(
                         rs.getInt("AddOnId"),
                         rs.getString("AddOnName"),
                         rs.getDouble("MonthlyPrice"),
                         rs.getString("Description"),
-                        rs.getBoolean("IsActive")
+                        rs.getBoolean("IsActive"),
+                        rs.getString("ServiceType")
                 ),
                 id
         );

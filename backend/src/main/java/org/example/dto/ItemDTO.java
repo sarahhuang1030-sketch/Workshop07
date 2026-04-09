@@ -10,6 +10,7 @@ public class ItemDTO {
     private String name;
     private Double price;
     private Integer quantity;
+    private String serviceType;
 
     // GETTERS & SETTERS
 
@@ -51,5 +52,13 @@ public class ItemDTO {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        this.serviceType = serviceType;
     }
 }

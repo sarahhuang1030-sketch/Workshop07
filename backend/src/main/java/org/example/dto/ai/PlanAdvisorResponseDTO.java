@@ -1,16 +1,44 @@
 package org.example.dto.ai;
 
+import java.util.List;
+
 public class PlanAdvisorResponseDTO {
 
     private Integer recommendedPlanId;
     private String recommendedPlanName;
+    private Double recommendedMonthlyPrice;
+    private String recommendedServiceType;
+
     private String reason;
+    private String matchSummary;
 
-    private Integer backupPlanId;
-    private String backupPlanName;
-    private String backupReason;
+    private List<AlternativePlanDTO> alternatives;
 
+    private String recommendationMode; // AI or FALLBACK
     private String disclaimer;
+
+    public static class AlternativePlanDTO {
+        private Integer planId;
+        private String planName;
+        private String reason;
+
+        public AlternativePlanDTO() {}
+
+        public AlternativePlanDTO(Integer planId, String planName, String reason) {
+            this.planId = planId;
+            this.planName = planName;
+            this.reason = reason;
+        }
+
+        public Integer getPlanId() { return planId; }
+        public void setPlanId(Integer planId) { this.planId = planId; }
+
+        public String getPlanName() { return planName; }
+        public void setPlanName(String planName) { this.planName = planName; }
+
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
+    }
 
     public Integer getRecommendedPlanId() {
         return recommendedPlanId;
@@ -28,6 +56,22 @@ public class PlanAdvisorResponseDTO {
         this.recommendedPlanName = recommendedPlanName;
     }
 
+    public Double getRecommendedMonthlyPrice() {
+        return recommendedMonthlyPrice;
+    }
+
+    public void setRecommendedMonthlyPrice(Double recommendedMonthlyPrice) {
+        this.recommendedMonthlyPrice = recommendedMonthlyPrice;
+    }
+
+    public String getRecommendedServiceType() {
+        return recommendedServiceType;
+    }
+
+    public void setRecommendedServiceType(String recommendedServiceType) {
+        this.recommendedServiceType = recommendedServiceType;
+    }
+
     public String getReason() {
         return reason;
     }
@@ -36,28 +80,28 @@ public class PlanAdvisorResponseDTO {
         this.reason = reason;
     }
 
-    public Integer getBackupPlanId() {
-        return backupPlanId;
+    public String getMatchSummary() {
+        return matchSummary;
     }
 
-    public void setBackupPlanId(Integer backupPlanId) {
-        this.backupPlanId = backupPlanId;
+    public void setMatchSummary(String matchSummary) {
+        this.matchSummary = matchSummary;
     }
 
-    public String getBackupPlanName() {
-        return backupPlanName;
+    public List<AlternativePlanDTO> getAlternatives() {
+        return alternatives;
     }
 
-    public void setBackupPlanName(String backupPlanName) {
-        this.backupPlanName = backupPlanName;
+    public void setAlternatives(List<AlternativePlanDTO> alternatives) {
+        this.alternatives = alternatives;
     }
 
-    public String getBackupReason() {
-        return backupReason;
+    public String getRecommendationMode() {
+        return recommendationMode;
     }
 
-    public void setBackupReason(String backupReason) {
-        this.backupReason = backupReason;
+    public void setRecommendationMode(String recommendationMode) {
+        this.recommendationMode = recommendationMode;
     }
 
     public String getDisclaimer() {
