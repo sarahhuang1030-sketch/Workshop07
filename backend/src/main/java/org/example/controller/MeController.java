@@ -182,7 +182,7 @@ public class MeController {
                     ua.getCustomerId() != null ? "CUSTOMER" : "GUEST");
             out.put("uaRole", ua.getRole());
             out.put("avatarUrl", ua.getAvatarUrl());
-
+            out.put("points", ua.getPoints());
 
             if (ua.getCustomerId() != null) {
                 out.put("userType", "CUSTOMER");
@@ -495,7 +495,7 @@ public class MeController {
         return ResponseEntity.ok(plan);
     }
 
-        //workshop 06 - get all active plans for customer (including addons)
+    //workshop 06 - get all active plans for customer (including addons)
 
     private BigDecimal toBigDecimal(Object val) {
         if (val == null) return BigDecimal.ZERO;
@@ -509,31 +509,31 @@ public class MeController {
         return BigDecimal.ZERO;
     }
 
-        @GetMapping("/api/me/plans")
-        public ResponseEntity<?> getMyPlans(Authentication authentication) {
-            String username = authentication.getName();
+    @GetMapping("/api/me/plans")
+    public ResponseEntity<?> getMyPlans(Authentication authentication) {
+        String username = authentication.getName();
 
-            UserAccount ua = userAccountRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+        UserAccount ua = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-            if (ua.getCustomerId() == null) {
-                return ResponseEntity.badRequest().body("This account is not linked to a customer");
-            }
-
-            List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
-
-            List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
-                    ((Number) r[0]).intValue(),
-                    ((Number) r[1]).intValue(),
-                    (String) r[2],
-                    toBigDecimal(r[3]),
-                    toBigDecimal(r[4]),
-                    toBigDecimal(r[5]),
-                    null
-            )).toList();
-
-            return ResponseEntity.ok(result);
+        if (ua.getCustomerId() == null) {
+            return ResponseEntity.badRequest().body("This account is not linked to a customer");
         }
+
+        List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
+
+        List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
+                ((Number) r[0]).intValue(),
+                ((Number) r[1]).intValue(),
+                (String) r[2],
+                toBigDecimal(r[3]),
+                toBigDecimal(r[4]),
+                toBigDecimal(r[5]),
+                null
+        )).toList();
+
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping("/api/me/addons")
     public ResponseEntity<?> getMyAddOns(Authentication authentication) {

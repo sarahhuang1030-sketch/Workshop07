@@ -1,6 +1,9 @@
 package org.example.controller;
 
-import org.example.dto.*;
+import org.example.dto.CustomerDTO;
+import org.example.dto.ServiceDashboardSummaryDTO;
+import org.example.dto.ServiceTicketDTO;
+import org.example.dto.ServiceWorkOrderDTO;
 import org.example.model.CustomerAddress;
 import org.example.service.CustomerAddressService;
 import org.example.service.CustomerService;
@@ -41,7 +44,10 @@ public class ServiceDashboardController {
 
     @PutMapping("/tickets/{requestId}/status")
     @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
-    public ResponseEntity<Void> updateTicketStatus(@PathVariable Integer requestId, @RequestBody String status) {
+    public ResponseEntity<Void> updateTicketStatus(
+            @PathVariable Integer requestId,
+            @RequestBody String status
+    ) {
         serviceDashboardService.updateTicketStatus(requestId, status);
         return ResponseEntity.ok().build();
     }
@@ -54,7 +60,10 @@ public class ServiceDashboardController {
 
     @PutMapping("/work-orders/{appointmentId}/status")
     @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
-    public ResponseEntity<Void> updateWorkOrderStatus(@PathVariable Integer appointmentId, @RequestBody String status) {
+    public ResponseEntity<Void> updateWorkOrderStatus(
+            @PathVariable Integer appointmentId,
+            @RequestBody String status
+    ) {
         serviceDashboardService.updateWorkOrderStatus(appointmentId, status);
         return ResponseEntity.ok().build();
     }
@@ -67,7 +76,9 @@ public class ServiceDashboardController {
 
     @GetMapping("/customers/{customerId}/address")
     @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
-    public ResponseEntity<List<CustomerAddress>> getCustomerAddressesForTechnician(@PathVariable Integer customerId) {
+    public ResponseEntity<List<CustomerAddress>> getCustomerAddressesForTechnician(
+            @PathVariable Integer customerId
+    ) {
         return ResponseEntity.ok(customerAddressService.getAddresses(customerId));
     }
 }

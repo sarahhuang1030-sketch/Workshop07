@@ -27,6 +27,9 @@ export default function CustomerBillingHistory() {
                 <tr>
                     <th>#</th>
                     <th>Date</th>
+                    <th>Package Name</th>
+                    <th>Due Date</th>
+                    <th>Details</th>
                     <th>Status</th>
                     <th>Total</th>
                 </tr>
@@ -36,6 +39,11 @@ export default function CustomerBillingHistory() {
                     <tr key={inv.invoiceNumber}>
                         <td>{inv.invoiceNumber}</td>
                         <td>{inv.issueDate}</td>
+                        <td>{inv.items?.[0]?.description || "—"}</td>
+                        <td>{inv.dueDate || "—"}</td>
+                        <td>
+                            {inv.items?.map(i => `${i.description} (x${i.quantity})`).join(", ") || "—"}
+                        </td>
                         <td>{inv.status}</td>
                         <td>{inv.total}</td>
                     </tr>

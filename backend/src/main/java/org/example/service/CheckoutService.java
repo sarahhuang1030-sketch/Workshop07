@@ -319,23 +319,23 @@ public class CheckoutService {
         // ======================================================
         // 8.5 WATER BILL (NEW)
         // ======================================================
-        if (quote != null || !items.isEmpty()) {
-            InvoiceItems waterItem = new InvoiceItems();
-            waterItem.setInvoice(saved);
-            waterItem.setDescription("Water Bill Fee");
-            waterItem.setQuantity(1);
-
-            double baseForWater = subtotal;
-            if (quote != null && (items == null || items.isEmpty())) {
-                baseForWater = quote.getAmount();
-            }
-
-            BigDecimal waterAmount = BigDecimal.valueOf(baseForWater * 0.05); // 5% fee
-            waterItem.setUnitPrice(waterAmount);
-            waterItem.setLineTotal(waterAmount);
-            waterItem.setDiscountAmount(BigDecimal.ZERO);
-            itemRepo.save(waterItem);
-        }
+//        if (quote != null || !items.isEmpty()) {
+//            InvoiceItems waterItem = new InvoiceItems();
+//            waterItem.setInvoice(saved);
+//            waterItem.setDescription("Water Bill Fee");
+//            waterItem.setQuantity(1);
+//
+//            double baseForWater = subtotal;
+//            if (quote != null && (items == null || items.isEmpty())) {
+//                baseForWater = quote.getAmount();
+//            }
+//
+//            BigDecimal waterAmount = BigDecimal.valueOf(baseForWater * 0.05); // 5% fee
+//            waterItem.setUnitPrice(waterAmount);
+//            waterItem.setLineTotal(waterAmount);
+//            waterItem.setDiscountAmount(BigDecimal.ZERO);
+//            itemRepo.save(waterItem);
+//        }
 
         // ======================================================
         // 9. ITEMS + STOCK + SUBSCRIBERS
