@@ -13,7 +13,10 @@ public class ServiceWorkOrderDTO {
     private String status;
     private String notes;
 
-    // Getters and Setters
+    // 🔴 NEW
+    private String requestDescription;
+    private String priority;
+
     public Integer getAppointmentId() { return appointmentId; }
     public void setAppointmentId(Integer appointmentId) { this.appointmentId = appointmentId; }
 
@@ -40,4 +43,11 @@ public class ServiceWorkOrderDTO {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    // 🔴 NEW
+    public String getRequestDescription() { return requestDescription; }
+    public void setRequestDescription(String requestDescription) { this.requestDescription = requestDescription; }
+
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
 }
