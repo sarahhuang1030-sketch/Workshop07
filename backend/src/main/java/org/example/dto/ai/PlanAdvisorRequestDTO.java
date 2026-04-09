@@ -11,6 +11,9 @@ public class PlanAdvisorRequestDTO {
     private Boolean heavyStreaming;
     private String priority; // lowest_price, best_value, most_data, family
 
+    private String userPrompt;
+    private String inputMode; // QUESTIONNAIRE, PROMPT, HYBRID
+
     public String getServiceType() {
         return serviceType;
     }
@@ -73,5 +76,21 @@ public class PlanAdvisorRequestDTO {
 
     public void setPriority(String priority) {
         this.priority = priority;
+    }
+
+    public String getUserPrompt() {
+        return userPrompt;
+    }
+
+    public void setUserPrompt(String userPrompt) {
+        this.userPrompt = userPrompt;
+    }
+
+    public String getInputMode() {
+        return inputMode;
+    }
+
+    public void setInputMode(String inputMode) {
+        this.inputMode = inputMode;
     }
 }

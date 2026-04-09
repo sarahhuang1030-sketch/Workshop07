@@ -23,7 +23,8 @@ public class PlanRepository {
             int planId,
             String planName,
             double monthlyPrice,
-            String tagline
+            String tagline,
+            String serviceType
     ) {}
 
     // =========================
@@ -54,7 +55,8 @@ public class PlanRepository {
                 SELECT p.PlanId,
                        p.PlanName,
                        p.MonthlyPrice,
-                       p.Description
+                       p.Description,
+                       s.Name AS ServiceType
                 FROM Plans p
                 JOIN ServiceTypes s ON s.ServiceTypeId = p.ServiceTypeId
                 WHERE LOWER(TRIM(s.Name)) = LOWER(TRIM(?))
@@ -65,7 +67,8 @@ public class PlanRepository {
                         rs.getInt("PlanId"),
                         rs.getString("PlanName"),
                         rs.getDouble("MonthlyPrice"),
-                        rs.getString("Description")
+                        rs.getString("Description"),
+                        rs.getString("ServiceType")
                 ),
                 typeName
         );
@@ -76,19 +79,22 @@ public class PlanRepository {
     // =========================
     public List<PlanRow> findAllPlans() {
         return jdbc.query("""
-                SELECT PlanId,
-                       PlanName,
-                       MonthlyPrice,
-                       Description
-                FROM Plans
-                WHERE IsActive = TRUE
-                ORDER BY PlanId
+                SELECT p.PlanId,
+                       p.PlanName,
+                       p.MonthlyPrice,
+                       p.Description,
+                       s.Name AS ServiceType
+                FROM Plans p
+                JOIN ServiceTypes s ON s.ServiceTypeId = p.ServiceTypeId
+                WHERE p.IsActive = TRUE
+                ORDER BY p.PlanId
                 """,
                 (rs, rowNum) -> new PlanRow(
                         rs.getInt("PlanId"),
                         rs.getString("PlanName"),
                         rs.getDouble("MonthlyPrice"),
-                        rs.getString("Description")
+                        rs.getString("Description"),
+                        rs.getString("ServiceType")
                 )
         );
     }
@@ -101,15 +107,18 @@ public class PlanRepository {
             SELECT p.PlanId,
                    p.PlanName,
                    p.MonthlyPrice,
-                   p.Description
+                   p.Description,
+                   s.Name AS ServiceType
             FROM Plans p
+            JOIN ServiceTypes s ON s.ServiceTypeId = p.ServiceTypeId
             WHERE CAST(p.PlanId AS SIGNED) = ?
             """,
                 (rs, rowNum) -> new PlanRow(
                         rs.getInt("PlanId"),
                         rs.getString("PlanName"),
                         rs.getDouble("MonthlyPrice"),
-                        rs.getString("Description")
+                        rs.getString("Description"),
+                        rs.getString("ServiceType")
                 ),
                 planId
         );
