@@ -3,19 +3,17 @@ import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert, 
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
+// FIXED STATUS COLORS
 function getWorkOrderBadge(status) {
-    const s = String(status || "").toUpperCase();
-    switch (s) {
-        case "SCHEDULED":
-        case "ASSIGNED":
-            return "secondary";
-        case "IN_PROGRESS":
-            return "primary";
-        case "COMPLETED":
-            return "success";
-        default:
-            return "light";
-    }
+    const s = String(status || "").toLowerCase();
+
+    if (s === "open") return "warning";
+    if (s === "assigned") return "secondary";
+    if (s === "in progress") return "primary";
+    if (s === "completed") return "success";
+    if (s === "cancelled") return "danger";
+
+    return "light";
 }
 
 export default function ServiceWorkOrders() {
@@ -57,7 +55,9 @@ export default function ServiceWorkOrders() {
                 body: JSON.stringify(newStatus)
             });
             if (!res.ok) throw new Error("Failed to update status");
+
             await loadWorkOrders();
+
             if (selectedOrder && selectedOrder.appointmentId === appointmentId) {
                 setSelectedOrder(prev => ({ ...prev, status: newStatus }));
             }
@@ -66,12 +66,18 @@ export default function ServiceWorkOrders() {
         }
     };
 
+    // 🔥 FIXED FILTER LOGIC
     const filteredWorkOrders = workOrders.filter(w => {
-        const matchesSearch = !filters.search ||
+        const matchesSearch =
+            !filters.search ||
             w.customerName?.toLowerCase().includes(filters.search.toLowerCase()) ||
             w.appointmentId?.toString().includes(filters.search) ||
             w.requestId?.toString().includes(filters.search);
-        const matchesStatus = !filters.status || w.status === filters.status;
+
+        const matchesStatus =
+            !filters.status ||
+            String(w.status).toLowerCase() === filters.status.toLowerCase();
+
         return matchesSearch && matchesStatus;
     });
 
@@ -102,6 +108,7 @@ export default function ServiceWorkOrders() {
 
             {error && <Alert variant="danger">{error}</Alert>}
 
+            {/* FILTERS */}
             <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: 18 }}>
                 <Card.Body className="p-4">
                     <Row className="g-3">
@@ -124,15 +131,18 @@ export default function ServiceWorkOrders() {
                                 }
                             >
                                 <option value="">All Statuses</option>
-                                <option value="Scheduled">Scheduled</option>
+                                <option value="Open">Open</option>
+                                <option value="Assigned">Assigned</option>
                                 <option value="In Progress">In Progress</option>
                                 <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
                             </Form.Select>
                         </Col>
                     </Row>
                 </Card.Body>
             </Card>
 
+            {/* TABLE */}
             <Card className="shadow-sm border-0" style={{ borderRadius: 18 }}>
                 <Card.Body className="p-0">
                     {loading ? (
@@ -141,7 +151,7 @@ export default function ServiceWorkOrders() {
                         <div className="p-5 text-center">
                             <h5 className="fw-bold mb-2">No work orders assigned yet</h5>
                             <p className="text-muted mb-0">
-                                Work orders will appear here once they are assigned to you by a manager.
+                                Work orders will appear here once they are assigned to you.
                             </p>
                         </div>
                     ) : (
@@ -163,27 +173,35 @@ export default function ServiceWorkOrders() {
                                     <td>#{order.appointmentId}</td>
                                     <td>#{order.requestId}</td>
                                     <td>{order.customerName}</td>
+
                                     <td>
                                         <Badge bg={getWorkOrderBadge(order.status)}>
                                             {order.status}
                                         </Badge>
                                     </td>
+
                                     <td>{new Date(order.scheduledStart).toLocaleString()}</td>
                                     <td>{order.addressText || order.locationType}</td>
+
                                     <td>
                                         <div className="d-flex gap-2">
                                             <Button size="sm" variant="outline-primary" onClick={() => openDetails(order)}>
                                                 Details
                                             </Button>
+
+                                            {/* FIXED DROPDOWN */}
                                             <Form.Select
                                                 size="sm"
                                                 value={order.status}
-                                                onChange={(e) => handleStatusUpdate(order.appointmentId, e.target.value)}
-                                                style={{ width: "130px" }}
+                                                onChange={(e) =>
+                                                    handleStatusUpdate(order.appointmentId, e.target.value)
+                                                }
+                                                style={{ width: "150px" }}
                                             >
-                                                <option value="Scheduled">Scheduled</option>
+                                                <option value="Assigned">Assigned</option>
                                                 <option value="In Progress">In Progress</option>
                                                 <option value="Completed">Completed</option>
+                                                <option value="Cancelled">Cancelled</option>
                                             </Form.Select>
                                         </div>
                                     </td>
@@ -195,6 +213,7 @@ export default function ServiceWorkOrders() {
                 </Card.Body>
             </Card>
 
+            {/* DETAILS MODAL */}
             <Modal show={showDetails} onHide={() => setShowDetails(false)} centered size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title>Work Order Details - #{selectedOrder?.appointmentId}</Modal.Title>
@@ -202,43 +221,43 @@ export default function ServiceWorkOrders() {
                 <Modal.Body>
                     {selectedOrder && (
                         <Row className="g-3">
+                            <Col md={6}><strong>Ticket ID:</strong> #{selectedOrder.requestId}</Col>
+                            <Col md={6}><strong>Customer:</strong> {selectedOrder.customerName}</Col>
+
                             <Col md={6}>
-                                <strong>Ticket ID:</strong> #{selectedOrder.requestId}
+                                <strong>Status:</strong>{" "}
+                                <Badge bg={getWorkOrderBadge(selectedOrder.status)}>
+                                    {selectedOrder.status}
+                                </Badge>
                             </Col>
-                            <Col md={6}>
-                                <strong>Customer:</strong> {selectedOrder.customerName}
-                            </Col>
-                            <Col md={6}>
-                                <strong>Status:</strong> <Badge bg={getWorkOrderBadge(selectedOrder.status)}>{selectedOrder.status}</Badge>
-                            </Col>
-                            <Col md={6}>
-                                <strong>Location Type:</strong> {selectedOrder.locationType}
-                            </Col>
-                            <Col md={6}>
-                                <strong>Scheduled Start:</strong> {new Date(selectedOrder.scheduledStart).toLocaleString()}
-                            </Col>
-                            <Col md={6}>
-                                <strong>Scheduled End:</strong> {new Date(selectedOrder.scheduledEnd).toLocaleString()}
-                            </Col>
-                            <Col md={12}>
-                                <strong>Address:</strong> {selectedOrder.addressText || "N/A"}
-                            </Col>
+
+                            <Col md={6}><strong>Location Type:</strong> {selectedOrder.locationType}</Col>
+                            <Col md={6}><strong>Scheduled Start:</strong> {new Date(selectedOrder.scheduledStart).toLocaleString()}</Col>
+                            <Col md={6}><strong>Scheduled End:</strong> {new Date(selectedOrder.scheduledEnd).toLocaleString()}</Col>
+
+                            <Col md={12}><strong>Address:</strong> {selectedOrder.addressText || "N/A"}</Col>
+
                             <Col md={12}>
                                 <strong>Notes:</strong>
-                                <p className="mt-1 p-2 bg-light border rounded" style={{ minHeight: "60px" }}>
+                                <p className="mt-1 p-2 bg-light border rounded">
                                     {selectedOrder.notes || "No notes available."}
                                 </p>
                             </Col>
+
+                            {/*  FIXED MODAL DROPDOWN */}
                             <Col md={12}>
                                 <Form.Group>
                                     <Form.Label><strong>Update Status:</strong></Form.Label>
                                     <Form.Select
                                         value={selectedOrder.status}
-                                        onChange={(e) => handleStatusUpdate(selectedOrder.appointmentId, e.target.value)}
+                                        onChange={(e) =>
+                                            handleStatusUpdate(selectedOrder.appointmentId, e.target.value)
+                                        }
                                     >
-                                        <option value="Scheduled">Scheduled</option>
+                                        <option value="Assigned">Assigned</option>
                                         <option value="In Progress">In Progress</option>
                                         <option value="Completed">Completed</option>
+                                        <option value="Cancelled">Cancelled</option>
                                     </Form.Select>
                                 </Form.Group>
                             </Col>

@@ -36,7 +36,6 @@ export default function ManagerService({ darkMode = false }) {
     const [showDetails, setShowDetails] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
 
-    // set customers and employees for name usage
     const [customers, setCustomers] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [customerAddresses, setCustomerAddresses] = useState([]);
@@ -59,7 +58,6 @@ export default function ManagerService({ darkMode = false }) {
         ? "bg-dark text-light border-secondary"
         : "bg-white text-dark";
 
-    // loading customers and employees
     async function loadCustomers() {
         try {
             const res = await apiFetch("/api/manager/customers");
@@ -161,10 +159,9 @@ export default function ManagerService({ darkMode = false }) {
 
         if (value === "assigned") return "primary";
         if (value === "in progress") return "info";
-        if (value === "scheduled") return "info";
         if (value === "completed") return "success";
         if (value === "cancelled") return "secondary";
-        if (value === "open" || value === "pending") return "warning";
+        if (value === "open") return "warning";
 
         return "dark";
     }
@@ -179,11 +176,11 @@ export default function ManagerService({ darkMode = false }) {
         locationType: "",
         scheduledStart: "",
         scheduledEnd: "",
-        status: "",
+        status: "Assigned",
         notes: "",
     });
 
-    const appointmentStatusOptions = ["Scheduled", "Completed", "Cancelled"];
+    const appointmentStatusOptions = ["Assigned", "In Progress", "Completed", "Cancelled"];
     const locationTypeOptions = ["InStore", "Remote", "OnSite"];
 
     function handleAppointmentChange(e) {
@@ -195,14 +192,19 @@ export default function ManagerService({ darkMode = false }) {
     }
 
     async function loadCustomerAddresses(customerId) {
-        if (!customerId) return;
+        if (!customerId) {
+            setCustomerAddresses([]);
+            return;
+        }
+
         try {
             const res = await apiFetch(`${REQUESTS_API}/customers/${customerId}/addresses`);
             if (!res.ok) throw new Error("Failed to load customer addresses");
             const data = await res.json();
             setCustomerAddresses(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error(err);
+            setCustomerAddresses([]);
+            setError(err.message || "Failed to load customer addresses");
         }
     }
 
@@ -219,22 +221,24 @@ export default function ManagerService({ darkMode = false }) {
 
         const data = await res.json();
         setAppointments(Array.isArray(data) ? data : []);
+        await loadRequests();
     }
 
     async function openCreateAppointmentModal() {
         setEditingAppointment(null);
+
         if (selectedRequest?.customerId) {
             await loadCustomerAddresses(selectedRequest.customerId);
         }
 
         setAppointmentForm({
-            technicianUserId: "",
+            technicianUserId: selectedRequest?.assignedTechnicianUserId?.toString() ?? "",
             addressId: selectedRequest?.addressId?.toString() ?? "",
             locationId: "",
-            locationType: "",
+            locationType: "OnSite",
             scheduledStart: "",
             scheduledEnd: "",
-            status: "Scheduled",
+            status: "Assigned",
             notes: "",
         });
         setShowAppointmentModal(true);
@@ -242,6 +246,7 @@ export default function ManagerService({ darkMode = false }) {
 
     async function openEditAppointmentModal(appt) {
         setEditingAppointment(appt);
+
         if (selectedRequest?.customerId) {
             await loadCustomerAddresses(selectedRequest.customerId);
         }
@@ -250,10 +255,10 @@ export default function ManagerService({ darkMode = false }) {
             technicianUserId: appt.technicianUserId?.toString() ?? "",
             addressId: appt.addressId?.toString() ?? "",
             locationId: appt.locationId?.toString() ?? "",
-            locationType: appt.locationType ?? "",
+            locationType: appt.locationType ?? "OnSite",
             scheduledStart: appt.scheduledStart ? appt.scheduledStart.slice(0, 16) : "",
             scheduledEnd: appt.scheduledEnd ? appt.scheduledEnd.slice(0, 16) : "",
-            status: appt.status ?? "",
+            status: appt.status ?? "Assigned",
             notes: appt.notes ?? "",
         });
         setShowAppointmentModal(true);
@@ -265,6 +270,9 @@ export default function ManagerService({ darkMode = false }) {
         if (!selectedRequest?.requestId) return;
 
         try {
+            setSaving(true);
+            setError("");
+
             const method = editingAppointment ? "PUT" : "POST";
 
             const url = editingAppointment
@@ -290,15 +298,15 @@ export default function ManagerService({ darkMode = false }) {
 
             if (!res.ok) {
                 const msg = await res.text();
-                throw new Error(msg || `Failed to save: ${res.status}`);
+                throw new Error(msg || `Failed to save appointment: ${res.status}`);
             }
 
             closeAppointmentModal();
             await reloadAppointmentsForSelectedRequest();
-
         } catch (err) {
-            console.error(err);
-            alert("Error saving appointment");
+            setError(err.message || "Failed to save appointment");
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -341,7 +349,7 @@ export default function ManagerService({ darkMode = false }) {
             assignedTechnicianUserId: "",
             requestType: "",
             priority: "Medium",
-            status: "",
+            status: "Open",
             description: "",
         });
         setShowModal(true);
@@ -362,7 +370,7 @@ export default function ManagerService({ darkMode = false }) {
             req.status === "Completed" ||
             req.status === "Cancelled"
                 ? req.status
-                : "";
+                : "Open";
 
         setFormData({
             customerId: req.customerId?.toString() ?? "",
@@ -386,6 +394,7 @@ export default function ManagerService({ darkMode = false }) {
         setShowDetails(false);
         setSelectedRequest(null);
         setAppointments([]);
+        setCustomerAddresses([]);
     }
 
     function handleChange(e) {
@@ -429,10 +438,13 @@ export default function ManagerService({ darkMode = false }) {
             });
 
             if (!res.ok) {
+                const msg = await res.text();
                 throw new Error(
-                    editingRequest
-                        ? `Failed to update request: ${res.status}`
-                        : `Failed to create request: ${res.status}`
+                    msg || (
+                        editingRequest
+                            ? `Failed to update request: ${res.status}`
+                            : `Failed to create request: ${res.status}`
+                    )
                 );
             }
 
@@ -775,10 +787,8 @@ export default function ManagerService({ darkMode = false }) {
                         <Table responsive hover className="align-middle mb-0">
                             <thead>
                             <tr>
-                                {/*<th>Appointment ID</th>*/}
                                 <th>Assigned Technician</th>
                                 <th>Address</th>
-                                {/*<th>Location ID</th>*/}
                                 <th>Location Type</th>
                                 <th>Scheduled Start</th>
                                 <th>Scheduled End</th>
@@ -790,10 +800,8 @@ export default function ManagerService({ darkMode = false }) {
                             <tbody>
                             {appointments.map((appt) => (
                                 <tr key={appt.appointmentId}>
-                                    {/*<td>{appt.appointmentId}</td>*/}
                                     <td>{appt.technicianName ?? "—"}</td>
                                     <td>{appt.addressText ?? "—"}</td>
-                                    {/*<td>{appt.locationId ?? "—"}</td>*/}
                                     <td>{appt.locationType || "—"}</td>
                                     <td>
                                         {appt.scheduledStart
@@ -850,13 +858,6 @@ export default function ManagerService({ darkMode = false }) {
                 </Modal.Footer>
             </Modal>
 
-            {/*    <Modal.Footer>*/}
-            {/*        <Button variant="secondary" onClick={closeDetails}>*/}
-            {/*            Close*/}
-            {/*        </Button>*/}
-            {/*    </Modal.Footer>*/}
-            {/*</Modal>*/}
-
             <Modal show={showAppointmentModal} onHide={closeAppointmentModal} centered size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title>
@@ -874,6 +875,7 @@ export default function ManagerService({ darkMode = false }) {
                                         name="technicianUserId"
                                         value={appointmentForm.technicianUserId}
                                         onChange={handleAppointmentChange}
+                                        required
                                     >
                                         <option value="">Select technician</option>
                                         {technicianOptions.map((employee) => (
@@ -892,6 +894,7 @@ export default function ManagerService({ darkMode = false }) {
                                         name="locationType"
                                         value={appointmentForm.locationType}
                                         onChange={handleAppointmentChange}
+                                        required
                                     >
                                         <option value="">Select location type</option>
                                         {locationTypeOptions.map((type) => (
@@ -922,17 +925,6 @@ export default function ManagerService({ darkMode = false }) {
                                 </Form.Group>
                             </Col>
 
-                            {/*<Col md={6}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Location ID</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="locationId"*/}
-                            {/*            value={appointmentForm.locationId}*/}
-                            {/*            onChange={handleAppointmentChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
-
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Scheduled Start</Form.Label>
@@ -941,6 +933,7 @@ export default function ManagerService({ darkMode = false }) {
                                         name="scheduledStart"
                                         value={appointmentForm.scheduledStart}
                                         onChange={handleAppointmentChange}
+                                        required
                                     />
                                 </Form.Group>
                             </Col>
@@ -953,6 +946,7 @@ export default function ManagerService({ darkMode = false }) {
                                         name="scheduledEnd"
                                         value={appointmentForm.scheduledEnd}
                                         onChange={handleAppointmentChange}
+                                        required
                                     />
                                 </Form.Group>
                             </Col>
@@ -964,8 +958,8 @@ export default function ManagerService({ darkMode = false }) {
                                         name="status"
                                         value={appointmentForm.status}
                                         onChange={handleAppointmentChange}
+                                        required
                                     >
-                                        <option value="">Select status</option>
                                         {appointmentStatusOptions.map((status) => (
                                             <option key={status} value={status}>
                                                 {status}
