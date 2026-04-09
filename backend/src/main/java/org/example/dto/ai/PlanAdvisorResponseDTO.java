@@ -6,6 +6,9 @@ public class PlanAdvisorResponseDTO {
 
     private Integer recommendedPlanId;
     private String recommendedPlanName;
+    private Double recommendedMonthlyPrice;
+    private String recommendedServiceType;
+
     private String reason;
     private String matchSummary;
 
@@ -51,6 +54,22 @@ public class PlanAdvisorResponseDTO {
 
     public void setRecommendedPlanName(String recommendedPlanName) {
         this.recommendedPlanName = recommendedPlanName;
+    }
+
+    public Double getRecommendedMonthlyPrice() {
+        return recommendedMonthlyPrice;
+    }
+
+    public void setRecommendedMonthlyPrice(Double recommendedMonthlyPrice) {
+        this.recommendedMonthlyPrice = recommendedMonthlyPrice;
+    }
+
+    public String getRecommendedServiceType() {
+        return recommendedServiceType;
+    }
+
+    public void setRecommendedServiceType(String recommendedServiceType) {
+        this.recommendedServiceType = recommendedServiceType;
     }
 
     public String getReason() {

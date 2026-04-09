@@ -26,8 +26,7 @@ class AiPlanServiceTest {
     }
 
     @Test
-    void testFallbackRecommendation() {
-        // Mock active plans
+    void fallbackShouldChooseCheaperMobilePlanWithinBudget() {
         when(repo.findAllPlans()).thenReturn(List.of(
                 new PlanRepository.PlanRow(1, "Basic Plan", 30.0, "Low cost", "Mobile"),
                 new PlanRepository.PlanRow(2, "Premium Plan", 80.0, "High data", "Mobile")
@@ -44,7 +43,47 @@ class AiPlanServiceTest {
 
         assertNotNull(response);
         assertEquals("FALLBACK", response.getRecommendationMode());
-        assertEquals(1, response.getRecommendedPlanId()); // Basic Plan should be closer to 0 budget and lower price
+        assertEquals(1, response.getRecommendedPlanId());
+        assertNotNull(response.getAlternatives());
         assertFalse(response.getAlternatives().isEmpty());
+    }
+
+    @Test
+    void fallbackShouldPreferInternetPlanWithHigherSpeedForStreaming() {
+        when(repo.findAllPlans()).thenReturn(List.of(
+                new PlanRepository.PlanRow(10, "Internet 100", 60.0, "Basic internet", "Internet"),
+                new PlanRepository.PlanRow(11, "Internet 500", 85.0, "Fast internet", "Internet")
+        ));
+
+        when(repo.findPlanFeaturesByPlanIds(anyList())).thenReturn(
+                java.util.Map.of(
+                        10, List.of(new PlanRepository.PlanFeatureRow(10, "Speed", "100", "Mbps", 1, 1)),
+                        11, List.of(new PlanRepository.PlanFeatureRow(11, "Speed", "500", "Mbps", 1, 2))
+                )
+        );
+
+        PlanAdvisorRequestDTO request = new PlanAdvisorRequestDTO();
+        request.setServiceType("Internet");
+        request.setEstimatedInternetSpeedMbps(300);
+        request.setHeavyStreaming(true);
+        request.setPriority("best_value");
+
+        PlanAdvisorResponseDTO response = service.recommendPlan(request);
+
+        assertNotNull(response);
+        assertEquals("FALLBACK", response.getRecommendationMode());
+        assertEquals(11, response.getRecommendedPlanId());
+    }
+
+    @Test
+    void shouldReturnEmptyResponseWhenNoPlansExist() {
+        when(repo.findAllPlans()).thenReturn(Collections.emptyList());
+
+        PlanAdvisorResponseDTO response = service.recommendPlan(new PlanAdvisorRequestDTO());
+
+        assertNotNull(response);
+        assertEquals("FALLBACK", response.getRecommendationMode());
+        assertNull(response.getRecommendedPlanId());
+        assertTrue(response.getReason().toLowerCase().contains("no active plans"));
     }
 }
