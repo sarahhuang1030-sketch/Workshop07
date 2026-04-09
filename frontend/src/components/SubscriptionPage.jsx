@@ -127,6 +127,16 @@ export default function SubscriptionPage({ darkMode = false }) {
                                             </div>
                                         )}
 
+                                        {/* Date information from latest invoice */}
+                                        <div className={`mt-3 small ${mutedClass}`}>
+                                            <div>
+                                                <strong>Start Date:</strong> {latestInvoice.startDate || "—"}
+                                            </div>
+                                            <div>
+                                                <strong>End Date:</strong> {latestInvoice.endDate || "—"}
+                                            </div>
+                                        </div>
+
                                         {/* Button: Navigate to full invoice page */}
                                         <Button
                                             variant={darkMode ? "outline-light" : "outline-secondary"}

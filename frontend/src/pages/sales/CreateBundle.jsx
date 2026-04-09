@@ -13,6 +13,7 @@ export default function CreateBundle() {
     const [addons, setAddons] = useState([]);
 
     const [selectedCustomer, setSelectedCustomer] = useState("");
+    const [selectedServiceType, setSelectedServiceType] = useState("Internet");
     const [selectedItems, setSelectedItems] = useState([]);
 
     const [total, setTotal] = useState(0);
@@ -25,15 +26,20 @@ export default function CreateBundle() {
     // =========================
     useEffect(() => {
         load();
-    }, []);
+    }, [selectedServiceType]);
 
     async function load() {
         try {
             setError("");
 
+            const typeQuery =
+                selectedServiceType === "Home"
+                    ? "Internet"
+                    : selectedServiceType;
+
             const [cRes, planRes, addonRes] = await Promise.all([
                 apiFetch("/api/customers/all"),
-                apiFetch("/api/plans"),
+                apiFetch(`/api/plans?type=${typeQuery}`),
                 apiFetch("/api/manager/addons")
             ]);
 
@@ -41,13 +47,8 @@ export default function CreateBundle() {
             const plansData = planRes.ok ? await planRes.json() : [];
             const addonsData = addonRes.ok ? await addonRes.json() : [];
 
-            // Ensure arrays (defensive coding)
             setCustomers(Array.isArray(customersData) ? customersData : []);
 
-            // =========================
-            // MAP PLANS
-            // Add unique "key" field to avoid React key conflicts
-            // =========================
             const mappedPlans = (Array.isArray(plansData) ? plansData : []).map(p => ({
                 key: `plan-${p.planId}`,
                 id: p.planId,
@@ -56,16 +57,16 @@ export default function CreateBundle() {
                 type: "plan"
             }));
 
-            // =========================
-            // MAP ADDONS
-            // =========================
-            const mappedAddons = (Array.isArray(addonsData) ? addonsData : []).map(a => ({
-                key: `addon-${a.addOnId}`,
-                id: a.addOnId,
-                name: a.addOnName,
-                price: Number(a.monthlyPrice || 0),
-                type: "addon"
-            }));
+            // ❌ REMOVE duplicate typeQuery here (DO NOT redeclare)
+            const mappedAddons = (Array.isArray(addonsData) ? addonsData : [])
+                .filter(a => a.serviceTypeName === typeQuery)
+                .map(a => ({
+                    key: `addon-${a.addOnId}`,
+                    id: a.addOnId,
+                    name: a.addOnName,
+                    price: Number(a.monthlyPrice || 0),
+                    type: "addon"
+                }));
 
             setPlans(mappedPlans);
             setAddons(mappedAddons);
@@ -159,6 +160,31 @@ export default function CreateBundle() {
 
             {success && <Alert variant="success">{success}</Alert>}
             {error && <Alert variant="danger">{error}</Alert>}
+
+            {/* =========================
+                SERVICE TYPE SELECT
+            ========================= */}
+            <Card className="p-3 mb-3">
+                <Form.Group>
+                    <Form.Label>Service Type</Form.Label>
+                    <div className="d-flex gap-3">
+                        {["Mobile", "Internet"].map(type => (
+                            <Form.Check
+                                key={type}
+                                type="radio"
+                                label={type}
+                                name="serviceType"
+                                checked={selectedServiceType === type}
+                                onChange={() => {
+                                    setSelectedServiceType(type);
+                                    setSelectedItems([]);
+                                    setTotal(0);
+                                }}
+                            />
+                        ))}
+                    </div>
+                </Form.Group>
+            </Card>
 
             {/* =========================
                 CUSTOMER SELECT

@@ -269,6 +269,13 @@ public class InvoiceService {
         dto.issueDate = invoice.getIssueDate() != null ? invoice.getIssueDate().toString() : null;
         dto.dueDate = invoice.getDueDate() != null ? invoice.getDueDate().toString() : null;
 
+        if (invoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(invoice.getSubscriptionId()).ifPresent(sub -> {
+                dto.startDate = sub.getStartDate() != null ? sub.getStartDate().toString() : null;
+                dto.endDate = sub.getEndDate() != null ? sub.getEndDate().toString() : null;
+            });
+        }
+
         dto.subtotal = BigDecimal.valueOf(invoice.getSubtotal() == null ? 0.0 : invoice.getSubtotal());
         dto.taxTotal = BigDecimal.valueOf(invoice.getTaxTotal() == null ? 0.0 : invoice.getTaxTotal());
         dto.total = BigDecimal.valueOf(invoice.getTotal() == null ? 0.0 : invoice.getTotal());
