@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Container,
     Card,
@@ -25,16 +25,11 @@ const emptyForm = {
     addOnIds: [],
 };
 
-const SERVICE_TYPE_OPTIONS = [
-    { id: 1, name: "Mobile" },
-    { id: 2, name: "Internet" },
-    // Add more service types as needed
-];
-
 export default function ManagePlan({ darkMode = false }) {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [formError, setFormError] = useState("");
 
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -42,11 +37,70 @@ export default function ManagePlan({ darkMode = false }) {
     const [form, setForm] = useState(emptyForm);
     const [search, setSearch] = useState("");
 
-    const navigate = useNavigate();
+    const [serviceTypes, setServiceTypes] = useState([]);
     const [availableAddOns, setAvailableAddOns] = useState([]);
-
     const [availableFeatureTemplates, setAvailableFeatureTemplates] = useState([]);
     const [selectedFeatureTemplate, setSelectedFeatureTemplate] = useState("");
+
+    const navigate = useNavigate();
+
+    const contractTermOptions = useMemo(() => {
+        const options = [];
+        for (let months = 6; months <= 60; months += 6) {
+            options.push(months);
+        }
+        return options;
+    }, []);
+
+    const getServiceTypeName = (serviceTypeId) => {
+        const match = serviceTypes.find(
+            (type) => Number(type.serviceTypeId) === Number(serviceTypeId)
+        );
+        return match ? match.name : "—";
+    };
+
+    const validateForm = () => {
+        if (!String(form.planName).trim()) {
+            return "Plan name is required.";
+        }
+
+        if (!String(form.serviceTypeId).trim()) {
+            return "Service type is required.";
+        }
+
+        if (form.monthlyPrice === "" || form.monthlyPrice === null) {
+            return "Monthly price is required.";
+        }
+
+        const monthlyPrice = Number(form.monthlyPrice);
+
+        if (Number.isNaN(monthlyPrice)) {
+            return "Monthly price must be a valid number.";
+        }
+
+        if (monthlyPrice < 0) {
+            return "Monthly price cannot be negative.";
+        }
+
+        if (monthlyPrice > 500) {
+            return "Monthly price cannot exceed 500.";
+        }
+
+        if (!String(form.contractTermMonths).trim()) {
+            return "Contract term months is required.";
+        }
+
+        const contractMonths = Number(form.contractTermMonths);
+        if (!contractTermOptions.includes(contractMonths)) {
+            return "Contract term must be selected from the dropdown.";
+        }
+
+        if (!String(form.description).trim()) {
+            return "Description is required.";
+        }
+
+        return "";
+    };
 
     const loadPlans = async () => {
         try {
@@ -66,6 +120,22 @@ export default function ManagePlan({ darkMode = false }) {
             setError("Unable to load plans.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadServiceTypes = async () => {
+        try {
+            const res = await apiFetch("/api/service-types");
+
+            if (!res.ok) {
+                throw new Error(`Failed to load service types: ${res.status}`);
+            }
+
+            const data = await res.json();
+            setServiceTypes(data);
+        } catch (err) {
+            console.error(err);
+            setError("Unable to load service types.");
         }
     };
 
@@ -123,6 +193,7 @@ export default function ManagePlan({ darkMode = false }) {
 
     useEffect(() => {
         loadPlans();
+        loadServiceTypes();
         loadAvailableAddOns();
         loadFeatureTemplates();
     }, []);
@@ -161,7 +232,6 @@ export default function ManagePlan({ darkMode = false }) {
         setSelectedFeatureTemplate("");
     };
 
-
     const removeFeature = (index) => {
         setForm((prev) => ({
             ...prev,
@@ -185,12 +255,14 @@ export default function ManagePlan({ darkMode = false }) {
         setEditingId(null);
         setSelectedFeatureTemplate("");
         setForm(emptyForm);
+        setFormError("");
         setShowModal(true);
     };
 
     const openEdit = async (plan) => {
         try {
             setError("");
+            setFormError("");
 
             const [featuresData, addOnsData] = await Promise.all([
                 loadPlanFeatures(plan.planId),
@@ -226,22 +298,35 @@ export default function ManagePlan({ darkMode = false }) {
     const closeModal = () => {
         if (saving) return;
         setShowModal(false);
+        setFormError("");
     };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+
         setForm((prev) => ({
             ...prev,
             [name]: value,
         }));
+
+        if (formError) {
+            setFormError("");
+        }
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
 
+        const validationError = validateForm();
+        if (validationError) {
+            setFormError(validationError);
+            return;
+        }
+
         try {
             setSaving(true);
             setError("");
+            setFormError("");
 
             const planUrl = editingId
                 ? `/api/manager/plans/${editingId}`
@@ -250,17 +335,16 @@ export default function ManagePlan({ darkMode = false }) {
             const planMethod = editingId ? "PUT" : "POST";
 
             const planPayload = {
-                serviceTypeId: form.serviceTypeId === "" ? null : Number(form.serviceTypeId),
-                planName: form.planName,
-                monthlyPrice: form.monthlyPrice === "" ? null : Number(form.monthlyPrice),
-                contractTermMonths: form.contractTermMonths === "" ? null : Number(form.contractTermMonths),
-                description: form.description,
+                serviceTypeId: Number(form.serviceTypeId),
+                planName: form.planName.trim(),
+                monthlyPrice: Number(form.monthlyPrice),
+                contractTermMonths: Number(form.contractTermMonths),
+                description: form.description.trim(),
                 isActive: form.isActive === "" ? null : Number(form.isActive),
             };
 
             const planRes = await apiFetch(planUrl, {
                 method: planMethod,
-
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -274,7 +358,6 @@ export default function ManagePlan({ darkMode = false }) {
             const savedPlan = await planRes.json();
             const planId = editingId || savedPlan.planId;
 
-            // CREATE MODE
             if (!editingId) {
                 for (const feature of form.features) {
                     const featurePayload = {
@@ -300,7 +383,6 @@ export default function ManagePlan({ darkMode = false }) {
                 for (const addOnId of form.addOnIds) {
                     const addOnRes = await apiFetch(`/api/manager/plans/${planId}/addons`, {
                         method: "POST",
-
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -313,9 +395,7 @@ export default function ManagePlan({ darkMode = false }) {
                 }
             }
 
-            // EDIT MODE
             if (editingId) {
-                // 1) Remove existing features
                 const existingFeatures = await loadPlanFeatures(planId);
 
                 for (const feature of existingFeatures) {
@@ -323,7 +403,6 @@ export default function ManagePlan({ darkMode = false }) {
                         `/api/manager/plans/${planId}/features/${feature.featureId}`,
                         {
                             method: "DELETE",
-
                         }
                     );
 
@@ -332,7 +411,6 @@ export default function ManagePlan({ darkMode = false }) {
                     }
                 }
 
-                // 2) Recreate current selected features
                 for (const feature of form.features) {
                     const featurePayload = {
                         featureName: feature.featureName,
@@ -354,7 +432,6 @@ export default function ManagePlan({ darkMode = false }) {
                     }
                 }
 
-                // 3) Remove existing add-ons
                 const existingAddOns = await loadPlanAddOns(planId);
 
                 for (const addOn of existingAddOns) {
@@ -362,7 +439,6 @@ export default function ManagePlan({ darkMode = false }) {
                         `/api/manager/plans/${planId}/addons/${addOn.addOnId}`,
                         {
                             method: "DELETE",
-
                         }
                     );
 
@@ -371,7 +447,6 @@ export default function ManagePlan({ darkMode = false }) {
                     }
                 }
 
-                // 4) Recreate selected add-ons
                 for (const addOnId of form.addOnIds) {
                     const addOnRes = await apiFetch(`/api/manager/plans/${planId}/addons`, {
                         method: "POST",
@@ -391,6 +466,7 @@ export default function ManagePlan({ darkMode = false }) {
             setForm(emptyForm);
             setEditingId(null);
             setSelectedFeatureTemplate("");
+            setFormError("");
             await loadPlans();
         } catch (err) {
             console.error(err);
@@ -409,7 +485,6 @@ export default function ManagePlan({ darkMode = false }) {
 
             const res = await apiFetch(`/api/manager/plans/${planId}`, {
                 method: "DELETE",
-
             });
 
             if (!res.ok) {
@@ -425,17 +500,17 @@ export default function ManagePlan({ darkMode = false }) {
 
     const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark";
 
-    const filteredPlans = plans.filter((plans) => {
+    const filteredPlans = plans.filter((plan) => {
         const keyword = search.toLowerCase();
 
         return (
-            String(plans.planId ?? "").toLowerCase().includes(keyword) ||
-            String(plans.planName ?? "").toLowerCase().includes(keyword) ||
-            String(plans.serviceTypeId ?? "").toLowerCase().includes(keyword) ||
-            String(plans.monthlyPrice ?? "").toLowerCase().includes(keyword) ||
-            String(plans.contractTermMonths ?? "").toLowerCase().includes(keyword) ||
-            String(plans.description ?? "").toLowerCase().includes(keyword) ||
-            String(plans.isActive ?? "").toLowerCase().includes(keyword)
+            String(plan.planId ?? "").toLowerCase().includes(keyword) ||
+            String(plan.planName ?? "").toLowerCase().includes(keyword) ||
+            String(getServiceTypeName(plan.serviceTypeId) ?? "").toLowerCase().includes(keyword) ||
+            String(plan.monthlyPrice ?? "").toLowerCase().includes(keyword) ||
+            String(plan.contractTermMonths ?? "").toLowerCase().includes(keyword) ||
+            String(plan.description ?? "").toLowerCase().includes(keyword) ||
+            String(plan.isActive ?? "").toLowerCase().includes(keyword)
         );
     });
 
@@ -451,7 +526,7 @@ export default function ManagePlan({ darkMode = false }) {
 
                 <div className="d-flex gap-2">
                     <Form.Control
-                        className={"w-auto"}
+                        className="w-auto"
                         type="text"
                         placeholder="Search plans..."
                         value={search}
@@ -462,13 +537,14 @@ export default function ManagePlan({ darkMode = false }) {
                     <Button onClick={openCreate} style={{ borderRadius: 12 }}>
                         Add Plan
                     </Button>
+
                     <Button
-                    variant="outline-secondary"
-                    onClick={() => navigate("/manager")}
-                    style={{ borderRadius: 12 }}
-                >
-                    Go Back
-                </Button>
+                        variant="outline-secondary"
+                        onClick={() => navigate("/manager")}
+                        style={{ borderRadius: 12 }}
+                    >
+                        Go Back
+                    </Button>
                 </div>
             </div>
 
@@ -490,7 +566,6 @@ export default function ManagePlan({ darkMode = false }) {
                                 <th>Monthly Price</th>
                                 <th>Term</th>
                                 <th>Description</th>
-                                {/*<th>Tagline</th>*/}
                                 <th>Active</th>
                                 <th style={{ width: 180 }}>Actions</th>
                             </tr>
@@ -498,7 +573,7 @@ export default function ManagePlan({ darkMode = false }) {
                             <tbody>
                             {filteredPlans.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="text-center py-4">
+                                    <td colSpan="8" className="text-center py-4">
                                         No plans found.
                                     </td>
                                 </tr>
@@ -507,13 +582,7 @@ export default function ManagePlan({ darkMode = false }) {
                                     <tr key={plan.planId}>
                                         <td>{plan.planId}</td>
                                         <td>{plan.planName}</td>
-                                        <td>
-                                            {plan.serviceTypeId === 1
-                                                ? "Mobile"
-                                                : plan.serviceTypeId === 2
-                                                    ? "Internet"
-                                                    : "—"}
-                                        </td>
+                                        <td>{getServiceTypeName(plan.serviceTypeId)}</td>
                                         <td>
                                             {plan.monthlyPrice != null
                                                 ? `$${Number(plan.monthlyPrice).toLocaleString()}`
@@ -525,7 +594,6 @@ export default function ManagePlan({ darkMode = false }) {
                                                 : "—"}
                                         </td>
                                         <td>{plan.description || "—"}</td>
-                                        {/*<td>{plan.tagline || "—"}</td>*/}
                                         <td>{plan.isActive === 1 ? "Yes" : "No"}</td>
                                         <td>
                                             <div className="d-flex gap-2">
@@ -561,6 +629,8 @@ export default function ManagePlan({ darkMode = false }) {
                     </Modal.Header>
 
                     <Modal.Body>
+                        {formError && <Alert variant="danger">{formError}</Alert>}
+
                         <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
@@ -584,9 +654,9 @@ export default function ManagePlan({ darkMode = false }) {
                                         required
                                     >
                                         <option value="">Select service type</option>
-                                        {SERVICE_TYPE_OPTIONS.map((opt) => (
-                                            <option key={opt.id} value={opt.id}>
-                                                {opt.name}
+                                        {serviceTypes.map((type) => (
+                                            <option key={type.serviceTypeId} value={type.serviceTypeId}>
+                                                {type.name}
                                             </option>
                                         ))}
                                     </Form.Select>
@@ -599,23 +669,35 @@ export default function ManagePlan({ darkMode = false }) {
                                     <Form.Control
                                         type="number"
                                         step="0.01"
+                                        min="0"
+                                        max="500"
                                         name="monthlyPrice"
                                         value={form.monthlyPrice}
                                         onChange={handleChange}
                                         required
                                     />
+                                    {/*<Form.Text className="text-muted">*/}
+                                    {/*    Enter a value between 0 and 500.*/}
+                                    {/*</Form.Text>*/}
                                 </Form.Group>
                             </Col>
 
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Contract Term Months</Form.Label>
-                                    <Form.Control
-                                        type="number"
+                                    <Form.Select
                                         name="contractTermMonths"
                                         value={form.contractTermMonths}
                                         onChange={handleChange}
-                                    />
+                                        required
+                                    >
+                                        <option value="">Select contract term</option>
+                                        {contractTermOptions.map((months) => (
+                                            <option key={months} value={months}>
+                                                {months} months
+                                            </option>
+                                        ))}
+                                    </Form.Select>
                                 </Form.Group>
                             </Col>
 
@@ -628,64 +710,10 @@ export default function ManagePlan({ darkMode = false }) {
                                         name="description"
                                         value={form.description}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                             </Col>
-
-                            {/*<Col md={12}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Tagline</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="tagline"*/}
-                            {/*            value={form.tagline}*/}
-                            {/*            onChange={handleChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
-
-                            {/*<Col md={6}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Badge</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="badge"*/}
-                            {/*            value={form.badge}*/}
-                            {/*            onChange={handleChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
-
-                            {/*<Col md={6}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Data Label</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="dataLabel"*/}
-                            {/*            value={form.dataLabel}*/}
-                            {/*            onChange={handleChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
-
-                            {/*<Col md={4}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Icon Key</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="iconKey"*/}
-                            {/*            value={form.iconKey}*/}
-                            {/*            onChange={handleChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
-
-                            {/*<Col md={4}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Theme Key</Form.Label>*/}
-                            {/*        <Form.Control*/}
-                            {/*            name="themeKey"*/}
-                            {/*            value={form.themeKey}*/}
-                            {/*            onChange={handleChange}*/}
-                            {/*        />*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
 
                             <Col md={4}>
                                 <Form.Group>
@@ -701,6 +729,7 @@ export default function ManagePlan({ darkMode = false }) {
                                 </Form.Group>
                             </Col>
                         </Row>
+
                         <hr className="my-4" />
                         <h5 className="mb-3">Plan Features</h5>
 
@@ -711,7 +740,6 @@ export default function ManagePlan({ darkMode = false }) {
                         <Row className="g-2 align-items-end mb-3">
                             <Col md={9}>
                                 <Form.Group>
-
                                     <Form.Select
                                         value={selectedFeatureTemplate}
                                         onChange={(e) => setSelectedFeatureTemplate(e.target.value)}
@@ -753,14 +781,13 @@ export default function ManagePlan({ darkMode = false }) {
                                     <Col md={4}>
                                         <Form.Control value={feature.featureValue} disabled />
                                     </Col>
-                                    <Col md={2}>
-                                        <Form.Control value={feature.unit || ""} disabled />
-                                    </Col>
+
                                     <Col md={2}>
                                         <Button
                                             type="button"
                                             variant="outline-danger"
                                             className="w-100"
+                                            style={{ marginLeft: "40px" }}
                                             onClick={() => removeFeature(index)}
                                         >
                                             Remove
@@ -769,29 +796,6 @@ export default function ManagePlan({ darkMode = false }) {
                                 </Row>
                             ))
                         )}
-                        <hr className="my-4" />
-                        <h5 className="mb-3">Allowed Add-ons</h5>
-                        <div className="text-muted mb-3">Choose which add-ons can be attached to this plan.</div>
-
-                        <Row className="g-2">
-                            {availableAddOns.length === 0 ? (
-                                <Col>
-                                    <div className="text-muted">No add-ons available.</div>
-                                </Col>
-                            ) : (
-                                availableAddOns.map((addon) => (
-                                    <Col md={6} key={addon.addOnId}>
-                                        <Form.Check
-                                            type="checkbox"
-                                            id={`addon-${addon.addOnId}`}
-                                            label={`${addon.addOnName} ($${Number(addon.monthlyPrice).toLocaleString()})`}
-                                            checked={form.addOnIds.includes(addon.addOnId)}
-                                            onChange={() => toggleAddOn(addon.addOnId)}
-                                        />
-                                    </Col>
-                                ))
-                            )}
-                        </Row>
                     </Modal.Body>
 
                     <Modal.Footer>
