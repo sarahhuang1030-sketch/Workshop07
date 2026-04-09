@@ -45,10 +45,23 @@ public class AvatarStorageService {
 
         Path avatarsDir = getAvatarsDir();
 
-        String ext = contentType.contains("png") ? "png"
-                : (contentType.contains("jpeg") || contentType.contains("jpg")) ? "jpg"
-                : (contentType.contains("gif")) ? "gif"
-                : "img";
+        String originalFilename = avatar.getOriginalFilename() == null
+                ? ""
+                : avatar.getOriginalFilename().toLowerCase();
+
+        String ext;
+        if (contentType.contains("png") || originalFilename.endsWith(".png")) {
+            ext = "png";
+        } else if (contentType.contains("jpeg")
+                || contentType.contains("jpg")
+                || originalFilename.endsWith(".jpg")
+                || originalFilename.endsWith(".jpeg")) {
+            ext = "jpg";
+        } else if (contentType.contains("gif") || originalFilename.endsWith(".gif")) {
+            ext = "gif";
+        } else {
+            ext = "jpg";
+        }
 
         String fileName = "user_" + ua.getUserId() + "." + ext;
         Path target = avatarsDir.resolve(fileName).normalize();

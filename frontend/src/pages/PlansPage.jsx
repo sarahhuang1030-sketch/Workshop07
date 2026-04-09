@@ -28,7 +28,7 @@ import {
     Zap,
     User,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useOutletContext } from "react-router-dom";
 import { apiFetch } from "../services/api";
 
 function getFeatureIcon(serviceType) {
@@ -97,6 +97,26 @@ export default function PlansPage() {
     const [lineDetailsError, setLineDetailsError] = useState("");
 
     const navigate = useNavigate();
+
+    // review
+    const { reviews } = useOutletContext();
+
+    const [showReviewsModal, setShowReviewsModal] = useState(false);
+    const [selectedPlanReviews, setSelectedPlanReviews] = useState([]);
+    const [selectedPlanReviewTitle, setSelectedPlanReviewTitle] = useState("");
+
+    const getPlanReviews = (planId) => {
+        return (reviews ?? []).filter(
+            (r) => r.targetType === "plan" && String(r.targetId) === String(planId)
+        );
+    };
+
+    const openPlanReviews = (plan) => {
+        const matched = getPlanReviews(plan.id);
+        setSelectedPlanReviewTitle(plan.name);
+        setSelectedPlanReviews(matched);
+        setShowReviewsModal(true);
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -748,7 +768,15 @@ export default function PlansPage() {
                                                         <span>More plan details coming soon.</span>
                                                     </div>
                                                 )}
-
+                                                <div className="mb-3">
+                                                    <Button
+                                                        variant="link"
+                                                        className="p-0 text-decoration-none fw-semibold"
+                                                        onClick={() => openPlanReviews(p)}
+                                                    >
+                                                        View Reviews ({getPlanReviews(p.id).length})
+                                                    </Button>
+                                                </div>
                                                 <Button
                                                     className="mt-auto"
                                                     onClick={() => handlePickPlan(p)}
@@ -1218,6 +1246,49 @@ export default function PlansPage() {
                 defaultServiceType={serviceType}
                 defaultLineCount={lineCount}
             />
+
+            <Modal
+                show={showReviewsModal}
+                onHide={() => setShowReviewsModal(false)}
+                centered
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>{selectedPlanReviewTitle} Reviews</Modal.Title>
+                </Modal.Header>
+
+                <Modal.Body>
+                    {selectedPlanReviews.length === 0 ? (
+                        <div className="text-muted">No reviews yet for this plan.</div>
+                    ) : (
+                        <div className="d-flex flex-column gap-3">
+                            {selectedPlanReviews.map((review) => (
+                                <Card key={review.id} className="border-0 shadow-sm">
+                                    <Card.Body>
+                                        <div className="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <div className="fw-bold">{review.name}</div>
+                                                <div className="text-muted small">{review.role}</div>
+                                            </div>
+                                            <Badge bg="warning" text="dark">
+                                                {review.rating} Stars
+                                            </Badge>
+                                        </div>
+                                        <div>{review.review}</div>
+                                    </Card.Body>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Modal.Body>
+
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowReviewsModal(false)}>
+                        Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
         </>
     );
+
+
 }

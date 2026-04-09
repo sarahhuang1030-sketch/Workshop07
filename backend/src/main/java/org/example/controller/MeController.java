@@ -181,7 +181,10 @@ public class MeController {
             out.put("role", ua.getEmployeeId() != null ? "EMPLOYEE" :
                     ua.getCustomerId() != null ? "CUSTOMER" : "GUEST");
             out.put("uaRole", ua.getRole());
-            out.put("avatarUrl", ua.getAvatarUrl());
+            out.put("avatarUrl",
+                    ua.getAvatarUrl() != null && !ua.getAvatarUrl().isBlank()
+                            ? ua.getAvatarUrl()
+                            : "/uploads/avatars/default.jpg");
             out.put("points", ua.getPoints());
 
             if (ua.getCustomerId() != null) {

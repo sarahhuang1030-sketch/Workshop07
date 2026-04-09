@@ -5,6 +5,7 @@ import org.example.repository.UserAccountRepository;
 import org.example.service.AvatarStorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.security.Principal;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -68,6 +70,31 @@ public class AvatarController {
         avatarStorageService.deleteAvatar(ua);
         return Map.of("ok", true);
     }
+
+
+    // this is to allow andriod app to upload the profile picture
+//    @PostMapping(value = "/avatar", consumes = "multipart/form-data")
+//    public ResponseEntity<?> uploadAvatar(Authentication authentication,
+//                                          @RequestParam("file") MultipartFile file) {
+//        try {
+//            String username = authentication.getName();
+//
+//            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(username)
+//                    .orElseThrow(() -> new RuntimeException("User not found"));
+//
+//            String avatarUrl = avatarStorageService.saveUploadedAvatar(ua, file);
+//            ua.setAvatarUrl(avatarUrl);
+//            userAccountRepo.save(ua);
+//
+//            Map<String, Object> out = new HashMap<>();
+//            out.put("avatarUrl", avatarUrl);
+//            out.put("message", "Avatar uploaded successfully");
+//
+//            return ResponseEntity.ok(out);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body("Upload failed: " + e.getMessage());
+//        }
+//    }
 
     private String resolveLoginKey(Principal principal, Authentication auth, OAuth2User oauthUser) {
         if (auth instanceof OAuth2AuthenticationToken oauthTok) {

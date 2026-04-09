@@ -3,15 +3,17 @@ import AppNavbar from "./Navbar";
 import AppFooter from "./Footer";
 import { useTheme } from "../../context/ThemeContext";
 import "../../style/style.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReviewModal from "../common/ReviewModal";
-import { useEffect } from "react";
 import { apiFetch } from "../../services/api.js";
-
 
 export default function Layout({ user, setUser, onLogout }) {
     const { darkMode } = useTheme();
     const [showReviewModal, setShowReviewModal] = useState(false);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [customerPlans, setCustomerPlans] = useState([]);
+
     const [reviews, setReviews] = useState([
         {
             id: 1,
@@ -19,6 +21,9 @@ export default function Layout({ user, setUser, onLogout }) {
             role: "Mobile Customer",
             review: "TeleConnect made switching plans so easy...",
             rating: 5,
+            targetType: "company",
+            targetId: null,
+            targetLabel: "TeleConnect",
         },
         {
             id: 2,
@@ -26,6 +31,9 @@ export default function Layout({ user, setUser, onLogout }) {
             role: "Internet Customer",
             review: "The setup was quick and the connection speed has been excellent.",
             rating: 5,
+            targetType: "company",
+            targetId: null,
+            targetLabel: "TeleConnect",
         },
         {
             id: 3,
@@ -33,14 +41,31 @@ export default function Layout({ user, setUser, onLogout }) {
             role: "Family Plan Customer",
             review: "Affordable plans, good coverage, and support whenever I need it.",
             rating: 4,
+            targetType: "company",
+            targetId: null,
+            targetLabel: "TeleConnect",
         },
     ]);
-    const location = useLocation();
-    const navigate = useNavigate();
-    const [customerPlans, setCustomerPlans] = useState([]);
 
     function handleAddReview(newReview) {
-        setReviews(prev => [newReview, ...prev]);
+        const normalizedReview = {
+            id: newReview.id ?? Date.now(),
+            name: newReview.name,
+            role: newReview.role,
+            review: newReview.review,
+            rating: Number(newReview.rating),
+            targetType: newReview.targetType === "plan" ? "plan" : "company",
+            targetId:
+                newReview.targetType === "plan" && newReview.targetId != null
+                    ? String(newReview.targetId)
+                    : null,
+            targetLabel:
+                newReview.targetType === "plan"
+                    ? newReview.targetLabel || newReview.planName || "Selected Plan"
+                    : "TeleConnect",
+        };
+
+        setReviews((prev) => [normalizedReview, ...prev]);
     }
 
     useEffect(() => {
@@ -50,8 +75,6 @@ export default function Layout({ user, setUser, onLogout }) {
             navigate(location.pathname, { replace: true, state: {} });
         }
     }, [location.pathname, location.state, navigate]);
-
-
 
     useEffect(() => {
         async function loadCustomerPlans() {
@@ -66,7 +89,16 @@ export default function Layout({ user, setUser, onLogout }) {
                 }
 
                 const data = await res.json();
-                setCustomerPlans(Array.isArray(data) ? data : []);
+
+                const normalizedPlans = Array.isArray(data)
+                    ? data.map((p) => ({
+                        ...p,
+                        planId: p.planId ?? p.id,
+                        planName: p.planName ?? p.name,
+                    }))
+                    : [];
+
+                setCustomerPlans(normalizedPlans);
             } catch {
                 setCustomerPlans([]);
             }
@@ -81,9 +113,10 @@ export default function Layout({ user, setUser, onLogout }) {
             style={{ minHeight: "100vh" }}
             data-bs-theme={darkMode ? "dark" : "light"}
         >
-            <AppNavbar user={user} setUser={setUser} onLogout={onLogout}/>
+            <AppNavbar user={user} setUser={setUser} onLogout={onLogout} />
+
             <main className="flex-grow-1">
-                <Outlet context={{ reviews }} />
+                <Outlet context={{ reviews, customerPlans }} />
             </main>
 
             <AppFooter onOpenReviewModal={() => setShowReviewModal(true)} />

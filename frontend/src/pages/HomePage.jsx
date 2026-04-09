@@ -60,6 +60,10 @@ export default function HomePage() {
 
     const { reviews } = useOutletContext();
 
+    const homeReviews = useMemo(() => {
+        return (reviews ?? []).filter((r) => r.targetType === "company");
+    }, [reviews]);
+
     /* =========================
        LOAD DATA
     ========================== */
@@ -280,7 +284,7 @@ export default function HomePage() {
                 </Container>
             </section>
 
-            <CustomerReviewsSection reviews={reviews} darkMode={darkMode} />
+            <CustomerReviewsSection reviews={homeReviews} darkMode={darkMode} />
 
             {/* STATS */}
             <section className="py-5">
