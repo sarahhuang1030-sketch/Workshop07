@@ -1,11 +1,6 @@
 package org.example.controller;
 
-<<<<<<< HEAD
-import org.example.dto.CustomerDTO;
-import org.example.dto.ServiceDashboardSummaryDTO;
-=======
 import org.example.dto.*;
->>>>>>> 8beec46b68feccdcd705c48a3166cd2b51fa48e1
 import org.example.model.CustomerAddress;
 import org.example.service.CustomerAddressService;
 import org.example.service.CustomerService;

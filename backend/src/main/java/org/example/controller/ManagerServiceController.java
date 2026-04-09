@@ -270,7 +270,10 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
                         : "—"
         );
 
-        customerAddressRepository.findFirstByCustomerIdOrderByIsPrimaryDesc(request.getCustomerId())
+        // Prefer "Service" address, fallback to "Billing" or primary
+        customerAddressRepository.findByCustomerIdAndAddressType(request.getCustomerId(), "Service")
+                .or(() -> customerAddressRepository.findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(request.getCustomerId(), "Billing"))
+                .or(() -> customerAddressRepository.findFirstByCustomerIdOrderByIsPrimaryDesc(request.getCustomerId()))
                 .ifPresent(address -> {
                     dto.setAddressId(address.getAddressId().intValue());
                     dto.setAddressText(

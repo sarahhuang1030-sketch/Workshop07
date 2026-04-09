@@ -19,6 +19,8 @@ public interface CustomerAddressRepository extends JpaRepository<CustomerAddress
 
     List<CustomerAddress> findAllByCustomerIdOrderByAddressIdAsc(Integer customerId);
 
+    List<CustomerAddress> findByCustomerId(Integer customerId);
+
     @Modifying
     @Transactional
     void deleteAllByCustomerId(Integer customerId);
