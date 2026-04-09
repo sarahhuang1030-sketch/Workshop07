@@ -50,9 +50,9 @@ export default function SalesService({ darkMode = false }) {
         description: "",
     });
 
-    const requestTypeOptions = ["Installation", "Repair", "Upgrade", "Other"];
+    const requestTypeOptions = ["Technical Support", "Billing Inquiry", "Installation", "Repair", "Upgrade", "Other"];
     const priorityOptions = ["Low", "Medium", "High"];
-    const statusOptions = ["Open", "Assigned", "Completed", "Cancelled"];
+    const statusOptions = ["Open", "Assigned", "In Progress", "Completed", "Cancelled"];
 
     const cardBase = darkMode
         ? "bg-dark text-light border-secondary"
@@ -159,10 +159,10 @@ export default function SalesService({ darkMode = false }) {
         const value = String(status || "").toLowerCase();
 
         if (value === "assigned") return "primary";
-        if (value === "scheduled") return "info";
+        if (value === "in progress") return "info";
         if (value === "completed") return "success";
-        if (value === "cancelled") return "secondary";
-        if (value === "open" || value === "pending") return "warning";
+        if (value === "cancelled") return "danger";
+        if (value === "open") return "warning";
 
         return "dark";
     }
@@ -181,7 +181,7 @@ export default function SalesService({ darkMode = false }) {
         notes: "",
     });
 
-    const appointmentStatusOptions = ["Scheduled", "Completed", "Cancelled"];
+    const appointmentStatusOptions = ["Open", "Assigned", "In Progress", "Completed", "Cancelled"];
     const locationTypeOptions = ["InStore", "Remote", "OnSite"];
 
     function handleAppointmentChange(e) {
@@ -216,7 +216,7 @@ export default function SalesService({ darkMode = false }) {
             locationType: "",
             scheduledStart: "",
             scheduledEnd: "",
-            status: "Scheduled",
+            status: "Assigned",
             notes: "",
         });
         setShowAppointmentModal(true);
@@ -336,6 +336,7 @@ export default function SalesService({ darkMode = false }) {
         const normalizedStatus =
             req.status === "Open" ||
             req.status === "Assigned" ||
+            req.status === "In Progress" ||
             req.status === "Completed" ||
             req.status === "Cancelled"
                 ? req.status
@@ -627,7 +628,7 @@ export default function SalesService({ darkMode = false }) {
                                     >
                                         <option value="">Select employee</option>
                                         {createdByOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}
@@ -645,7 +646,7 @@ export default function SalesService({ darkMode = false }) {
                                     >
                                         <option value="">Select technician</option>
                                         {technicianOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}
@@ -854,7 +855,7 @@ export default function SalesService({ darkMode = false }) {
                                     >
                                         <option value="">Select technician</option>
                                         {technicianOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.employeeId}>
+                                            <option key={employee.employeeId} value={employee.userId}>
                                                 {employee.firstName} {employee.lastName}
                                             </option>
                                         ))}

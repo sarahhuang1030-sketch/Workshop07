@@ -10,6 +10,7 @@ public class ServiceTicketDTO {
     private String priority;
     private LocalDateTime createdAt;
     private String description;
+    private java.util.List<ServiceWorkOrderDTO> appointments;
 
     // Getters and Setters
     public Integer getRequestId() { return requestId; }
@@ -32,4 +33,7 @@ public class ServiceTicketDTO {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public java.util.List<ServiceWorkOrderDTO> getAppointments() { return appointments; }
+    public void setAppointments(java.util.List<ServiceWorkOrderDTO> appointments) { this.appointments = appointments; }
 }

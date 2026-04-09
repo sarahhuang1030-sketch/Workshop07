@@ -6,13 +6,16 @@ import { apiFetch } from "../../services/api";
 function getWorkOrderBadge(status) {
     const s = String(status || "").toUpperCase();
     switch (s) {
-        case "SCHEDULED":
+        case "OPEN":
+            return "warning";
         case "ASSIGNED":
             return "secondary";
         case "IN_PROGRESS":
             return "primary";
         case "COMPLETED":
             return "success";
+        case "CANCELLED":
+            return "danger";
         default:
             return "light";
     }
@@ -124,9 +127,11 @@ export default function ServiceWorkOrders() {
                                 }
                             >
                                 <option value="">All Statuses</option>
-                                <option value="Scheduled">Scheduled</option>
+                                <option value="Open">Open</option>
+                                <option value="Assigned">Assigned</option>
                                 <option value="In Progress">In Progress</option>
                                 <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
                             </Form.Select>
                         </Col>
                     </Row>
@@ -181,9 +186,10 @@ export default function ServiceWorkOrders() {
                                                 onChange={(e) => handleStatusUpdate(order.appointmentId, e.target.value)}
                                                 style={{ width: "130px" }}
                                             >
-                                                <option value="Scheduled">Scheduled</option>
+                                                <option value="Assigned">Assigned</option>
                                                 <option value="In Progress">In Progress</option>
                                                 <option value="Completed">Completed</option>
+                                                <option value="Cancelled">Cancelled</option>
                                             </Form.Select>
                                         </div>
                                     </td>
@@ -224,6 +230,12 @@ export default function ServiceWorkOrders() {
                                 <strong>Address:</strong> {selectedOrder.addressText || "N/A"}
                             </Col>
                             <Col md={12}>
+                                <strong>Request Description:</strong>
+                                <p className="mt-1 p-2 bg-light border rounded">
+                                    {selectedOrder.requestDescription || "No description available."}
+                                </p>
+                            </Col>
+                            <Col md={12}>
                                 <strong>Notes:</strong>
                                 <p className="mt-1 p-2 bg-light border rounded" style={{ minHeight: "60px" }}>
                                     {selectedOrder.notes || "No notes available."}
@@ -236,9 +248,10 @@ export default function ServiceWorkOrders() {
                                         value={selectedOrder.status}
                                         onChange={(e) => handleStatusUpdate(selectedOrder.appointmentId, e.target.value)}
                                     >
-                                        <option value="Scheduled">Scheduled</option>
+                                        <option value="Assigned">Assigned</option>
                                         <option value="In Progress">In Progress</option>
                                         <option value="Completed">Completed</option>
+                                        <option value="Cancelled">Cancelled</option>
                                     </Form.Select>
                                 </Form.Group>
                             </Col>

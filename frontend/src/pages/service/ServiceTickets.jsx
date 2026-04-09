@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert } from "react-bootstrap";
+import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
@@ -45,6 +45,9 @@ export default function ServiceTickets() {
         priority: "",
     });
 
+    const [showDetails, setShowDetails] = useState(false);
+    const [selectedTicket, setSelectedTicket] = useState(null);
+
     useEffect(() => {
         loadTickets();
     }, []);
@@ -72,6 +75,9 @@ export default function ServiceTickets() {
             });
             if (!res.ok) throw new Error("Failed to update status");
             await loadTickets();
+            if (selectedTicket && selectedTicket.requestId === requestId) {
+                setSelectedTicket(prev => ({ ...prev, status: newStatus }));
+            }
         } catch (err) {
             alert(err.message);
         }
@@ -86,6 +92,11 @@ export default function ServiceTickets() {
         const matchesPriority = !filters.priority || t.priority === filters.priority;
         return matchesSearch && matchesStatus && matchesType && matchesPriority;
     });
+
+    const openDetails = (ticket) => {
+        setSelectedTicket(ticket);
+        setShowDetails(true);
+    };
 
     return (
         <Container className="py-4">
@@ -135,6 +146,7 @@ export default function ServiceTickets() {
                                 <option value="Assigned">Assigned</option>
                                 <option value="In Progress">In Progress</option>
                                 <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
                             </Form.Select>
                         </Col>
 
@@ -211,16 +223,23 @@ export default function ServiceTickets() {
                                     </td>
                                     <td>{new Date(ticket.createdAt).toLocaleString()}</td>
                                     <td>
-                                        <Form.Select
-                                            size="sm"
-                                            value={ticket.status}
-                                            onChange={(e) => handleStatusUpdate(ticket.requestId, e.target.value)}
-                                            style={{ width: "130px" }}
-                                        >
-                                            <option value="Assigned">Assigned</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Completed">Completed</option>
-                                        </Form.Select>
+                                        <div className="d-flex gap-2">
+                                            <Button size="sm" variant="outline-primary" onClick={() => openDetails(ticket)}>
+                                                Details
+                                            </Button>
+                                            <Form.Select
+                                                size="sm"
+                                                value={ticket.status}
+                                                onChange={(e) => handleStatusUpdate(ticket.requestId, e.target.value)}
+                                                style={{ width: "130px" }}
+                                            >
+                                                <option value="Open">Open</option>
+                                                <option value="Assigned">Assigned</option>
+                                                <option value="In Progress">In Progress</option>
+                                                <option value="Completed">Completed</option>
+                                                <option value="Cancelled">Cancelled</option>
+                                            </Form.Select>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -229,6 +248,55 @@ export default function ServiceTickets() {
                     )}
                 </Card.Body>
             </Card>
+
+            <Modal show={showDetails} onHide={() => setShowDetails(false)} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Ticket Details - #{selectedTicket?.requestId}</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {selectedTicket && (
+                        <div>
+                            <Row className="mb-3">
+                                <Col md={6}><strong>Customer:</strong> {selectedTicket.customerName}</Col>
+                                <Col md={6}><strong>Type:</strong> {selectedTicket.requestType}</Col>
+                                <Col md={6}><strong>Status:</strong> <Badge bg={getTicketStatusBadge(selectedTicket.status)}>{selectedTicket.status}</Badge></Col>
+                                <Col md={6}><strong>Priority:</strong> <Badge bg={getPriorityBadge(selectedTicket.priority)}>{selectedTicket.priority}</Badge></Col>
+                            </Row>
+                            <h5>Description</h5>
+                            <p className="p-3 bg-light border rounded">{selectedTicket.description || "No description provided."}</p>
+                            <hr />
+                            <h5>Associated Appointments</h5>
+                            {selectedTicket.appointments && selectedTicket.appointments.length > 0 ? (
+                                <Table responsive bordered hover size="sm">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Type</th>
+                                            <th>Start</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedTicket.appointments.map(appt => (
+                                            <tr key={appt.appointmentId}>
+                                                <td>#{appt.appointmentId}</td>
+                                                <td>{appt.locationType}</td>
+                                                <td>{new Date(appt.scheduledStart).toLocaleString()}</td>
+                                                <td><Badge bg={getTicketStatusBadge(appt.status)}>{appt.status}</Badge></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            ) : (
+                                <p className="text-muted">No appointments found for this ticket.</p>
+                            )}
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDetails(false)}>Close</Button>
+                </Modal.Footer>
+            </Modal>
         </Container>
     );
 }

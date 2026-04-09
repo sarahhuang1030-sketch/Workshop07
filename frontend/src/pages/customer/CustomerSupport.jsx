@@ -75,6 +75,7 @@ export default function CustomerSupport({ darkMode = false }) {
         if (value === "completed") return "success";
         if (value === "assigned" || value === "in progress") return "primary";
         if (value === "open") return "warning";
+        if (value === "cancelled") return "danger";
         return "secondary";
     }
 

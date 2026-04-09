@@ -183,7 +183,7 @@ export default function ManagerService({ darkMode = false }) {
         notes: "",
     });
 
-    const appointmentStatusOptions = ["Scheduled", "Completed", "Cancelled"];
+    const appointmentStatusOptions = ["Open", "Assigned", "In Progress", "Completed", "Cancelled"];
     const locationTypeOptions = ["InStore", "Remote", "OnSite"];
 
     function handleAppointmentChange(e) {
@@ -234,7 +234,7 @@ export default function ManagerService({ darkMode = false }) {
             locationType: "",
             scheduledStart: "",
             scheduledEnd: "",
-            status: "Scheduled",
+            status: "Assigned",
             notes: "",
         });
         setShowAppointmentModal(true);

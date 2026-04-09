@@ -72,10 +72,31 @@ public class ServiceDashboardService {
 
     @Transactional
     public void updateWorkOrderStatus(Integer appointmentId, String status) {
+        String cleanStatus = status.replace("\"", "");
         ServiceAppointment appt = serviceAppointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Service Appointment not found"));
-        appt.setStatus(status.replace("\"", ""));
+        appt.setStatus(cleanStatus);
         serviceAppointmentRepository.save(appt);
+
+        // Logic to propagate status to the parent Service Request
+        ServiceRequest req = serviceRequestRepository.findById(appt.getRequestId())
+                .orElseThrow(() -> new RuntimeException("Service Request not found"));
+
+        if ("In Progress".equalsIgnoreCase(cleanStatus)) {
+            if (!"In Progress".equalsIgnoreCase(req.getStatus())) {
+                req.setStatus("In Progress");
+                serviceRequestRepository.save(req);
+            }
+        } else if ("Completed".equalsIgnoreCase(cleanStatus)) {
+            // Check if all appointments for this request are completed
+            List<ServiceAppointment> appointments = serviceAppointmentRepository.findByRequestId(req.getRequestId());
+            boolean allCompleted = appointments.stream()
+                    .allMatch(a -> "Completed".equalsIgnoreCase(a.getStatus()) || "Cancelled".equalsIgnoreCase(a.getStatus()));
+            if (allCompleted && !"Completed".equalsIgnoreCase(req.getStatus())) {
+                req.setStatus("Completed");
+                serviceRequestRepository.save(req);
+            }
+        }
     }
 
     private ServiceTicketDTO convertToTicketDTO(ServiceRequest req) {
@@ -91,6 +112,13 @@ public class ServiceDashboardService {
             dto.setCustomerName(c.getFirstName() + " " + c.getLastName());
         });
 
+        // Add appointments to ticket DTO
+        List<ServiceWorkOrderDTO> appointments = serviceAppointmentRepository.findByRequestId(req.getRequestId())
+                .stream()
+                .map(this::convertToWorkOrderDTO)
+                .collect(Collectors.toList());
+        dto.setAppointments(appointments);
+
         return dto;
     }
 
@@ -105,6 +133,8 @@ public class ServiceDashboardService {
         dto.setNotes(appt.getNotes());
 
         serviceRequestRepository.findById(appt.getRequestId()).ifPresent(req -> {
+            dto.setRequestDescription(req.getDescription());
+            dto.setPriority(req.getPriority() != null ? req.getPriority().name() : null);
             customerRepository.findById(req.getCustomerId()).ifPresent(c -> {
                 dto.setCustomerName(c.getFirstName() + " " + c.getLastName());
             });
