@@ -173,7 +173,7 @@ export default function HomePage() {
                         <Button
                             variant="outline-light"
                             className="fw-bold px-4 py-2 rounded-pill"
-                            onClick={() => window.open("https://www.rogers.com", "_blank")}
+                            onClick={() => window.open(import.meta.env.VITE_EXTERNAL_PARTNER_URL || "https://www.rogers.com", "_blank")}
                         >
                             Learn More
                         </Button>
