@@ -38,7 +38,7 @@ public class ServiceDashboardRepository {
                 """
                 SELECT UserId
                 FROM useraccounts
-                WHERE Username = ?
+                WHERE LOWER(Username) = LOWER(?)
                 """,
                 (rs, rowNum) -> rs.getInt("UserId"),
                 username

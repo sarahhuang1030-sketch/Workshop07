@@ -1,5 +1,6 @@
 package org.example.service;
 
+import org.example.dto.CustomerServiceAppointmentDTO;
 import org.example.dto.ServiceDashboardSummaryDTO;
 import org.example.dto.ServiceTicketDTO;
 import org.example.dto.ServiceWorkOrderDTO;
@@ -21,19 +22,22 @@ public class ServiceDashboardService {
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
     private final CustomerAddressRepository customerAddressRepository;
+    private final EmployeeRepository employeeRepository;
 
     public ServiceDashboardService(ServiceDashboardRepository repository,
                                    ServiceRequestRepository serviceRequestRepository,
                                    ServiceAppointmentRepository serviceAppointmentRepository,
                                    UserAccountRepository userAccountRepository,
                                    CustomerRepository customerRepository,
-                                   CustomerAddressRepository customerAddressRepository) {
+                                   CustomerAddressRepository customerAddressRepository,
+                                   EmployeeRepository employeeRepository) {
         this.repository = repository;
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceAppointmentRepository = serviceAppointmentRepository;
         this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.customerAddressRepository = customerAddressRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     public ServiceDashboardSummaryDTO getSummary(String username) {
@@ -55,8 +59,20 @@ public class ServiceDashboardService {
     public void updateTicketStatus(Integer requestId, String status) {
         ServiceRequest req = serviceRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Service Request not found"));
-        req.setStatus(status.replace("\"", "")); // remove quotes if sent as plain string
+        String cleanStatus = status.replace("\"", "");
+        req.setStatus(cleanStatus);
         serviceRequestRepository.save(req);
+
+        // If ticket is completed, mark all appointments as completed if they aren't already
+        if ("Completed".equalsIgnoreCase(cleanStatus)) {
+            List<ServiceAppointment> appts = serviceAppointmentRepository.findByRequestId(requestId);
+            for (ServiceAppointment appt : appts) {
+                if (!"Completed".equalsIgnoreCase(appt.getStatus()) && !"Cancelled".equalsIgnoreCase(appt.getStatus())) {
+                    appt.setStatus("Completed");
+                    serviceAppointmentRepository.save(appt);
+                }
+            }
+        }
     }
 
     public List<ServiceWorkOrderDTO> getMyWorkOrders(String username) {
@@ -74,8 +90,27 @@ public class ServiceDashboardService {
     public void updateWorkOrderStatus(Integer appointmentId, String status) {
         ServiceAppointment appt = serviceAppointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Service Appointment not found"));
-        appt.setStatus(status.replace("\"", ""));
+        String cleanStatus = status.replace("\"", "");
+        appt.setStatus(cleanStatus);
         serviceAppointmentRepository.save(appt);
+
+        ServiceRequest req = serviceRequestRepository.findById(appt.getRequestId()).orElse(null);
+        if (req != null) {
+            if ("In Progress".equalsIgnoreCase(cleanStatus)) {
+                req.setStatus("In Progress");
+                serviceRequestRepository.save(req);
+            } else if ("Completed".equalsIgnoreCase(cleanStatus)) {
+                // Check if all appointments for this request are completed or cancelled
+                List<ServiceAppointment> allAppts = serviceAppointmentRepository.findByRequestId(req.getRequestId());
+                boolean allDone = allAppts.stream().allMatch(a ->
+                    "Completed".equalsIgnoreCase(a.getStatus()) || "Cancelled".equalsIgnoreCase(a.getStatus())
+                );
+                if (allDone) {
+                    req.setStatus("Completed");
+                    serviceRequestRepository.save(req);
+                }
+            }
+        }
     }
 
     private ServiceTicketDTO convertToTicketDTO(ServiceRequest req) {
@@ -91,6 +126,39 @@ public class ServiceDashboardService {
             dto.setCustomerName(c.getFirstName() + " " + c.getLastName());
         });
 
+        customerAddressRepository.findByCustomerIdAndAddressType(req.getCustomerId(), "Service")
+                .or(() -> customerAddressRepository.findFirstByCustomerIdAndAddressTypeOrderByIsPrimaryDesc(req.getCustomerId(), "Billing"))
+                .or(() -> customerAddressRepository.findFirstByCustomerIdOrderByIsPrimaryDesc(req.getCustomerId()))
+                .ifPresent(a -> {
+                    dto.setAddressText((a.getStreet1() + " " + (a.getStreet2() != null ? a.getStreet2() : "") + ", " + a.getCity()).trim());
+                });
+
+        List<CustomerServiceAppointmentDTO> appointments = serviceAppointmentRepository.findByRequestId(req.getRequestId())
+                .stream()
+                .map(this::convertToCustomerAppointmentDTO)
+                .collect(Collectors.toList());
+        dto.setAppointments(appointments);
+
+        return dto;
+    }
+
+    private CustomerServiceAppointmentDTO convertToCustomerAppointmentDTO(ServiceAppointment appt) {
+        CustomerServiceAppointmentDTO dto = new CustomerServiceAppointmentDTO();
+        dto.setAppointmentId(appt.getAppointmentId());
+        dto.setLocationType(appt.getLocationType() != null ? appt.getLocationType().name() : null);
+        dto.setScheduledStart(appt.getScheduledStart());
+        dto.setScheduledEnd(appt.getScheduledEnd());
+        dto.setStatus(appt.getStatus());
+
+        if (appt.getTechnicianUserId() != null) {
+            userAccountRepository.findById(appt.getTechnicianUserId()).ifPresent(ua -> {
+                if (ua.getEmployeeId() != null) {
+                    employeeRepository.findById(ua.getEmployeeId()).ifPresent(emp -> {
+                        dto.setTechnicianName(emp.getFirstName() + " " + emp.getLastName());
+                    });
+                }
+            });
+        }
         return dto;
     }
 
@@ -105,6 +173,8 @@ public class ServiceDashboardService {
         dto.setNotes(appt.getNotes());
 
         serviceRequestRepository.findById(appt.getRequestId()).ifPresent(req -> {
+            dto.setRequestDescription(req.getDescription());
+            dto.setPriority(req.getPriority() != null ? req.getPriority().name() : null);
             customerRepository.findById(req.getCustomerId()).ifPresent(c -> {
                 dto.setCustomerName(c.getFirstName() + " " + c.getLastName());
             });
@@ -112,7 +182,7 @@ public class ServiceDashboardService {
 
         if (appt.getAddressId() != null) {
             customerAddressRepository.findById(Long.valueOf(appt.getAddressId())).ifPresent(a -> {
-                dto.setAddressText((a.getStreet1() + " " + (a.getStreet2() != null ? a.getStreet2() : "") + ", " + a.getCity()).trim());
+                dto.setAddressText((a.getStreet1() + " " + (a.getStreet2() != null ? a.getStreet2() : "") + ", " + a.getCity() + ", " + a.getProvince()).trim());
             });
         }
 

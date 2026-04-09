@@ -1,6 +1,7 @@
 package org.example.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ServiceTicketDTO {
     private Integer requestId;
@@ -10,6 +11,8 @@ public class ServiceTicketDTO {
     private String priority;
     private LocalDateTime createdAt;
     private String description;
+    private String addressText;
+    private List<CustomerServiceAppointmentDTO> appointments;
 
     // Getters and Setters
     public Integer getRequestId() { return requestId; }
@@ -32,4 +35,10 @@ public class ServiceTicketDTO {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getAddressText() { return addressText; }
+    public void setAddressText(String addressText) { this.addressText = addressText; }
+
+    public List<CustomerServiceAppointmentDTO> getAppointments() { return appointments; }
+    public void setAppointments(List<CustomerServiceAppointmentDTO> appointments) { this.appointments = appointments; }
 }

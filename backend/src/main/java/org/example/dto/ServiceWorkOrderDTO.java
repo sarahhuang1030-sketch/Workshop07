@@ -12,6 +12,8 @@ public class ServiceWorkOrderDTO {
     private LocalDateTime scheduledEnd;
     private String status;
     private String notes;
+    private String requestDescription;
+    private String priority;
 
     // Getters and Setters
     public Integer getAppointmentId() { return appointmentId; }
@@ -40,4 +42,10 @@ public class ServiceWorkOrderDTO {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getRequestDescription() { return requestDescription; }
+    public void setRequestDescription(String requestDescription) { this.requestDescription = requestDescription; }
+
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
 }

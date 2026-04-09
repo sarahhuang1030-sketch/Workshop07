@@ -24,19 +24,22 @@ public class ManagerServiceController {
     private final CustomerRepository customerRepository;
     private final EmployeeRepository employeeRepository;
     private final CustomerAddressRepository customerAddressRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public ManagerServiceController(
             ManagerServiceRequestRepository serviceRequestRepository,
             ManagerServiceAppointmentRepository serviceAppointmentRepository,
             CustomerRepository customerRepository,
             EmployeeRepository employeeRepository,
-            CustomerAddressRepository customerAddressRepository
+            CustomerAddressRepository customerAddressRepository,
+            UserAccountRepository userAccountRepository
     ) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceAppointmentRepository = serviceAppointmentRepository;
         this.customerRepository = customerRepository;
         this.employeeRepository = employeeRepository;
         this.customerAddressRepository = customerAddressRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @GetMapping
@@ -93,11 +96,15 @@ public class ManagerServiceController {
 
     // ✅ DELETE
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
 
         if (!serviceRequestRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
+
+        List<ServiceAppointment> appointments = serviceAppointmentRepository.findByRequestId(id);
+        serviceAppointmentRepository.deleteAll(appointments);
 
         serviceRequestRepository.deleteById(id);
         return ResponseEntity.noContent().build();
@@ -130,6 +137,12 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
             @PathVariable Integer requestId,
             @RequestBody ManagerServiceAppointmentDTO dto
     ) {
+        if (dto.getTechnicianUserId() == null || dto.getAddressId() == null ||
+            dto.getScheduledStart() == null || dto.getScheduledEnd() == null ||
+            dto.getScheduledEnd().isBefore(dto.getScheduledStart())) {
+            return ResponseEntity.badRequest().build();
+        }
+
         try {
             ServiceAppointment appointment = new ServiceAppointment();
 
@@ -165,6 +178,12 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
 
         if (!existing.getRequestId().equals(requestId)) {
             return ResponseEntity.notFound().build();
+        }
+
+        if (dto.getTechnicianUserId() == null || dto.getAddressId() == null ||
+            dto.getScheduledStart() == null || dto.getScheduledEnd() == null ||
+            dto.getScheduledEnd().isBefore(dto.getScheduledStart())) {
+            return ResponseEntity.badRequest().build();
         }
 
         try {
@@ -256,7 +275,8 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
 
         dto.setCreatedByName(
                 request.getCreatedByUserId() != null
-                        ? employeeRepository.findById(request.getCreatedByUserId())
+                        ? userAccountRepository.findById(request.getCreatedByUserId())
+                        .flatMap(ua -> ua.getEmployeeId() != null ? employeeRepository.findById(ua.getEmployeeId()) : java.util.Optional.empty())
                         .map(e -> e.getFirstName() + " " + e.getLastName())
                         .orElse("—")
                         : "—"
@@ -264,7 +284,8 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
 
         dto.setTechnicianName(
                 request.getAssignedTechnicianUserId() != null
-                        ? employeeRepository.findById(request.getAssignedTechnicianUserId())
+                        ? userAccountRepository.findById(request.getAssignedTechnicianUserId())
+                        .flatMap(ua -> ua.getEmployeeId() != null ? employeeRepository.findById(ua.getEmployeeId()) : java.util.Optional.empty())
                         .map(e -> e.getFirstName() + " " + e.getLastName())
                         .orElse("—")
                         : "—"
@@ -309,7 +330,8 @@ private ServiceAppointment.ServiceLocationType parseLocationType(String value) {
 
         dto.setTechnicianName(
                 appointment.getTechnicianUserId() != null
-                        ? employeeRepository.findById(appointment.getTechnicianUserId())
+                        ? userAccountRepository.findById(appointment.getTechnicianUserId())
+                        .flatMap(ua -> ua.getEmployeeId() != null ? employeeRepository.findById(ua.getEmployeeId()) : java.util.Optional.empty())
                         .map(e -> e.getFirstName() + " " + e.getLastName())
                         .orElse("—")
                         : "—"

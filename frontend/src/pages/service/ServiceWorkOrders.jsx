@@ -4,15 +4,18 @@ import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
 function getWorkOrderBadge(status) {
-    const s = String(status || "").toUpperCase();
+    const s = String(status || "").toLowerCase().replace("_", " ");
     switch (s) {
-        case "SCHEDULED":
-        case "ASSIGNED":
+        case "scheduled":
+        case "assigned":
+        case "open":
             return "secondary";
-        case "IN_PROGRESS":
+        case "in progress":
             return "primary";
-        case "COMPLETED":
+        case "completed":
             return "success";
+        case "cancelled":
+            return "danger";
         default:
             return "light";
     }
@@ -182,8 +185,10 @@ export default function ServiceWorkOrders() {
                                                 style={{ width: "130px" }}
                                             >
                                                 <option value="Scheduled">Scheduled</option>
+                                                <option value="Assigned">Assigned</option>
                                                 <option value="In Progress">In Progress</option>
                                                 <option value="Completed">Completed</option>
+                                                <option value="Cancelled">Cancelled</option>
                                             </Form.Select>
                                         </div>
                                     </td>
@@ -222,6 +227,15 @@ export default function ServiceWorkOrders() {
                             </Col>
                             <Col md={12}>
                                 <strong>Address:</strong> {selectedOrder.addressText || "N/A"}
+                        </Col>
+                        <Col md={12}>
+                            <strong>Request Description:</strong>
+                            <p className="mt-1 p-2 bg-light border rounded">
+                                {selectedOrder.requestDescription || "No description."}
+                            </p>
+                        </Col>
+                        <Col md={6}>
+                            <strong>Priority:</strong> <Badge bg={selectedOrder.priority === "High" ? "danger" : selectedOrder.priority === "Medium" ? "warning" : "success"}>{selectedOrder.priority}</Badge>
                             </Col>
                             <Col md={12}>
                                 <strong>Notes:</strong>
@@ -237,8 +251,10 @@ export default function ServiceWorkOrders() {
                                         onChange={(e) => handleStatusUpdate(selectedOrder.appointmentId, e.target.value)}
                                     >
                                         <option value="Scheduled">Scheduled</option>
+                                                <option value="Assigned">Assigned</option>
                                         <option value="In Progress">In Progress</option>
                                         <option value="Completed">Completed</option>
+                                                <option value="Cancelled">Cancelled</option>
                                     </Form.Select>
                                 </Form.Group>
                             </Col>

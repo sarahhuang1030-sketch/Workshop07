@@ -4,16 +4,18 @@ import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
 function getTicketStatusBadge(status) {
-    const s = String(status || "").toUpperCase();
+    const s = String(status || "").toLowerCase().replace("_", " ");
     switch (s) {
-        case "OPEN":
+        case "open":
             return "warning";
-        case "ASSIGNED":
-        case "IN_PROGRESS":
+        case "assigned":
+        case "in progress":
             return "primary";
-        case "COMPLETED":
-        case "RESOLVED":
+        case "completed":
+        case "resolved":
             return "success";
+        case "cancelled":
+            return "danger";
         default:
             return "secondary";
     }
@@ -147,8 +149,11 @@ export default function ServiceTickets() {
                             >
                                 <option value="">All Request Types</option>
                                 <option value="Technical Support">Technical Support</option>
+                                <option value="Billing Inquiry">Billing Inquiry</option>
+                                <option value="Installation">Installation</option>
                                 <option value="Repair">Repair</option>
-                                <option value="Installation Request">Installation</option>
+                                <option value="Upgrade">Upgrade</option>
+                                <option value="Other">Other</option>
                             </Form.Select>
                         </Col>
 
@@ -188,6 +193,7 @@ export default function ServiceTickets() {
                                 <th>Customer</th>
                                 <th>Request Type</th>
                                 <th>Status</th>
+                                <th>Address</th>
                                 <th>Priority</th>
                                 <th>Created At</th>
                                 <th>Actions</th>
@@ -204,6 +210,7 @@ export default function ServiceTickets() {
                                             {ticket.status}
                                         </Badge>
                                     </td>
+                                    <td>{ticket.addressText || "—"}</td>
                                     <td>
                                         <Badge bg={getPriorityBadge(ticket.priority)}>
                                             {ticket.priority}
