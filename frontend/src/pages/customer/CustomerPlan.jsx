@@ -1,5 +1,5 @@
     import React, { useEffect, useState } from "react";
-    import { Container, Card, Row, Col, Spinner, Alert, Badge, Button } from "react-bootstrap";
+    import { Container, Card, Row, Col, Spinner, Alert, Badge, Button, Table } from "react-bootstrap";
     import { useNavigate } from "react-router-dom";
     import { Package, ArrowLeft } from "lucide-react";
     import {apiFetch} from "../../services/api.js";
@@ -78,6 +78,7 @@
         const features = details?.features || [];
         const addOns = details?.addOns || [];
         const payments = details?.payments || [];
+        const invoices = details?.invoices || [];
 
         return (
             <Container className="py-4 py-md-5 px-4">
@@ -188,6 +189,51 @@
                                 </ul>
                             ) : (
                                 <div className={`small ${mutedClass}`}>No payments found.</div>
+                            )}
+                        </div>
+
+                        {/* Invoices */}
+                        <div className="mt-4">
+                            <div className="fw-bold mb-2">Recent Invoices</div>
+                            {invoices.length ? (
+                                <div className="table-responsive">
+                                    <Table hover className={`mb-0 ${darkMode ? "table-dark" : ""}`}>
+                                        <thead>
+                                        <tr>
+                                            <th>Invoice #</th>
+                                            <th>Issue Date</th>
+                                            <th>Status</th>
+                                            <th className="text-end">Total</th>
+                                            <th className="text-center">Action</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {invoices.map((inv, idx) => (
+                                            <tr key={inv.invoiceNumber}>
+                                                <td>{inv.invoiceNumber}</td>
+                                                <td>{inv.issueDate}</td>
+                                                <td>
+                                                    <Badge bg={inv.status === "PAID" ? "success" : "warning"}>
+                                                        {inv.status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="text-end">{formatMoney(inv.total)}</td>
+                                                <td className="text-center">
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        onClick={() => navigate(`/customer/invoice/${inv.invoiceNumber}`)}
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        </tbody>
+                                    </Table>
+                                </div>
+                            ) : (
+                                <div className={`small ${mutedClass}`}>No invoices found.</div>
                             )}
                         </div>
                     </Card.Body>

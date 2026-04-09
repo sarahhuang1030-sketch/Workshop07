@@ -10,4 +10,5 @@ import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payments, Integer> {
     List<Payments> findByInvoiceId(Integer invoiceId);
+    List<Payments> findByCustomerIdOrderByPaymentDateDesc(Integer customerId);
 }

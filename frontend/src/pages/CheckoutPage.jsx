@@ -250,6 +250,36 @@ export default function CheckoutPage() {
                 return;
             }
 
+            const cartItems = [];
+            plans.forEach(p => cartItems.push({
+                id: p.planId,
+                name: p.planName,
+                itemType: "plan",
+                quantity: 1,
+                unitPrice: Number(p.totalPrice ?? p.price ?? p.monthlyPrice ?? 0),
+                lineTotal: Number(p.totalPrice ?? p.price ?? p.monthlyPrice ?? 0),
+                description: p.planName
+            }));
+            addOns.forEach(a => cartItems.push({
+                id: a.addOnId,
+                name: a.addOnName,
+                itemType: "addon",
+                quantity: 1,
+                unitPrice: Number(a.monthlyPrice ?? a.price ?? 0),
+                lineTotal: Number(a.monthlyPrice ?? a.price ?? 0),
+                description: a.addOnName
+            }));
+            devices.forEach(d => cartItems.push({
+                id: d.phoneId,
+                phoneId: d.phoneId,
+                name: d.model,
+                itemType: "device",
+                quantity: 1,
+                unitPrice: d.pricingType === "monthly" ? Number(d.monthlyPrice ?? 0) : Number(d.fullPrice ?? 0),
+                lineTotal: d.pricingType === "monthly" ? Number(d.monthlyPrice ?? 0) : Number(d.fullPrice ?? 0),
+                description: d.model
+            }));
+
             const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -261,7 +291,7 @@ export default function CheckoutPage() {
                     billingCycle: pricing.hasRecurringItems ? billingCycle : "one-time",
                     paymentIntentId: result.paymentIntent.id,
                     quoteId: quoteId || null,
-                    items: [],
+                    items: cartItems,
                     ...billingAddress
                 }),
             });
