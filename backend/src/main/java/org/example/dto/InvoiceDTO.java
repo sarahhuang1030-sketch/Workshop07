@@ -12,6 +12,8 @@ public class InvoiceDTO {
     public String status;
     public String issueDate;
     public String dueDate;
+    public String startDate;
+    public String endDate;
 
     public BigDecimal subtotal;
     public BigDecimal taxTotal;
@@ -80,5 +82,7 @@ public class InvoiceDTO {
         public BigDecimal unitPrice;
         public BigDecimal discountAmount;
         public BigDecimal lineTotal;
+        public String itemType;
+        public String serviceType;
     }
 }

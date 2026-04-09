@@ -28,6 +28,9 @@ export default function SalesPlanFeature({ darkMode = false }) {
     const [showModal, setShowModal] = useState(false);
     const [editingFeature, setEditingFeature] = useState(null);
 
+    const [plans, setPlans] = useState([]);
+    const [templates, setTemplates] = useState([]);
+
     const [formData, setFormData] = useState({
         planId: "",
         featureName: "",
@@ -56,8 +59,29 @@ export default function SalesPlanFeature({ darkMode = false }) {
         }
     }
 
+    async function loadDependencies() {
+        try {
+            const [planRes, tempRes] = await Promise.all([
+                apiFetch("/api/manager/plans"),
+                apiFetch("/api/manager/plans/features/templates")
+            ]);
+
+            if (planRes.ok) {
+                const data = await planRes.json();
+                setPlans(Array.isArray(data) ? data : []);
+            }
+            if (tempRes.ok) {
+                const data = await tempRes.json();
+                setTemplates(Array.isArray(data) ? data : []);
+            }
+        } catch (err) {
+            console.error("Failed to load dependencies", err);
+        }
+    }
+
     useEffect(() => {
         loadFeatures();
+        loadDependencies();
     }, []);
 
     const filteredFeatures = useMemo(() => {
@@ -288,22 +312,53 @@ export default function SalesPlanFeature({ darkMode = false }) {
                     <Modal.Body>
                         <Form.Group className="mb-3">
                             <Form.Label>Plan</Form.Label>
-                            <Form.Control
-                                type="number"
+                            <Form.Select
                                 name="planId"
                                 value={formData.planId}
                                 onChange={handleChange}
                                 required
-                            />
+                            >
+                                <option value="">Select Plan</option>
+                                {plans.map(p => (
+                                    <option key={p.planId} value={p.planId}>
+                                        {p.planName}
+                                    </option>
+                                ))}
+                            </Form.Select>
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label>Feature Name</Form.Label>
+                            <Form.Select
+                                name="featureName"
+                                value={formData.featureName}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    const template = templates.find(t => t.featureName === val);
+                                    if (template) {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            featureName: val,
+                                            featureValue: template.featureValue,
+                                            unit: template.unit || ""
+                                        }));
+                                    } else {
+                                        handleChange(e);
+                                    }
+                                }}
+                                required
+                            >
+                                <option value="">Select or Enter Feature Name</option>
+                                {templates.map((t, idx) => (
+                                    <option key={idx} value={t.featureName}>{t.featureName}</option>
+                                ))}
+                            </Form.Select>
                             <Form.Control
+                                className="mt-2"
+                                placeholder="Or enter new feature name..."
                                 type="text"
                                 name="featureName"
                                 value={formData.featureName}
                                 onChange={handleChange}
-                                required
                             />
                         </Form.Group>
 

@@ -34,8 +34,6 @@ public class CheckoutController {
         String username = (authentication != null) ? authentication.getName() : "system";
 
         try {
-            System.out.println("CheckoutRequestDTO V1 received: " + dto);
-
             Invoices invoice = checkoutService.checkout(
                     dto.getPaymentAccountId(),
                     dto.getSubtotal(),

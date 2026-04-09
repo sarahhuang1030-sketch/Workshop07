@@ -28,6 +28,9 @@ export default function SalesSubscription({ darkMode = false }) {
     const [showModal, setShowModal] = useState(false);
     const [editingSubscription, setEditingSubscription] = useState(null);
 
+    const [customers, setCustomers] = useState([]);
+    const [plans, setPlans] = useState([]);
+
     const [formData, setFormData] = useState({
         customerId: "",
         planId: "",
@@ -58,8 +61,36 @@ export default function SalesSubscription({ darkMode = false }) {
         }
     }
 
+    async function loadDependencies() {
+        try {
+            const [custRes, planRes] = await Promise.all([
+                apiFetch("/api/customers/all"),
+                apiFetch("/api/plans?type=Internet&includeAddOns=false"), // Just to get all plans, maybe /api/manager/plans is better
+            ]);
+
+            // Try manager plans for full list
+            const manPlanRes = await apiFetch("/api/manager/plans");
+
+            if (custRes.ok) {
+                const custData = await custRes.json();
+                setCustomers(Array.isArray(custData) ? custData : []);
+            }
+
+            if (manPlanRes.ok) {
+                const planData = await manPlanRes.json();
+                setPlans(Array.isArray(planData) ? planData : []);
+            } else if (planRes.ok) {
+                const planData = await planRes.json();
+                setPlans(Array.isArray(planData) ? planData : []);
+            }
+        } catch (err) {
+            console.error("Failed to load dependencies", err);
+        }
+    }
+
     useEffect(() => {
         loadSubscriptions();
+        loadDependencies();
     }, []);
 
     const filteredSubscriptions = useMemo(() => {
@@ -416,13 +447,19 @@ export default function SalesSubscription({ darkMode = false }) {
                                     disabled
                                 />
                             ) : (
-                                <Form.Control
-                                    type="number"
+                                <Form.Select
                                     name="customerId"
                                     value={formData.customerId}
                                     onChange={handleChange}
                                     required
-                                />
+                                >
+                                    <option value="">Select Customer</option>
+                                    {customers.map(c => (
+                                        <option key={c.customerId} value={c.customerId}>
+                                            {c.firstName} {c.lastName} ({c.email})
+                                        </option>
+                                    ))}
+                                </Form.Select>
                             )}
                         </Form.Group>
 
@@ -436,13 +473,19 @@ export default function SalesSubscription({ darkMode = false }) {
                                     disabled
                                 />
                             ) : (
-                                <Form.Control
-                                    type="number"
+                                <Form.Select
                                     name="planId"
                                     value={formData.planId}
                                     onChange={handleChange}
                                     required
-                                />
+                                >
+                                    <option value="">Select Plan</option>
+                                    {plans.map(p => (
+                                        <option key={p.planId} value={p.planId}>
+                                            {p.planName}
+                                        </option>
+                                    ))}
+                                </Form.Select>
                             )}
                         </Form.Group>
 

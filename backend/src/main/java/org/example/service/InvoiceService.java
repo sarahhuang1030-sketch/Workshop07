@@ -109,6 +109,8 @@ public class InvoiceService {
             entity.setInvoice(savedInvoice);
             entity.setDescription(item.getName());
             entity.setQuantity(item.getQuantity() == null ? 1 : item.getQuantity());
+            entity.setItemType(item.getType());
+            entity.setServiceType(item.getServiceType());
 
             if (item.getPrice() != null) {
                 entity.setUnitPrice(BigDecimal.valueOf(item.getPrice()));
@@ -267,6 +269,13 @@ public class InvoiceService {
         dto.issueDate = invoice.getIssueDate() != null ? invoice.getIssueDate().toString() : null;
         dto.dueDate = invoice.getDueDate() != null ? invoice.getDueDate().toString() : null;
 
+        if (invoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(invoice.getSubscriptionId()).ifPresent(sub -> {
+                dto.startDate = sub.getStartDate() != null ? sub.getStartDate().toString() : null;
+                dto.endDate = sub.getEndDate() != null ? sub.getEndDate().toString() : null;
+            });
+        }
+
         dto.subtotal = BigDecimal.valueOf(invoice.getSubtotal() == null ? 0.0 : invoice.getSubtotal());
         dto.taxTotal = BigDecimal.valueOf(invoice.getTaxTotal() == null ? 0.0 : invoice.getTaxTotal());
         dto.total = BigDecimal.valueOf(invoice.getTotal() == null ? 0.0 : invoice.getTotal());
@@ -290,6 +299,8 @@ public class InvoiceService {
                     itemDTO.unitPrice = i.getUnitPrice();
                     itemDTO.discountAmount = i.getDiscountAmount();
                     itemDTO.lineTotal = i.getLineTotal();
+                    itemDTO.itemType = i.getItemType();
+                    itemDTO.serviceType = i.getServiceType();
                     return itemDTO;
                 })
                 .toList();

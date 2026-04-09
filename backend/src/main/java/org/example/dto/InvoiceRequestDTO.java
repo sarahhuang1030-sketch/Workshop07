@@ -1,6 +1,7 @@
 package org.example.dto;
 
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class InvoiceRequestDTO {
     public Integer customerId;
@@ -13,6 +14,7 @@ public class InvoiceRequestDTO {
     public Double total;
     public Integer paymentAccountId;
 
+    @JsonProperty("items")
     private List<ItemDTO> items;
 
     public Integer getCustomerId() {

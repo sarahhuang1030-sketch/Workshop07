@@ -121,7 +121,9 @@ export default function CustomerBilling({ darkMode = false }) {
                     <Table bordered hover responsive className={darkMode ? "table-dark" : ""}>
                         <thead>
                         <tr>
-                            <th>Description</th>
+                            <th>Item Type</th>
+                            <th>Service Type</th>
+                            <th>Details</th>
                             <th>Qty</th>
                             <th>Price</th>
                             <th>Discount</th>
@@ -132,6 +134,8 @@ export default function CustomerBilling({ darkMode = false }) {
                         <tbody>
                         {invoice.items.map((item, i) => (
                             <tr key={i}>
+                                <td className="text-capitalize">{item.itemType || "—"}</td>
+                                <td className="text-capitalize">{item.serviceType || "—"}</td>
                                 <td>{item.description}</td>
                                 <td>{item.quantity}</td>
                                 <td>{formatMoney(item.unitPrice)}</td>

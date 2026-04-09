@@ -53,6 +53,9 @@ export default function SubscriptionPage({ darkMode = false }) {
 
     const hasInvoice = latestInvoice?.items?.length > 0;
 
+    const mainPlan = latestInvoice?.items?.find(item => item.itemType === "plan");
+    const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon");
+
     return (
         <Container className="py-4 py-md-5 px-4">
             <Card className={cardBase} style={{ borderRadius: 22 }}>
@@ -94,25 +97,45 @@ export default function SubscriptionPage({ darkMode = false }) {
                                 {hasInvoice ? (
                                     <div className="mt-2">
                                         {/* Display main plan */}
-                                        <div
-                                            className={`${darkMode ? "text-light" : "text-dark"}`}
-                                            style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: 4 }}
-                                        >
-                                            {latestInvoice.items[0].description} (
-                                            {formatMoney(latestInvoice.items[0].lineTotal)})
-                                        </div>
+                                        {mainPlan && (
+                                            <div
+                                                className={`${darkMode ? "text-light" : "text-dark"}`}
+                                                style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: 4 }}
+                                            >
+                                                {mainPlan.description} ({formatMoney(mainPlan.lineTotal)})
+                                            </div>
+                                        )}
 
                                         {/* Display add-ons */}
-                                        {latestInvoice.items.length > 1 &&
-                                            latestInvoice.items.slice(1).map((item, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`${darkMode ? "text-light" : "text-dark"}`}
-                                                    style={{ fontSize: "0.95rem", marginBottom: 2 }}
-                                                >
-                                                    • {item.description} ({formatMoney(item.lineTotal)})
-                                                </div>
-                                            ))}
+                                        {addOnsItems?.map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`${darkMode ? "text-light" : "text-dark"}`}
+                                                style={{ fontSize: "0.95rem", marginBottom: 2 }}
+                                            >
+                                                • {item.description} ({formatMoney(item.lineTotal)})
+                                            </div>
+                                        ))}
+
+                                        {/* Fallback if no specific plan/addon tagged items but items exist */}
+                                        {!mainPlan && latestInvoice.items.length > 0 && (
+                                            <div
+                                                className={`${darkMode ? "text-light" : "text-dark"}`}
+                                                style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: 4 }}
+                                            >
+                                                {latestInvoice.items[0].description} ({formatMoney(latestInvoice.items[0].lineTotal)})
+                                            </div>
+                                        )}
+
+                                        {/* Date information from latest invoice */}
+                                        <div className={`mt-3 small ${mutedClass}`}>
+                                            <div>
+                                                <strong>Start Date:</strong> {latestInvoice.startDate || "—"}
+                                            </div>
+                                            <div>
+                                                <strong>End Date:</strong> {latestInvoice.endDate || "—"}
+                                            </div>
+                                        </div>
 
                                         {/* Button: Navigate to full invoice page */}
                                         <Button

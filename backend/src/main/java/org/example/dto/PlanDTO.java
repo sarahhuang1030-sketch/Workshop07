@@ -6,7 +6,8 @@ public record PlanDTO(
         String planName,
         double monthlyPrice,
         String tagline,
-       // List<String> perks
+        String serviceType,
+        // List<String> perks
         // structured: Data/Calling/Speed/etc. (excluding Perk)
         List<PlanFeatureDTO> features,
 

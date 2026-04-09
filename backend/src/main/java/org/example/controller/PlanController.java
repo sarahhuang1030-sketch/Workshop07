@@ -76,6 +76,7 @@ public class PlanController {
                     p.planName(),
                     p.monthlyPrice(),
                     p.tagline(),
+                    p.serviceType(),
                     structured,
                     perks,
                     addOnsByPlan.getOrDefault(p.planId(), List.of())
