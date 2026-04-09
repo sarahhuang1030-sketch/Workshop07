@@ -1,11 +1,12 @@
 package org.example.controller;
 
-import org.example.dto.SendMessageRequestDTO;
 import org.example.dto.ChatRequestDTO;
+import org.example.dto.SendMessageRequestDTO;
 import org.example.model.ChatMessage;
 import org.example.model.Conversation;
 import org.example.repository.ChatMessageRepository;
 import org.example.repository.ConversationRepository;
+import org.example.service.ChatNotificationService;
 import org.example.service.ChatRequestService;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,13 +21,16 @@ public class ChatController {
     private final ConversationRepository conversationRepo;
     private final ChatMessageRepository messageRepo;
     private final ChatRequestService chatRequestService;
+    private final ChatNotificationService chatNotificationService;
 
     public ChatController(ConversationRepository conversationRepo,
                           ChatMessageRepository messageRepo,
-                          ChatRequestService chatRequestService) {
+                          ChatRequestService chatRequestService,
+                          ChatNotificationService chatNotificationService) {
         this.conversationRepo = conversationRepo;
         this.messageRepo = messageRepo;
         this.chatRequestService = chatRequestService;
+        this.chatNotificationService = chatNotificationService;
     }
 
     private static final DateTimeFormatter CHAT_TIME_FMT =
@@ -173,6 +177,11 @@ public class ChatController {
 
         conversation.setLastMessageAt(saved.getSentAt());
         conversationRepo.save(conversation);
+
+        System.out.println("[CHAT API] Message saved for conversation " + conversationId);
+        System.out.println("[CHAT API] About to notify websocket listeners");
+        chatNotificationService.notifyNewMessage(saved);
+        System.out.println("[CHAT API] Websocket notify finished");
 
         return saved;
     }
