@@ -13,7 +13,7 @@ public class ServiceWorkOrderDTO {
     private String status;
     private String notes;
 
-    // 🔴 NEW
+
     private String requestDescription;
     private String priority;
 
@@ -44,7 +44,7 @@ public class ServiceWorkOrderDTO {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
-    // 🔴 NEW
+
     public String getRequestDescription() { return requestDescription; }
     public void setRequestDescription(String requestDescription) { this.requestDescription = requestDescription; }
 

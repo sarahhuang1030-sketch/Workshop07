@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert, 
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-// 🔥 FIXED STATUS COLORS
+// FIXED STATUS COLORS
 function getWorkOrderBadge(status) {
     const s = String(status || "").toLowerCase();
 
@@ -189,7 +189,7 @@ export default function ServiceWorkOrders() {
                                                 Details
                                             </Button>
 
-                                            {/* 🔥 FIXED DROPDOWN */}
+                                            {/* FIXED DROPDOWN */}
                                             <Form.Select
                                                 size="sm"
                                                 value={order.status}
@@ -244,7 +244,7 @@ export default function ServiceWorkOrders() {
                                 </p>
                             </Col>
 
-                            {/* 🔥 FIXED MODAL DROPDOWN */}
+                            {/*  FIXED MODAL DROPDOWN */}
                             <Col md={12}>
                                 <Form.Group>
                                     <Form.Label><strong>Update Status:</strong></Form.Label>

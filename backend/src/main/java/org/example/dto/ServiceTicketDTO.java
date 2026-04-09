@@ -12,7 +12,7 @@ public class ServiceTicketDTO {
     private LocalDateTime createdAt;
     private String description;
 
-    // 🔴 NEW: appointments (work orders under ticket)
+    // appointments (work orders under ticket)
     private List<ServiceWorkOrderDTO> appointments;
 
     public Integer getRequestId() { return requestId; }
@@ -36,7 +36,7 @@ public class ServiceTicketDTO {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    // 🔴 NEW
+
     public List<ServiceWorkOrderDTO> getAppointments() { return appointments; }
     public void setAppointments(List<ServiceWorkOrderDTO> appointments) { this.appointments = appointments; }
 }
