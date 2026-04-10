@@ -80,6 +80,8 @@ import RequireAuth from "./components/auth/RequireAuth";
 function mapMeToUser(meResponse) {
     const isOAuth = !!meResponse?.provider || !!meResponse?.attributes;
 
+    const dbUserId = meResponse?.userId ?? null;   // 🔥 ADD THIS LINE
+
     const dbCustomerId = meResponse?.customerId ?? null;
     const dbEmployeeId = meResponse?.employeeId ?? null;
     const dbFirstName = meResponse?.firstName ?? null;
@@ -132,6 +134,7 @@ function mapMeToUser(meResponse) {
     return {
         authType: isOAuth ? "oauth" : "local",
         provider: isOAuth ? meResponse?.provider || null : null,
+        userId: dbUserId,
         customerId: dbCustomerId,
         employeeId: dbEmployeeId,
         role: dbRole,

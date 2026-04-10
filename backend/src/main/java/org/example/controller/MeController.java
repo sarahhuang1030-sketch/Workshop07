@@ -185,6 +185,7 @@ public class MeController {
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("name", principal.getName());
             out.put("lookupKey", key);
+            out.put("userId", ua.getUserId());
             out.put("employeeId", ua.getEmployeeId());
             out.put("customerId", ua.getCustomerId());
             out.put("role", ua.getEmployeeId() != null ? "EMPLOYEE" :
