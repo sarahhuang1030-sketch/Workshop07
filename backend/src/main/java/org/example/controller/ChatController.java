@@ -204,4 +204,18 @@ public class ChatController {
         result.put("status", conversation.getStatus());
         return result;
     }
+
+    // =========================
+    // MARK AS READ
+    // =========================
+    @PostMapping("/{conversationId}/mark-read")
+    public void markConversationRead(
+            @PathVariable int conversationId,
+            @RequestParam int viewerUserId
+    ) {
+        messageRepo.markMessagesAsRead(conversationId, viewerUserId);
+
+        System.out.println("[CHAT API] Marked messages as read for convo="
+                + conversationId + ", viewer=" + viewerUserId);
+    }
 }

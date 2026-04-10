@@ -2,7 +2,10 @@ package org.example.repository;
 
 import org.example.model.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -18,6 +21,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Intege
     );
 
     // Mark messages as read (bulk update)
+    @Transactional
+    @Modifying
     @Query("""
         UPDATE ChatMessage m
         SET m.isRead = true
@@ -25,5 +30,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Intege
           AND m.toUserId = :viewerUserId
           AND m.isRead = false
     """)
-    int markMessagesAsRead(Integer conversationId, Integer viewerUserId);
+    int markMessagesAsRead(@Param("conversationId") Integer conversationId,
+                           @Param("viewerUserId") Integer viewerUserId);
 }
