@@ -1,18 +1,24 @@
 package org.example.controller;
 
+import org.example.dto.AddOnDTO;
 import org.example.dto.ManagerSubscriptionDTO;
 import org.example.dto.SubscriptionAddOnDTO;
-import org.example.dto.AddOnDTO;
 import org.example.model.Customer;
 import org.example.model.Plan;
 import org.example.model.Subscription;
+import org.example.model.SubscriptionAddOn;
 import org.example.model.UserAccount;
-import org.example.repository.*;
+import org.example.repository.AddOnRepository;
+import org.example.repository.CustomerRepository;
+import org.example.repository.PlanRepository;
+import org.example.repository.SubscriptionAddOnRepository;
+import org.example.repository.SubscriptionRepository;
+import org.example.repository.UserAccountRepository;
 import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.example.model.SubscriptionAddOn;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +57,6 @@ public class ManagerSubscriptionController {
     @GetMapping
     public List<ManagerSubscriptionDTO> getAll() {
 
-        // Build add-on name lookup map
         Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns()
                 .stream()
                 .filter(a -> a != null)
@@ -61,9 +66,15 @@ public class ManagerSubscriptionController {
                         (a, b) -> a
                 ));
 
-        // =========================================================
-        // OPTIMIZED QUERY (NO N+1)
-        // =========================================================
+        Map<Integer, BigDecimal> addOnPriceMap = addOnRepository.findAllActiveAddOns()
+                .stream()
+                .filter(a -> a != null)
+                .collect(Collectors.toMap(
+                        AddOnDTO::addOnId,
+                        a -> BigDecimal.valueOf(a.monthlyPrice()),
+                        (x, y) -> x
+                ));
+
         return subscriptionRepository.findAllWithRelationsRaw().stream().map(row -> {
 
             Object[] sub = (Object[]) row;
@@ -78,9 +89,6 @@ public class ManagerSubscriptionController {
 
             ManagerSubscriptionDTO dto = new ManagerSubscriptionDTO();
 
-            // ===============================
-            // BASIC FIELDS
-            // ===============================
             Integer subscriptionId = (Integer) sub[0];
             Integer customerId = (Integer) sub[1];
             Integer planId = (Integer) sub[2];
@@ -89,10 +97,6 @@ public class ManagerSubscriptionController {
             dto.setCustomerId(customerId);
             dto.setPlanId(planId);
 
-            // ===============================
-            // DATE CONVERSION FIX (IMPORTANT)
-            // SQL returns java.sql.Date -> convert to LocalDate
-            // ===============================
             LocalDate startDate = sub[3] == null
                     ? null
                     : ((java.sql.Date) sub[3]).toLocalDate();
@@ -101,58 +105,44 @@ public class ManagerSubscriptionController {
                     ? null
                     : ((java.sql.Date) sub[4]).toLocalDate();
 
-            // ===============================
-            // CUSTOMER OBJECT (FROM RAW JOIN)
-            // ===============================
             Customer customer = new Customer();
-            if (sub.length > 8 && sub[8] != null)
+            if (sub.length > 8 && sub[8] != null) {
                 customer.setCustomerId((Integer) sub[8]);
-
-            if (sub.length > 9)
+            }
+            if (sub.length > 9) {
                 customer.setBusinessName((String) sub[9]);
-
-            if (sub.length > 10)
+            }
+            if (sub.length > 10) {
                 customer.setFirstName((String) sub[10]);
-
-            if (sub.length > 11)
+            }
+            if (sub.length > 11) {
                 customer.setLastName((String) sub[11]);
+            }
 
-            // ===============================
-            // PLAN OBJECT (FROM RAW JOIN)
-            // ===============================
             Plan plan = new Plan();
-            if (sub.length > 12 && sub[12] != null)
+            if (sub.length > 12 && sub[12] != null) {
                 plan.setPlanId((Integer) sub[12]);
-
-            if (sub.length > 13)
+            }
+            if (sub.length > 13) {
                 plan.setPlanName((String) sub[13]);
+            }
+            if (sub.length > 14 && sub[14] != null) {
+                plan.setMonthlyPrice((BigDecimal) sub[14]);
+            }
 
-            if (sub.length > 14 && sub[14] != null)
-                plan.setMonthlyPrice((java.math.BigDecimal) sub[14]);
-
-            // ===============================
-            // SUBSCRIPTION OBJECT (TEMP ONLY)
-            // ===============================
             Subscription subscription = new Subscription();
             subscription.setSubscriptionId(subscriptionId);
             subscription.setCustomerId(customerId);
             subscription.setPlanId(planId);
-
-            // FIX: safe LocalDate assignment (NO CAST)
             subscription.setStartDate(startDate);
             subscription.setEndDate(endDate);
-
             subscription.setStatus((String) sub[5]);
             subscription.setBillingCycleDay((Integer) sub[6]);
             subscription.setNotes((String) sub[7]);
 
-            // attach virtual relations
             subscription.setCustomer(customer);
             subscription.setPlan(plan);
 
-            // ===============================
-            // DTO MAPPING (UNCHANGED LOGIC)
-            // ===============================
             if (customer != null) {
                 if (customer.getBusinessName() != null && !customer.getBusinessName().isBlank()) {
                     dto.setCustomerName(customer.getBusinessName());
@@ -165,6 +155,7 @@ public class ManagerSubscriptionController {
 
             if (plan != null) {
                 dto.setPlanName(plan.getPlanName());
+                dto.setMonthlyPrice(plan.getMonthlyPrice());
             }
 
             dto.setStartDate(startDate);
@@ -173,9 +164,6 @@ public class ManagerSubscriptionController {
             dto.setBillingCycleDay(subscription.getBillingCycleDay());
             dto.setNotes(subscription.getNotes());
 
-            // ===============================
-            // ADD-ONS (UNCHANGED)
-            // ===============================
             List<SubscriptionAddOnDTO> addons = subscriptionAddOnRepository
                     .findBySubscriptionId(subscriptionId)
                     .stream()
@@ -184,6 +172,7 @@ public class ManagerSubscriptionController {
                         a.setSubscriptionAddOnId(sa.getSubscriptionAddOnId());
                         a.setAddOnId(sa.getAddOnId());
                         a.setAddOnName(addOnNameMap.get(sa.getAddOnId()));
+                        a.setPrice(addOnPriceMap.getOrDefault(sa.getAddOnId(), BigDecimal.ZERO));
                         a.setStartDate(sa.getStartDate());
                         a.setEndDate(sa.getEndDate());
                         a.setStatus(sa.getStatus());
@@ -198,9 +187,6 @@ public class ManagerSubscriptionController {
         }).toList();
     }
 
-    /* =========================================================
-     * UPDATE STATUS
-     * ========================================================= */
     @PatchMapping("/{id}/status")
     public Subscription updateStatus(
             @PathVariable Integer id,
@@ -225,9 +211,6 @@ public class ManagerSubscriptionController {
         return saved;
     }
 
-    /* =========================================================
-     * CREATE SUBSCRIPTION
-     * ========================================================= */
     @PostMapping
     public Subscription create(
             @RequestBody Subscription body,
@@ -250,11 +233,7 @@ public class ManagerSubscriptionController {
         return saved;
     }
 
-    /* =========================================================
-     * HELPER: GET CURRENT EMPLOYEE ID
-     * ========================================================= */
     private Integer getCurrentEmployeeId(Authentication authentication) {
-
         String username = authentication.getName();
 
         UserAccount ua = userAccountRepository.findByUsername(username)
@@ -267,9 +246,6 @@ public class ManagerSubscriptionController {
         return ua.getEmployeeId();
     }
 
-    /* =========================================================
-     * UPDATE SUBSCRIPTION
-     * ========================================================= */
     @PutMapping("/{id}")
     public Subscription update(
             @PathVariable Integer id,
@@ -301,83 +277,50 @@ public class ManagerSubscriptionController {
         return saved;
     }
 
-    /* =========================================================
-     * DELETE SUBSCRIPTION
-     * ========================================================= */
-//    @DeleteMapping("/{id}")
-//    public void delete(
-//            @PathVariable Integer id,
-//            Authentication authentication
-//    ) {
-//
-//        Subscription sub = subscriptionRepository.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Subscription not found"));
-//
-//        String username = authentication.getName();
-//
-//        String target = "Subscription " + sub.getSubscriptionId()
-//                + " (Customer " + sub.getCustomerId()
-//                + ", Plan " + sub.getPlanId() + ")";
-//
-////        List<SubscriptionAddOn> addOns =
-////                subscriptionAddOnRepository.findBySubscriptionId(id);
-//
-//        List<SubscriptionAddOn> addonsEntity = sub.getSubscriptionAddOns();
-//
-//        if (addOns != null && !addOns.isEmpty()) {
-//            subscriptionAddOnRepository.deleteAll(addOns);
-//        }
-//
-//        subscriptionRepository.deleteById(id);
-//
-//        auditService.log("Subscription", "Delete", target, username);
-//    }
+    @DeleteMapping("/{id}")
+    public void delete(
+            @PathVariable Integer id,
+            Authentication authentication
+    ) {
 
-        @DeleteMapping("/{id}")
-        public void delete(
-                @PathVariable Integer id,
-                Authentication authentication
-        ) {
+        Subscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
 
-            Subscription sub = subscriptionRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Subscription not found"));
+        String username = authentication.getName();
 
-            String username = authentication.getName();
+        String target = "Subscription " + sub.getSubscriptionId()
+                + " (Customer " + sub.getCustomerId()
+                + ", Plan " + sub.getPlanId() + ")";
 
-            String target = "Subscription " + sub.getSubscriptionId()
-                    + " (Customer " + sub.getCustomerId()
-                    + ", Plan " + sub.getPlanId() + ")";
+        List<SubscriptionAddOn> addons =
+                subscriptionAddOnRepository.findBySubscriptionId(id);
 
-            // FIX: correct way to fetch add-ons
-            List<SubscriptionAddOn> addons =
-                    subscriptionAddOnRepository.findBySubscriptionId(id);
-
-            if (addons != null && !addons.isEmpty()) {
-                subscriptionAddOnRepository.deleteAll(addons);
-            }
-
-            subscriptionRepository.deleteById(id);
-
-            auditService.log("Subscription", "Delete", target, username);
+        if (addons != null && !addons.isEmpty()) {
+            subscriptionAddOnRepository.deleteAll(addons);
         }
 
-    /* =========================================================
-     * GET BY ID
-     * ========================================================= */
+        subscriptionRepository.deleteById(id);
+
+        auditService.log("Subscription", "Delete", target, username);
+    }
+
     @GetMapping("/{id}")
     public Subscription getById(@PathVariable Integer id) {
         return subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
     }
 
-    /* =========================================================
-     * ADD-ON LIST
-     * ========================================================= */
     @GetMapping("/{subscriptionId}/addons")
     public List<SubscriptionAddOnDTO> getSubscriptionAddOns(@PathVariable Integer subscriptionId) {
 
         Map<Integer, String> addOnNameMap = addOnRepository.findAllActiveAddOns().stream()
                 .collect(Collectors.toMap(AddOnDTO::addOnId, AddOnDTO::addOnName));
+
+        Map<Integer, BigDecimal> addOnPriceMap = addOnRepository.findAllActiveAddOns().stream()
+                .collect(Collectors.toMap(
+                        AddOnDTO::addOnId,
+                        a -> BigDecimal.valueOf(a.monthlyPrice())
+                ));
 
         return subscriptionAddOnRepository.findBySubscriptionId(subscriptionId)
                 .stream()
@@ -386,6 +329,7 @@ public class ManagerSubscriptionController {
                     dto.setSubscriptionAddOnId(sa.getSubscriptionAddOnId());
                     dto.setAddOnId(sa.getAddOnId());
                     dto.setAddOnName(addOnNameMap.get(sa.getAddOnId()));
+                    dto.setPrice(addOnPriceMap.getOrDefault(sa.getAddOnId(), BigDecimal.ZERO));
                     dto.setStartDate(sa.getStartDate());
                     dto.setEndDate(sa.getEndDate());
                     dto.setStatus(sa.getStatus());
@@ -394,9 +338,6 @@ public class ManagerSubscriptionController {
                 .toList();
     }
 
-    /* =========================================================
-     * ATTACH ADD-ON
-     * ========================================================= */
     @PostMapping("/{subscriptionId}/addons/{addOnId}")
     public void attachAddOnToSubscription(
             @PathVariable Integer subscriptionId,
@@ -443,9 +384,6 @@ public class ManagerSubscriptionController {
         );
     }
 
-    /* =========================================================
-     * REMOVE ADD-ON
-     * ========================================================= */
     @DeleteMapping("/{subscriptionId}/addons/{addOnId}")
     public void removeAddOnFromSubscription(
             @PathVariable Integer subscriptionId,

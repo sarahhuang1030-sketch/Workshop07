@@ -1,5 +1,6 @@
 package org.example.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class ManagerSubscriptionDTO {
 
     private String customerName;
     private String planName;
+    private BigDecimal monthlyPrice;
 
     public String getCustomerName() {
         return customerName;
@@ -103,5 +105,13 @@ public class ManagerSubscriptionDTO {
 
     public void setAddons(List<SubscriptionAddOnDTO> addons) {
         this.addons = addons;
+    }
+
+    public BigDecimal getMonthlyPrice() {
+        return monthlyPrice;
+    }
+
+    public void setMonthlyPrice(BigDecimal monthlyPrice) {
+        this.monthlyPrice = monthlyPrice;
     }
 }
