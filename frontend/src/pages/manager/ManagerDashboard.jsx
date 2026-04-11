@@ -12,7 +12,8 @@ import {
     ArrowRight,
     FileText,
     TrendingUp,
-    Clock
+    Clock,
+    Box
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
@@ -484,6 +485,8 @@ export default function ManagerDashboard({ darkMode = false }) {
 
                 </Col>
 
+
+
                 <Col xs={12} md={6}>
                     <ManageCard
                         darkMode={darkMode}
@@ -508,45 +511,23 @@ export default function ManagerDashboard({ darkMode = false }) {
                     />
                 </Col>
 
-                {/*<Col xs={12} md={6} lg={4}>*/}
-                {/*    <ManageCard*/}
-                {/*        darkMode={darkMode}*/}
-                {/*        title="Manage Add-ons"*/}
-                {/*        desc="Create/edit add-ons and control availability."*/}
-                {/*        icon={Puzzle}*/}
-                {/*        badge="Catalog"*/}
-                {/*        to="/manager/addons"*/}
-                {/*        onGo={go}*/}
-                {/*    />*/}
-                {/*</Col>*/}
-
-                {/*<Col xs={12} md={6} lg={4}>*/}
-                {/*    <ManageCard*/}
-                {/*        darkMode={darkMode}*/}
-                {/*        title="Reports"*/}
-                {/*        desc="Revenue by plan, churn, growth, past-due trends."*/}
-                {/*        icon={FileBarChart2}*/}
-                {/*        badge="KPIs"*/}
-                {/*        to="/manager/reports"*/}
-                {/*        onGo={go}*/}
-                {/*    />*/}
-                {/*</Col>*/}
+                <Col md={6}>
+                    <ManageCard
+                        title="Custom Bundle"
+                        desc="Create personalized bundle for customer"
+                        icon={Box}
+                        badge="New"
+                        to="/sales/bundle/create"
+                        onGo={go}
+                        darkMode={darkMode}
+                    />
+                </Col>
 
 
-            {/* Reports row */}
-            {/*<Row className="g-3 mt-2">*/}
-            {/*    <Col xs={12} md={6}>*/}
-            {/*        <ManageCard*/}
-            {/*            darkMode={darkMode}*/}
-            {/*            title="Audit Log"*/}
-            {/*            desc="Track who changed plans, subscriptions, roles, and more."*/}
-            {/*            icon={ListChecks}*/}
-            {/*            badge="Security"*/}
-            {/*            to="/manager/audit"*/}
-            {/*            onGo={go}*/}
-            {/*        />*/}
-            {/*    </Col>*/}
-            {/*</Row>*/}
+
+
+
+
             </Row>
         </Container>
     );

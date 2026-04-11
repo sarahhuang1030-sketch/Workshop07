@@ -8,6 +8,7 @@ import {
     Table,
     Spinner,
     Badge,
+    Pagination,
 } from "react-bootstrap";
 import { RefreshCw, Search, Eye } from "lucide-react";
 import { apiFetch } from "../../services/api";
@@ -21,6 +22,9 @@ export default function AuditPage({ darkMode = false }) {
     const [search, setSearch] = useState("");
     const [selectedModule, setSelectedModule] = useState("ALL");
     const [selectedAction, setSelectedAction] = useState("ALL");
+
+    const PAGE_SIZE = 20;
+    const [currentPage, setCurrentPage] = useState(1);
 
     async function fetchAuditLogs(isRefresh = false) {
         try {
@@ -40,6 +44,7 @@ export default function AuditPage({ darkMode = false }) {
 
             const data = await res.json();
             setLogs(Array.isArray(data) ? data : []);
+            setCurrentPage(1);
         } catch (err) {
             console.error("Audit log fetch error:", err);
             setError(err.message || "Failed to load audit logs.");
@@ -84,6 +89,17 @@ export default function AuditPage({ darkMode = false }) {
         });
     }, [logs, search, selectedModule, selectedAction]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, selectedModule, selectedAction]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
+
+    const paginatedLogs = useMemo(() => {
+        const start = (currentPage - 1) * PAGE_SIZE;
+        return filteredLogs.slice(start, start + PAGE_SIZE);
+    }, [filteredLogs, currentPage]);
+
     function formatDateTime(dateValue) {
         if (!dateValue) return "-";
         const date = new Date(dateValue);
@@ -101,6 +117,11 @@ export default function AuditPage({ darkMode = false }) {
         return "secondary";
     }
 
+    function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        setCurrentPage(page);
+    }
+
     const pageClass = darkMode
         ? "bg-dark text-light border-secondary"
         : "bg-white text-dark";
@@ -108,6 +129,9 @@ export default function AuditPage({ darkMode = false }) {
     const inputClass = darkMode
         ? "bg-dark text-light border-secondary"
         : "";
+
+    const startEntry = filteredLogs.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+    const endEntry = Math.min(currentPage * PAGE_SIZE, filteredLogs.length);
 
     return (
         <div className="container py-4">
@@ -184,6 +208,7 @@ export default function AuditPage({ darkMode = false }) {
                                     setSearch("");
                                     setSelectedModule("ALL");
                                     setSelectedAction("ALL");
+                                    setCurrentPage(1);
                                 }}
                             >
                                 Clear
@@ -205,9 +230,13 @@ export default function AuditPage({ darkMode = false }) {
                         </div>
                     ) : (
                         <>
-                            <div className="d-flex justify-content-between align-items-center mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                 <div className={darkMode ? "text-light-50" : "text-muted"}>
-                                    Showing {filteredLogs.length} of {logs.length} logs
+                                    Showing {startEntry}-{endEntry} of {filteredLogs.length} logs
+                                </div>
+
+                                <div className={darkMode ? "text-light-50" : "text-muted"}>
+                                    Page {currentPage} of {totalPages}
                                 </div>
                             </div>
 
@@ -219,7 +248,6 @@ export default function AuditPage({ darkMode = false }) {
                                 >
                                     <thead>
                                     <tr>
-                                        <th>Target</th>
                                         <th>Module</th>
                                         <th>Action</th>
                                         <th>Done By</th>
@@ -228,16 +256,15 @@ export default function AuditPage({ darkMode = false }) {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {filteredLogs.length === 0 ? (
+                                    {paginatedLogs.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="text-center py-4">
+                                            <td colSpan={5} className="text-center py-4">
                                                 No audit logs found.
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredLogs.map((log) => (
+                                        paginatedLogs.map((log) => (
                                             <tr key={log.id}>
-                                                <td>{log.target || "-"}</td>
                                                 <td>{log.module || "-"}</td>
                                                 <td>
                                                     <Badge bg={getActionBadge(log.action)}>
@@ -261,6 +288,55 @@ export default function AuditPage({ darkMode = false }) {
                                     </tbody>
                                 </Table>
                             </div>
+
+                            {filteredLogs.length > PAGE_SIZE && (
+                                <div className="d-flex justify-content-center mt-4">
+                                    <Pagination className="mb-0">
+                                        <Pagination.First
+                                            onClick={() => goToPage(1)}
+                                            disabled={currentPage === 1}
+                                        />
+                                        <Pagination.Prev
+                                            onClick={() => goToPage(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                        />
+
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                            .filter((page) => {
+                                                return (
+                                                    page === 1 ||
+                                                    page === totalPages ||
+                                                    Math.abs(page - currentPage) <= 1
+                                                );
+                                            })
+                                            .map((page, index, arr) => {
+                                                const prevPage = arr[index - 1];
+                                                const showEllipsis = index > 0 && page - prevPage > 1;
+
+                                                return (
+                                                    <React.Fragment key={page}>
+                                                        {showEllipsis && <Pagination.Ellipsis disabled />}
+                                                        <Pagination.Item
+                                                            active={page === currentPage}
+                                                            onClick={() => goToPage(page)}
+                                                        >
+                                                            {page}
+                                                        </Pagination.Item>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+
+                                        <Pagination.Next
+                                            onClick={() => goToPage(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                        />
+                                        <Pagination.Last
+                                            onClick={() => goToPage(totalPages)}
+                                            disabled={currentPage === totalPages}
+                                        />
+                                    </Pagination>
+                                </div>
+                            )}
                         </>
                     )}
                 </Card.Body>
