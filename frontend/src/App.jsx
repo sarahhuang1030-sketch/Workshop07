@@ -140,6 +140,10 @@ function mapMeToUser(meResponse) {
         email: dbEmail || fallbackEmail,
         username: dbUsername || fallbackUsername,
         picture: meResponse?.avatarUrl || meResponse?.oauthPicture || fallbackPicture,
+        employeeActive: meResponse?.employeeActive ?? meResponse?.active ?? null,
+        canUseCustomerFeatures: !!dbCustomerId,
+        canUseEmployeeDashboard:
+            !!dbEmployeeId && (meResponse?.employeeActive ?? meResponse?.active ?? null) === true,
         raw: meResponse,
     };
 }
@@ -276,6 +280,20 @@ export default function App() {
             return;
         }
 
+        const isInactiveEmployee =
+            !!user.employeeId &&
+            user.employeeActive !== true;
+
+        if (isInactiveEmployee) {
+            navigate("/profile", {
+                replace: true,
+                state: {
+                    inactiveMessage: `Hello ${user.firstName || "there"}, your profile is inactive now so you can't access your dashboard.`,
+                },
+            });
+            return;
+        }
+
         if (user.role === "manager") {
             navigate("/manager", { replace: true });
         } else if (user.role === "salesagent") {
@@ -315,6 +333,8 @@ export default function App() {
             setTimeout(() => setIsLoggingOut(false), 300);
         }
     }
+
+
 
     return (
         <Routes>

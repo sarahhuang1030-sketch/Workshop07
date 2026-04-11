@@ -10,9 +10,34 @@ const formatMoney = (n) =>
         ? "—"
         : Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
 
+const formatDate = (dateValue) => {
+    if (!dateValue) return "—";
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toISOString().split("T")[0];
+};
+
+const addMonthsToDate = (dateValue, months) => {
+    if (!dateValue || !months) return "—";
+
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return "—";
+
+    const originalDay = d.getDate();
+    d.setMonth(d.getMonth() + Number(months));
+
+    if (d.getDate() < originalDay) {
+        d.setDate(0);
+    }
+
+    return formatDate(d);
+};
 export default function SubscriptionPage({ darkMode = false }) {
-    const [loading, setLoading] = useState(true); // Loading state for subscription data
-    const [latestInvoice, setLatestInvoice] = useState(null); // Latest invoice data
+    // const [loading, setLoading] = useState(true); // Loading state for subscription data
+    // const [latestInvoice, setLatestInvoice] = useState(null); // Latest invoice data
+    const [loading, setLoading] = useState(true);
+    const [latestInvoice, setLatestInvoice] = useState(null);
+    const [currentPlan, setCurrentPlan] = useState(null);
     const navigate = useNavigate();
 
     // CSS classes for dark/light modes
@@ -23,21 +48,46 @@ export default function SubscriptionPage({ darkMode = false }) {
     useEffect(() => {
         let isMounted = true;
 
-        async function loadLatestInvoice() {
+        async function loadData() {
             try {
-                const res = await apiFetch("/api/invoices/latest");
-                if (res.ok) {
-                    const data = await res.json();
-                    if (isMounted) setLatestInvoice(data);
+                const [invoiceRes, plansRes] = await Promise.all([
+                    apiFetch("/api/invoices/latest"),
+                    apiFetch("/api/me/plans")
+                ]);
+
+                if (invoiceRes.ok) {
+                    const invoiceData = await invoiceRes.json();
+                    if (isMounted) setLatestInvoice(invoiceData);
                 }
-            } catch {
-                // silently ignore errors
+
+                if (plansRes.ok) {
+                    const plansData = await plansRes.json();
+                    console.log("PLANS DATA:", plansData);
+
+                    let activePlan = null;
+
+                    if (Array.isArray(plansData)) {
+                        activePlan =
+                            plansData.find(
+                                (p) =>
+                                    p.isActive === true ||
+                                    p.active === true ||
+                                    String(p.status || "").toLowerCase() === "active"
+                            ) || plansData[0] || null;
+                    } else if (plansData && typeof plansData === "object") {
+                        activePlan = plansData;
+                    }
+
+                    if (isMounted) setCurrentPlan(activePlan);
+                }
+            } catch (err) {
+                console.error("Failed to load subscription data:", err);
             } finally {
                 if (isMounted) setLoading(false);
             }
         }
 
-        loadLatestInvoice();
+        loadData();
         return () => { isMounted = false; };
     }, []);
 
@@ -54,10 +104,27 @@ export default function SubscriptionPage({ darkMode = false }) {
     const hasInvoice = latestInvoice?.items?.length > 0;
 
     const mainPlan = latestInvoice?.items?.find(item => item.itemType === "plan");
-    const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon");
+    // const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon");
+    const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon") || [];
+
+    const startDate =
+        currentPlan?.startDate ||
+        latestInvoice?.startDate ||
+        latestInvoice?.invoiceDate ||
+        null;
+
+    const contractTermMonths =
+        currentPlan?.contractTermMonths ||
+        currentPlan?.plan?.contractTermMonths ||
+        null;
+
+    const calculatedEndDate =
+        currentPlan?.endDate ||
+        latestInvoice?.endDate ||
+        addMonthsToDate(startDate, contractTermMonths);
 
     return (
-        <Container className="py-4 py-md-5 px-4">
+        <Container className="py-4">
             <Card className={cardBase} style={{ borderRadius: 22 }}>
                 <Card.Body className="p-4">
                     {/* Header: Plan overview */}
@@ -130,10 +197,12 @@ export default function SubscriptionPage({ darkMode = false }) {
                                         {/* Date information from latest invoice */}
                                         <div className={`mt-3 small ${mutedClass}`}>
                                             <div>
-                                                <strong>Start Date:</strong> {latestInvoice.startDate || "—"}
+                                                {/*<strong>Start Date:</strong> {latestInvoice.startDate || "—"}*/}
+                                                <strong>Start Date:</strong> {formatDate(startDate)}
                                             </div>
                                             <div>
-                                                <strong>End Date:</strong> {latestInvoice.endDate || "—"}
+                                                {/*<strong>End Date:</strong> {latestInvoice.endDate || "—"}*/}
+                                                <strong>End Date:</strong> {calculatedEndDate}
                                             </div>
                                         </div>
 

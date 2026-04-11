@@ -30,6 +30,8 @@ const deviceCount = devices.length;
 
 const cartCount = planCount + deviceCount;
 
+
+
     // Role-based UI config
     const roleKey = roleKeyFromUser(user);
     const ui = ROLE_UI[roleKey] || ROLE_UI.customer;

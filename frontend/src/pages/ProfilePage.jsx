@@ -9,12 +9,19 @@
  * Modified on: March 2026
  **/
 
-
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Container, Row, Col, Card, Button, Spinner, Alert } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Spinner, Alert, Toast, ToastContainer } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { AvatarCard, BillingCard, BillingModal, PaymentModal, SubscriptionPage, DeleteProfileModal, BillingAddressCard } from "../components";
+import {
+    AvatarCard,
+    BillingCard,
+    BillingModal,
+    PaymentModal,
+    SubscriptionPage,
+    DeleteProfileModal,
+    BillingAddressCard
+} from "../components";
 import { apiFetch } from "../services/api";
 import CustomerQuotes from "../pages/customer/CustomerQuotes";
 
@@ -29,11 +36,15 @@ const formatMoney = (n) =>
 
 export default function ProfilePage({ user: userProp, onLogout, darkMode = false, refreshMe }) {
     const navigate = useNavigate();
+
     const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
     const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    const [showInactiveToast, setShowInactiveToast] = useState(false);
+    const [inactiveMessage, setInactiveMessage] = useState("");
 
     const [profile, setProfile] = useState({
         customerId: null,
@@ -93,7 +104,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                     invoices: Array.isArray(data) ? data : []
                 }
             }));
-
         } catch (err) {
             console.error("Failed to load invoices", err);
         }
@@ -144,7 +154,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 ...prev,
                 billing: { ...prev.billing, address },
             }));
-
         } catch (err) {
             console.error("Failed to load billing address", err);
         }
@@ -192,9 +201,18 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                 ...prev,
                 billing: { ...prev.billing, paymentMethod },
             }));
-
         } catch (err) {
             console.error("Failed to load payment method", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        const savedMessage = sessionStorage.getItem("inactive_dashboard_message");
+
+        if (savedMessage) {
+            setInactiveMessage(savedMessage);
+            setShowInactiveToast(true);
+            sessionStorage.removeItem("inactive_dashboard_message");
         }
     }, []);
 
@@ -342,9 +360,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         return missing;
     }, [profile, needsCustomerRegistration]);
 
-    const isMissingEmail = isBlank(profile.email);
-    const isMissingPhone = isBlank(profile.phone);
-
     const billingAddress = profile.billing?.address || {};
     const paymentMethod = profile.billing?.paymentMethod || {};
 
@@ -376,356 +391,331 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     if (!hasAccount) return <Navigate to="/login" replace />;
 
     return (
-        <Container className="py-4 py-md-5 px-4">
-            <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
-                <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                    My Profile
-                </h1>
+        <>
+            <ToastContainer position="top-end" className="p-3" style={{ zIndex: 2000 }}>
+                <Toast
+                    show={showInactiveToast}
+                    onClose={() => setShowInactiveToast(false)}
+                    delay={5000}
+                    autohide
+                    bg="danger"
+                >
+                    <Toast.Header closeButton>
+                        <strong className="me-auto">Access Restricted</strong>
+                    </Toast.Header>
+                    <Toast.Body className="text-white">
+                        {inactiveMessage}
+                    </Toast.Body>
+                </Toast>
+            </ToastContainer>
 
-                <div className="d-flex gap-2">
-                    <Button
-                        variant={darkMode ? "outline-light" : "outline-secondary"}
-                        as={Link}
-                        to="/plans"
-                        style={{ borderRadius: 14 }}
-                    >
-                        Manage Plans
-                    </Button>
+            <Container className="py-4 py-md-5 px-4">
+                <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+                    <h1 className={`fw-black mb-1 ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                        My Profile
+                    </h1>
 
-                    <Button
-                        variant={darkMode ? "outline-danger" : "danger"}
-                        onClick={() => setShowDeleteModal(true)}
-                        style={{ borderRadius: 14 }}
-                    >
-                        Delete Profile
-                    </Button>
+                    <div className="d-flex gap-2">
+                        <Button
+                            variant={darkMode ? "outline-light" : "outline-secondary"}
+                            as={Link}
+                            to="/plans"
+                            style={{ borderRadius: 14 }}
+                        >
+                            Manage Plans
+                        </Button>
+
+                        <Button
+                            variant={darkMode ? "outline-danger" : "danger"}
+                            onClick={() => setShowDeleteModal(true)}
+                            style={{ borderRadius: 14 }}
+                        >
+                            Delete Profile
+                        </Button>
+                    </div>
                 </div>
-            </div>
 
-            {error && (
-                <Alert variant="danger">
-                    <div className="fw-bold">Profile error</div>
-                    <div className="small">{error}</div>
-                </Alert>
-            )}
+                {error && (
+                    <Alert variant="danger">
+                        <div className="fw-bold">Profile error</div>
+                        <div className="small">{error}</div>
+                    </Alert>
+                )}
 
-            {/* ================= BILLING SETUP ALERTS ================= */}
-            {needsCustomerRegistration ? (
-                <Alert
-                    variant="info"
-                    className="d-flex align-items-start gap-2"
-                    style={{ borderRadius: 16 }}
-                >
-                    <AlertTriangle size={18} className="mt-1" />
-                    <div>
-                        <div className="fw-bold">Enable customer features</div>
-                        <div className="small">
-                            You’re logged in as an employee. To manage billing, payment, and subscriptions, please register as a customer.
-                        </div>
+                {needsCustomerRegistration ? (
+                    <Alert
+                        variant="info"
+                        className="d-flex align-items-start gap-2"
+                        style={{ borderRadius: 16 }}
+                    >
+                        <AlertTriangle size={18} className="mt-1" />
+                        <div>
+                            <div className="fw-bold">Enable customer features</div>
+                            <div className="small">
+                                You’re logged in as an employee. To manage billing, payment, and subscriptions, please register as a customer.
+                            </div>
 
-                        <div className="mt-2">
-                            <Button
-                                size="sm"
-                                variant={darkMode ? "outline-light" : "outline-dark"}
-                                onClick={() => setShowBillingModal(true)}
-                                style={{ borderRadius: 12 }}
-                            >
-                                Register as Customer
-                            </Button>
-                        </div>
-                    </div>
-                </Alert>
-            ) : !hasCompletedBillingSetup && (
-                <Alert
-                    variant="warning"
-                    className="d-flex align-items-start gap-2"
-                    style={{ borderRadius: 16 }}
-                >
-                    <AlertTriangle size={18} className="mt-1" />
-                    <div>
-                        <div className="fw-bold">Complete your billing setup first</div>
-                        <div className="small">
-                            Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
-                        </div>
-
-                        {/* Missing components section */}
-                        <div className="mt-3 d-flex gap-2 flex-wrap">
-
-                            {/* Missing billing address */}
-                            {!hasBillingAddress && (
-                                <Alert
-                                    variant="warning"
-                                    className="d-flex align-items-start gap-2"
-                                    style={{ borderRadius: 16 }}
+                            <div className="mt-2">
+                                <Button
+                                    size="sm"
+                                    variant={darkMode ? "outline-light" : "outline-dark"}
+                                    onClick={() => setShowBillingModal(true)}
+                                    style={{ borderRadius: 12 }}
                                 >
-                                    <AlertTriangle size={18} className="mt-1" />
-                                    <div>
-                                        <div className="fw-bold">Missing billing address</div>
-                                        <div className="small">
-                                            Please add your billing address to continue.
-                                        </div>
-
-                                        <div className="mt-2">
-                                            <Button
-                                                size="sm"
-                                                variant="primary"
-                                                onClick={() => setShowBillingModal(true)}
-                                                style={{ borderRadius: 12 }}
-                                            >
-                                                Add Billing Address
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Alert>
-                            )}
-
-                            {/* Missing payment method */}
-                            {!hasPaymentMethod && (
-                                <Alert
-                                    variant="warning"
-                                    className="d-flex align-items-start gap-2"
-                                    style={{ borderRadius: 16 }}
-                                >
-                                    <AlertTriangle size={18} className="mt-1" />
-                                    <div>
-                                        <div className="fw-bold">Missing payment method</div>
-                                        <div className="small">
-                                            Please add a valid billing card to continue.
-                                        </div>
-
-                                        <div className="mt-2">
-                                            <Button
-                                                size="sm"
-                                                variant="outline-primary"
-                                                onClick={() => setShowPaymentModal(true)}
-                                                style={{ borderRadius: 12 }}
-                                            >
-                                                Add Payment Method
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Alert>
-                            )}
-
-                            {/* Missing plan */}
-                            {!hasPlan && (
-                                <Alert
-                                    variant="warning"
-                                    className="d-flex align-items-start gap-2"
-                                    style={{ borderRadius: 16 }}
-                                >
-                                    <AlertTriangle size={18} className="mt-1" />
-                                    <div>
-                                        <div className="fw-bold">No active plan</div>
-                                        <div className="small">
-                                            You don’t have an active subscription plan yet.
-                                        </div>
-
-                                        <div className="mt-2">
-                                            <Button
-                                                size="sm"
-                                                variant="dark"
-                                                as={Link}
-                                                to="/plans"
-                                                style={{ borderRadius: 12 }}
-                                            >
-                                                Choose Plan
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Alert>
-                            )}
-
+                                    Register as Customer
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </Alert>
-            )}
+                    </Alert>
+                ) : !hasCompletedBillingSetup && (
+                    <Alert
+                        variant="warning"
+                        className="d-flex align-items-start gap-2"
+                        style={{ borderRadius: 16 }}
+                    >
+                        <AlertTriangle size={18} className="mt-1" />
+                        <div>
+                            <div className="fw-bold">Complete your billing setup first</div>
+                            <div className="small">
+                                Please add your billing address and payment method to unlock your plan, billing, and rewards sections.
+                            </div>
 
-            <Row className="g-4">
-                <Col lg={hasCompletedBillingSetup ? 4 : 12}>
-                    <AvatarCard
-                        profile={profile}
-                        darkMode={darkMode}
-                        onSaveAvatar={saveAvatar}
-                        onDeleteAvatar={deleteAvatar}
-                    />
-
-                    {computedPoints > 0 && (
-                        <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
-                            <Card.Body className="p-4">
-                                <div className="d-flex align-items-center justify-content-between">
-                                    <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
-                                        Rewards Points
-                                    </div>
-                                    <Star size={18} />
-                                </div>
-
-                                <div className="mt-3">
-                                    <div
-                                        className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
-                                        style={{ fontWeight: 900, fontSize: "2rem" }}
+                            <div className="mt-3 d-flex gap-2 flex-wrap">
+                                {!hasBillingAddress && (
+                                    <Alert
+                                        variant="warning"
+                                        className="d-flex align-items-start gap-2"
+                                        style={{ borderRadius: 16 }}
                                     >
-                                        {(computedPoints || 0).toLocaleString()} pts
-                                    </div>
-                                    <div className={mutedClass}>
-                                        Earn {POINTS_PER_DOLLAR} point per $1 spent •
-                                        Spend tracked: {formatMoney(computedPoints)}
-                                        • {computedPoints} pts earned
-                                    </div>
-                                </div>
+                                        <AlertTriangle size={18} className="mt-1" />
+                                        <div>
+                                            <div className="fw-bold">Missing billing address</div>
+                                            <div className="small">
+                                                Please add your billing address to continue.
+                                            </div>
 
-                                <div className="mt-3">
-                                    <div className="d-flex justify-content-between small">
-                                        <span className={mutedClass}>
-                                            Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
-                                        </span>
-                                        <span className={mutedClass}>{tierInfo.progress}%</span>
-                                    </div>
-
-                                    <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
-                                        <div
-                                            className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
-                                            style={{ width: `${tierInfo.progress}%` }}
-                                        />
-                                    </div>
-
-                                    {!tierInfo.isBronze ? (
-                                        <div className={`small mt-2 ${mutedClass}`}>
-                                            {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                            <div className="mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="primary"
+                                                    onClick={() => setShowBillingModal(true)}
+                                                    style={{ borderRadius: 12 }}
+                                                >
+                                                    Add Billing Address
+                                                </Button>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="small mt-2 text-warning">
-                                            <Crown size={16} className="me-1" />
-                                            Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+                                    </Alert>
+                                )}
+
+                                {!hasPaymentMethod && (
+                                    <Alert
+                                        variant="warning"
+                                        className="d-flex align-items-start gap-2"
+                                        style={{ borderRadius: 16 }}
+                                    >
+                                        <AlertTriangle size={18} className="mt-1" />
+                                        <div>
+                                            <div className="fw-bold">Missing payment method</div>
+                                            <div className="small">
+                                                Please add a valid billing card to continue.
+                                            </div>
+
+                                            <div className="mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline-primary"
+                                                    onClick={() => setShowPaymentModal(true)}
+                                                    style={{ borderRadius: 12 }}
+                                                >
+                                                    Add Payment Method
+                                                </Button>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </Card.Body>
-                        </Card>
-                    )}
-                </Col>
+                                    </Alert>
+                                )}
 
-                {/*<Col lg={8}>*/}
-                {/*    {hasCompletedBillingSetup && (*/}
-                {/*        <>*/}
-                {/*            <SubscriptionPage user={profile} darkMode={darkMode} />*/}
+                                {!hasPlan && (
+                                    <Alert
+                                        variant="warning"
+                                        className="d-flex align-items-start gap-2"
+                                        style={{ borderRadius: 16 }}
+                                    >
+                                        <AlertTriangle size={18} className="mt-1" />
+                                        <div>
+                                            <div className="fw-bold">No active plan</div>
+                                            <div className="small">
+                                                You don’t have an active subscription plan yet.
+                                            </div>
 
-                {/*            <BillingCard*/}
-                {/*                profile={profile}*/}
-                {/*                darkMode={darkMode}*/}
-                {/*                onEdit={(section) => {*/}
-                {/*                    if (section === "payment") setShowPaymentModal(true);*/}
-                {/*                    else setShowBillingModal(true);*/}
-                {/*                }}*/}
-                {/*                className="mt-4"*/}
-                {/*            />*/}
+                                            <div className="mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="dark"
+                                                    as={Link}
+                                                    to="/plans"
+                                                    style={{ borderRadius: 12 }}
+                                                >
+                                                    Choose Plan
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Alert>
+                                )}
+                            </div>
+                        </div>
+                    </Alert>
+                )}
 
-                {/*            <BillingAddressCard*/}
-                {/*                address={profile.billing.address}*/}
-                {/*                darkMode={darkMode}*/}
-                {/*                onEdit={() => setShowBillingModal(true)}*/}
-                {/*                className="mt-3"*/}
-                {/*            />*/}
-                {/*        </>*/}
-                {/*    )}*/}
-                {/*</Col>*/}
-                <Col lg={8}>
-
-                    {/* =========================
-        KEEP ORIGINAL WARNING LOGIC
-    ========================= */}
-                    {!hasCompletedBillingSetup && null}
-
-                    {/* =========================
-        SEPARATE COMPONENT DISPLAY (NEW LOGIC)
-    ========================= */}
-
-                    {hasPlan && (
-                        <SubscriptionPage user={profile} darkMode={darkMode} />
-                    )}
-
-                    {hasPaymentMethod && (
-                        <BillingCard
+                <Row className="g-4">
+                    <Col lg={hasCompletedBillingSetup ? 4 : 12}>
+                        <AvatarCard
                             profile={profile}
                             darkMode={darkMode}
-                            onEdit={(section) => {
-                                if (section === "payment") setShowPaymentModal(true);
-                                else setShowBillingModal(true);
-                            }}
-                            className="mt-4"
+                            onSaveAvatar={saveAvatar}
+                            onDeleteAvatar={deleteAvatar}
                         />
-                    )}
 
-                    {hasBillingAddress && (
-                        <BillingAddressCard
-                            address={profile.billing.address}
-                            darkMode={darkMode}
-                            onEdit={() => setShowBillingModal(true)}
-                            className="mt-3"
-                        />
-                    )}
+                        {computedPoints > 0 && (
+                            <Card className={`${cardBase} mt-4`} style={{ borderRadius: 22 }}>
+                                <Card.Body className="p-4">
+                                    <div className="d-flex align-items-center justify-content-between">
+                                        <div className={`fw-black ${darkMode ? "text-light" : "text-dark"}`} style={{ fontWeight: 900 }}>
+                                            Rewards Points
+                                        </div>
+                                        <Star size={18} />
+                                    </div>
 
-                    {/* =========================
-                            CUSTOMER QUOTES (NEW)
-                        ========================= */}
-                    {profile.role === "CUSTOMER" && quotes.length > 0 && (
-                        <Card className={`mt-4 ${cardBase}`} style={{ borderRadius: 22 }}>
-                            <Card.Body>
-                                <CustomerQuotes />
-                            </Card.Body>
-                        </Card>
-                    )}
-                </Col>
-            </Row>
+                                    <div className="mt-3">
+                                        <div
+                                            className={`fw-black ${darkMode ? "text-light" : "text-dark"}`}
+                                            style={{ fontWeight: 900, fontSize: "2rem" }}
+                                        >
+                                            {(computedPoints || 0).toLocaleString()} pts
+                                        </div>
+                                        <div className={mutedClass}>
+                                            Earn {POINTS_PER_DOLLAR} point per $1 spent •
+                                            Spend tracked: {formatMoney(computedPoints)}
+                                            • {computedPoints} pts earned
+                                        </div>
+                                    </div>
 
-            <BillingModal
-                show={showBillingModal}
-                profile={profile}
-                onClose={closeBillingEditor}
-                onSaved={async (updatedPersonal) => {
-                    if (updatedPersonal) {
+                                    <div className="mt-3">
+                                        <div className="d-flex justify-content-between small">
+                                            <span className={mutedClass}>
+                                                Progress to Bronze ({BRONZE_REQUIREMENT.toLocaleString()} pts)
+                                            </span>
+                                            <span className={mutedClass}>{tierInfo.progress}%</span>
+                                        </div>
+
+                                        <div className="progress mt-1" style={{ height: 6, borderRadius: 3 }}>
+                                            <div
+                                                className={`progress-bar ${tierInfo.isBronze ? "bg-warning" : "bg-primary"}`}
+                                                style={{ width: `${tierInfo.progress}%` }}
+                                            />
+                                        </div>
+
+                                        {!tierInfo.isBronze ? (
+                                            <div className={`small mt-2 ${mutedClass}`}>
+                                                {tierInfo.remaining.toLocaleString()} pts to become Bronze.
+                                            </div>
+                                        ) : (
+                                            <div className="small mt-2 text-warning">
+                                                <Crown size={16} className="me-1" />
+                                                Bronze active: 15% discount on first {formatMoney(BRONZE_DISCOUNT_CAP)} spent.
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card.Body>
+                            </Card>
+                        )}
+                    </Col>
+
+                    <Col lg={8}>
+                        {hasPlan && (
+                            <SubscriptionPage user={profile} darkMode={darkMode} />
+                        )}
+
+                        {hasPaymentMethod && (
+                            <BillingCard
+                                profile={profile}
+                                darkMode={darkMode}
+                                onEdit={(section) => {
+                                    if (section === "payment") setShowPaymentModal(true);
+                                    else setShowBillingModal(true);
+                                }}
+                                className="mt-4"
+                            />
+                        )}
+
+                        {hasBillingAddress && (
+                            <BillingAddressCard
+                                address={profile.billing.address}
+                                darkMode={darkMode}
+                                onEdit={() => setShowBillingModal(true)}
+                                className="mt-3"
+                            />
+                        )}
+
+                        {profile.role === "CUSTOMER" && quotes.length > 0 && (
+                            <Card className={`mt-4 ${cardBase}`} style={{ borderRadius: 22 }}>
+                                <Card.Body>
+                                    <CustomerQuotes />
+                                </Card.Body>
+                            </Card>
+                        )}
+                    </Col>
+                </Row>
+
+                <BillingModal
+                    show={showBillingModal}
+                    profile={profile}
+                    onClose={closeBillingEditor}
+                    onSaved={async (updatedPersonal) => {
+                        if (updatedPersonal) {
+                            setProfile((prev) => ({
+                                ...prev,
+                                firstName: updatedPersonal.firstName ?? prev.firstName,
+                                lastName: updatedPersonal.lastName ?? prev.lastName,
+                                phone: updatedPersonal.homePhone ?? updatedPersonal.phone ?? prev.phone,
+                                email: updatedPersonal.email ?? prev.email,
+                                customerId: updatedPersonal.customerId ?? prev.customerId,
+                                employeeId: updatedPersonal.employeeId ?? prev.employeeId,
+                                role: updatedPersonal.role ?? "CUSTOMER",
+                            }));
+                        }
+
+                        await loadAddress();
+                    }}
+                    backdrop
+                    keyboard
+                    centered
+                />
+
+                <PaymentModal
+                    show={showPaymentModal}
+                    darkMode={darkMode}
+                    profileBilling={profile.billing.paymentMethod}
+                    onClose={() => setShowPaymentModal(false)}
+                    onSaved={(savedPm, cvv) => {
                         setProfile((prev) => ({
                             ...prev,
-                            firstName: updatedPersonal.firstName ?? prev.firstName,
-                            lastName: updatedPersonal.lastName ?? prev.lastName,
-                            phone: updatedPersonal.homePhone ?? updatedPersonal.phone ?? prev.phone,
-                            email: updatedPersonal.email ?? prev.email,
-                            customerId: updatedPersonal.customerId ?? prev.customerId,
-                            employeeId: updatedPersonal.employeeId ?? prev.employeeId,
-                            role: updatedPersonal.role ?? "CUSTOMER",
+                            billing: {
+                                ...prev.billing,
+                                paymentMethod: savedPm ?? {},
+                                localCvv: cvv ?? "",
+                            },
                         }));
-                    }
+                        setShowPaymentModal(false);
+                    }}
+                />
 
-                    await loadAddress();
-                }}
-                backdrop
-                keyboard
-                centered
-            />
-
-            <PaymentModal
-                show={showPaymentModal}
-                darkMode={darkMode}
-                profileBilling={profile.billing.paymentMethod}
-                onClose={() => setShowPaymentModal(false)}
-                onSaved={(savedPm, cvv) => {
-                    setProfile((prev) => ({
-                        ...prev,
-                        billing: {
-                            ...prev.billing,
-                            paymentMethod: savedPm ?? {},
-                            localCvv: cvv ?? "",
-                        },
-                    }));
-                    setShowPaymentModal(false);
-                }}
-            />
-
-            <DeleteProfileModal
-                show={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onDelete={deleteProfile}
-            />
-        </Container>
+                <DeleteProfileModal
+                    show={showDeleteModal}
+                    onClose={() => setShowDeleteModal(false)}
+                    onDelete={deleteProfile}
+                />
+            </Container>
+        </>
     );
 }

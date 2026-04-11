@@ -216,7 +216,7 @@ public class MeController {
 
                     out.put("primaryLocationId", emp.getPrimaryLocationId());
                     out.put("status", emp.getStatus());
-                    out.put("active", emp.getActive());
+                    out.put("employeeActive", emp.getActive() != null && emp.getActive() == 1);
                     out.put("hireDate", emp.getHireDate());
                     out.put("managerId", emp.getManagerId());
 
@@ -534,15 +534,32 @@ public class MeController {
 
         List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
 
-        List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
-                ((Number) r[0]).intValue(),
-                ((Number) r[1]).intValue(),
-                (String) r[2],
-                toBigDecimal(r[3]),
-                toBigDecimal(r[4]),
-                toBigDecimal(r[5]),
-                null
-        )).toList();
+        List<CurrentPlanItemResponse> result = rows.stream().map((Object[] r) -> {
+            Integer subscriptionId = ((Number) r[0]).intValue();
+            Integer planId = ((Number) r[1]).intValue();
+            String planName = (String) r[2];
+            java.math.BigDecimal monthlyPrice = toBigDecimal(r[3]);
+            java.math.BigDecimal addonTotal = toBigDecimal(r[4]);
+            java.math.BigDecimal totalMonthlyPrice = toBigDecimal(r[5]);
+            java.time.LocalDate startDate = r[6] != null ? ((java.sql.Date) r[6]).toLocalDate() : null;
+            Integer contractTermMonths = r[7] != null ? ((Number) r[7]).intValue() : null;
+            java.time.LocalDate endDate =
+                    (startDate != null && contractTermMonths != null)
+                            ? startDate.plusMonths(contractTermMonths)
+                            : null;
+
+            return new CurrentPlanItemResponse(
+                    subscriptionId,
+                    planId,
+                    planName,
+                    monthlyPrice,
+                    addonTotal,
+                    totalMonthlyPrice,
+                    startDate,
+                    contractTermMonths,
+                    endDate
+            );
+        }).toList();
 
         return ResponseEntity.ok(result);
     }
