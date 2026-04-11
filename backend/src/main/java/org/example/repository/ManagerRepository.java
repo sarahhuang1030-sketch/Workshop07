@@ -18,7 +18,12 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
     @Query(value = "SELECT COUNT(*) FROM subscriptions WHERE Status = 'Active'", nativeQuery = true)
     long countActiveSubscriptions();
 
-    @Query(value = "SELECT COUNT(*) FROM invoices WHERE Status = 'Open'", nativeQuery = true)
+    @Query(value = """
+    SELECT COUNT(*)
+    FROM invoices
+    WHERE Status = 'Open'
+      AND DueDate < CURDATE()
+""", nativeQuery = true)
     long countPastDueInvoices();
 
     @Query(value = "SELECT COUNT(*) FROM subscriptions WHERE Status = 'Suspended'", nativeQuery = true)

@@ -369,7 +369,7 @@ export default function RegisterPage({
                                 {isOAuthComplete ? "Complete your profile" : "Create your account"}
                             </h1>
                             <div className={mutedClass}>
-                                {isOAuthComplete ? "Finish setup to start using TeleConnect." : "Join TeleConnect and manage your plans with ease"}
+                                {isOAuthComplete ? "Finish setup to start using SJY Telecom." : "Join SJY Telecom and manage your plans with ease"}
                             </div>
                         </div>
 
@@ -623,7 +623,7 @@ export default function RegisterPage({
 
                         {!embedded && (
                             <div className={`text-center mt-3 small ${mutedClass}`}>
-                                By signing up, you agree to TeleConnect Terms &amp; Privacy.
+                                By signing up, you agree to SJY Telecom Terms &amp; Privacy.
                             </div>
                         )}
                     </Col>

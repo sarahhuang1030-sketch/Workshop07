@@ -1040,7 +1040,7 @@ export default function PlansPage() {
                                                 }}
                                             >
                                                 Get a new phone with flexible monthly financing and save more
-                                                when paired with eligible TeleConnect mobile plans.
+                                                when paired with eligible SJY Telecom mobile plans.
                                             </p>
 
                                             <Button

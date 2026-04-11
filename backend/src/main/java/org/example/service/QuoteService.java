@@ -11,6 +11,8 @@ import org.example.repository.AddOnRepository;
 import org.example.repository.PlanRepository;
 import org.example.repository.QuoteRepository;
 import org.springframework.stereotype.Service;
+import org.example.model.Customer;
+import org.example.repository.CustomerRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,13 +23,19 @@ public class QuoteService {
     private final QuoteRepository repo;
     private final PlanRepository planRepo;
     private final AddOnRepository addOnRepo;
+    private final CustomerRepository customerRepo;
+    private final EmailService emailService;
 
     public QuoteService(QuoteRepository repo,
                         PlanRepository planRepo,
-                        AddOnRepository addOnRepo) {
+                        AddOnRepository addOnRepo,
+                        CustomerRepository customerRepo,
+                        EmailService emailService) {
         this.repo = repo;
         this.planRepo = planRepo;
         this.addOnRepo = addOnRepo;
+        this.customerRepo=customerRepo;
+        this.emailService = emailService;
     }
 
     // CREATE QUOTE
@@ -80,10 +88,23 @@ public class QuoteService {
         }
 
         q.setAmount(subtotal);
-
         q.setAddons(addons);
 
-        return repo.save(q);
+        Quote saved = repo.save(q);
+
+        try {
+            Customer customer = customerRepo.findById(saved.getCustomerId())
+                    .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+            emailService.sendQuoteNotification(customer);
+            System.out.println("=== QUOTE EMAIL SENT ===");
+
+        } catch (Exception e) {
+            System.out.println("=== QUOTE EMAIL FAILED ===");
+            e.printStackTrace();
+        }
+
+        return saved;
     }
 
     // UPDATE QUOTE
