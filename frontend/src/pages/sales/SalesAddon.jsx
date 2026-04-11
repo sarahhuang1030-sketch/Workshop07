@@ -223,7 +223,7 @@ export default function SalesAddon({ darkMode = false }) {
                 <div>
                     <h2 className="mb-1">Manager Add-ons</h2>
                     <div className={darkMode ? "text-light-50" : "text-muted"}>
-                        Manage TeleConnect add-ons.
+                        Manage SJY Telecom add-ons.
                     </div>
                 </div>
 

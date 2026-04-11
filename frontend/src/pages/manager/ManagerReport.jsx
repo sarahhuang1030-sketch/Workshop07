@@ -50,7 +50,7 @@ export default function ManagerReport({ darkMode = false }) {
             <Card className={`shadow-sm ${cardClass}`}>
                 <Card.Body>
                     <h2 className="mb-1">Manager Reports</h2>
-                    <p className="text-muted">TeleConnect business summary and operational metrics.</p>
+                    <p className="text-muted">SJY Telecom business summary and operational metrics.</p>
 
                     {error && <Alert variant="danger">{error}</Alert>}
 

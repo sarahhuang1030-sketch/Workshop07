@@ -56,14 +56,14 @@ export default function ReviewModal({
             role:
                 selectedPlan?.planName ||
                 selectedPlan?.name ||
-                "TeleConnect Customer",
+                "SJY Telecom Customer",
             review: formData.review,
             rating: formData.rating,
             targetType: selectedPlan ? "plan" : "company",
             targetId: selectedPlan ? String(selectedPlan.planId ?? selectedPlan.id) : null,
             targetLabel: selectedPlan
                 ? selectedPlan.planName || selectedPlan.name
-                : "TeleConnect",
+                : "SJY Telecom",
         });
 
         setFormData({
@@ -100,7 +100,7 @@ export default function ReviewModal({
                                 value={formData.selectedTarget}
                                 onChange={handleChange}
                             >
-                                <option value="company">TeleConnect</option>
+                                <option value="company">SJY Telecom</option>
 
                                 {customerPlans.map((plan, index) => {
                                     const planId = plan.planId ?? plan.id;

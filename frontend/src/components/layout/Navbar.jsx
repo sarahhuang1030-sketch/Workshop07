@@ -76,7 +76,7 @@ const cartCount = planCount + deviceCount;
                 <Link className="navbar-brand d-flex align-items-center gap-3" to="/">
                     <img
                         src={verticalLogo}
-                        alt="TeleConnect Logo"
+                        alt="SJY Telecom Logo"
                         style={{ height: "45px", objectFit: "contain"  }}
                     />
 

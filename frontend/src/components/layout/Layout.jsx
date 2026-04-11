@@ -19,11 +19,11 @@ export default function Layout({ user, setUser, onLogout }) {
             id: 1,
             name: "Emily R.",
             role: "Mobile Customer",
-            review: "TeleConnect made switching plans so easy...",
+            review: "SJY Telecom made switching plans so easy...",
             rating: 5,
             targetType: "company",
             targetId: null,
-            targetLabel: "TeleConnect",
+            targetLabel: "SJY Telecom",
         },
         {
             id: 2,
@@ -33,7 +33,7 @@ export default function Layout({ user, setUser, onLogout }) {
             rating: 5,
             targetType: "company",
             targetId: null,
-            targetLabel: "TeleConnect",
+            targetLabel: "SJY Telecom",
         },
         {
             id: 3,
@@ -43,7 +43,7 @@ export default function Layout({ user, setUser, onLogout }) {
             rating: 4,
             targetType: "company",
             targetId: null,
-            targetLabel: "TeleConnect",
+            targetLabel: "SJY Telecom",
         },
     ]);
 

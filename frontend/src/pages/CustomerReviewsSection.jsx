@@ -23,7 +23,7 @@ export default function CustomerReviewsSection({ reviews = [], darkMode = false 
                 <div className="text-center mb-5">
                     <h2 className="fw-bold">What Our Customers Say</h2>
                     <p className={mutedClass}>
-                        Real feedback from customers who trust TeleConnect every day.
+                        Real feedback from customers who trust SJY Telecom every day.
                     </p>
                 </div>
 
