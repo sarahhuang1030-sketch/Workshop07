@@ -19,6 +19,7 @@ export default function EditQuote() {
 
     const [plans, setPlans] = useState([]);
     const [addons, setAddons] = useState([]);
+    const [originalStatus, setOriginalStatus] = useState("");
 
     const [quote, setQuote] = useState({
         customerId: "",
@@ -51,6 +52,8 @@ export default function EditQuote() {
         const res = await apiFetch(`/api/quotes/${id}`);
         const data = await res.json();
 
+        setOriginalStatus(data.status || "");
+
         setQuote({
             customerId: data.customerId || "",
             planId: data.planId || "",
@@ -60,8 +63,9 @@ export default function EditQuote() {
     }
 
     async function save() {
-        await apiFetch(`/api/quotes/${id}`, {
+        const res = await apiFetch(`/api/quotes/${id}`, {
             method: "PUT",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 customerId: Number(quote.customerId),
                 planId: Number(quote.planId),
@@ -69,7 +73,21 @@ export default function EditQuote() {
             }),
         });
 
-        alert("Saved!");
+        if (!res.ok) {
+            alert("Save failed");
+            return;
+        }
+
+        if (originalStatus === "DECLINED") {
+            const resendRes = await apiFetch(`/api/quotes/${id}/resend`, {
+                method: "PATCH"
+            });
+            if (!resendRes.ok) {
+                alert("Resend failed");
+                return;
+            }
+        }
+
         navigate("/sales/quotes");
     }
 

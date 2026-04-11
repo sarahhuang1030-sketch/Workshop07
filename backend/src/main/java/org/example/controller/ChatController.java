@@ -36,9 +36,7 @@ public class ChatController {
     private static final DateTimeFormatter CHAT_TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
-    // =========================
     // GET CONVERSATIONS
-    // =========================
     @GetMapping("/conversations")
     public List<Map<String, Object>> getConversations(@RequestParam int userId) {
 
@@ -67,9 +65,7 @@ public class ChatController {
         return result;
     }
 
-    // =========================
     // OLD REQUESTS (KEEP TEMP)
-    // =========================
     @GetMapping("/requests")
     public List<Map<String, Object>> getConversationRequests() {
 
@@ -93,9 +89,7 @@ public class ChatController {
         return result;
     }
 
-    // =========================
     // NEW: CHAT REQUESTS
-    // =========================
     @GetMapping("/chat-requests")
     public List<ChatRequestDTO> getPendingChatRequests() {
         return chatRequestService.getPendingRequests();
@@ -123,9 +117,7 @@ public class ChatController {
         return chatRequestService.closeRequest(requestId);
     }
 
-    // =========================
     // GET MESSAGES
-    // =========================
     @GetMapping("/{conversationId}/messages")
     public List<Map<String, Object>> getMessages(@PathVariable int conversationId) {
 
@@ -150,9 +142,7 @@ public class ChatController {
         return result;
     }
 
-    // =========================
     // SEND MESSAGE
-    // =========================
     @PostMapping("/{conversationId}/send")
     public ChatMessage sendMessage(
             @PathVariable int conversationId,
@@ -186,9 +176,7 @@ public class ChatController {
         return saved;
     }
 
-    // =========================
     // CLOSE CONVERSATION
-    // =========================
     @PostMapping("/{conversationId}/close")
     public Map<String, Object> closeConversation(@PathVariable int conversationId) {
         Conversation conversation = conversationRepo.findById(conversationId)
@@ -205,9 +193,7 @@ public class ChatController {
         return result;
     }
 
-    // =========================
     // MARK AS READ
-    // =========================
     @PostMapping("/{conversationId}/mark-read")
     public void markConversationRead(
             @PathVariable int conversationId,

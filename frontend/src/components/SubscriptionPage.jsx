@@ -133,7 +133,7 @@ export default function SubscriptionPage({ darkMode = false }) {
                                                 <strong>Start Date:</strong> {latestInvoice.startDate || "—"}
                                             </div>
                                             <div>
-                                                <strong>End Date:</strong> {latestInvoice.endDate || "—"}
+                                                <strong>End Date:</strong> {latestInvoice.dueDate || "—"}
                                             </div>
                                         </div>
 

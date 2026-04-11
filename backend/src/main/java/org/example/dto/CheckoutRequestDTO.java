@@ -20,9 +20,7 @@ public class CheckoutRequestDTO {
 
     private List<CheckoutItemDTO> items;
 
-    // =========================
     // Billing / Address Info
-    // =========================
     private String street1;
     private String street2;
     private String city;
@@ -30,9 +28,7 @@ public class CheckoutRequestDTO {
     private String postalCode;
     private String country;
 
-    // =========================
     // Getters & Setters
-    // =========================
 
     public Integer getPaymentAccountId() {
         return paymentAccountId;

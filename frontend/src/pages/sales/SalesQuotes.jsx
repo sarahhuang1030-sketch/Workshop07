@@ -48,7 +48,9 @@ export default function SalesQuotes() {
     }
 
     // Agent only sees Pending/Approved
-    const filteredQuotes = quotes.filter(q => ["PENDING", "APPROVED"].includes(q.status));
+    const filteredQuotes = quotes.filter(q =>
+        ["PENDING", "APPROVED", "DECLINED"].includes(q.status)
+    );
 
     return (
         <Container className="py-4">

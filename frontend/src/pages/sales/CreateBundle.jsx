@@ -4,9 +4,7 @@ import { apiFetch } from "../../services/api";
 
 export default function CreateBundle() {
 
-    // =========================
     // STATE
-    // =========================
     const [customers, setCustomers] = useState([]);
 
     const [plans, setPlans] = useState([]);
@@ -21,9 +19,7 @@ export default function CreateBundle() {
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
 
-    // =========================
     // LOAD DATA ON MOUNT
-    // =========================
     useEffect(() => {
         load();
     }, [selectedServiceType]);
@@ -77,10 +73,8 @@ export default function CreateBundle() {
         }
     }
 
-    // =========================
     // TOGGLE ITEM SELECTION
     // Use unique key instead of id
-    // =========================
     function toggleItem(item) {
 
         let updated;
@@ -102,9 +96,7 @@ export default function CreateBundle() {
         setTotal(newTotal);
     }
 
-    // =========================
     // CREATE BUNDLE → CREATE INVOICE
-    // =========================
     async function createBundle() {
 
         try {
@@ -143,16 +135,12 @@ export default function CreateBundle() {
         }
     }
 
-    // =========================
     // HELPER: CHECK IF SELECTED
-    // =========================
     function isSelected(item) {
         return selectedItems.some(x => x.key === item.key);
     }
 
-    // =========================
     // RENDER
-    // =========================
     return (
         <Container className="py-4">
 

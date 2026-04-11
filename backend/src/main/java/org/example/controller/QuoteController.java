@@ -113,9 +113,7 @@ public class QuoteController {
         return quoteService.updateQuote(id, dto);
     }
 
-    // ======================================================
     // CANCEL QUOTE
-    // ======================================================
     @PatchMapping("/{id}/cancel")
     public Quote cancel(@PathVariable Integer id) {
 
@@ -130,9 +128,7 @@ public class QuoteController {
         return repo.save(q);
     }
 
-    // ======================================================
     // APPROVE QUOTE (Status only → Pay later)
-    // ======================================================
     @PatchMapping("/{id}/approve")
     public ResponseEntity<QuoteDTO> approve(@PathVariable Integer id) {
 
@@ -148,6 +144,38 @@ public class QuoteController {
         repo.save(q);
 
         // 2. RETURN QUOTE DTO
+        return ResponseEntity.ok(mapToDTO(q));
+    }
+
+    // Decline QUOTE
+    @PatchMapping("/{id}/decline")
+    public ResponseEntity<QuoteDTO> decline(@PathVariable Integer id) {
+
+        Quote q = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Quote not found"));
+
+        if (!"PENDING".equalsIgnoreCase(q.getStatus()) &&
+                !"APPROVED".equalsIgnoreCase(q.getStatus())) {
+            throw new IllegalStateException("Only PENDING or APPROVED quotes can be declined");
+        }
+
+        q.setStatus("DECLINED");
+        repo.save(q);
+        return ResponseEntity.ok(mapToDTO(q));
+    }
+
+    // resend QUOTE
+    @PatchMapping("/{id}/resend")
+    public ResponseEntity<QuoteDTO> resend(@PathVariable Integer id) {
+        Quote q = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Quote not found"));
+
+        if (!"DECLINED".equalsIgnoreCase(q.getStatus())) {
+            throw new IllegalStateException("Only DECLINED quotes can be resent");
+        }
+
+        q.setStatus("PENDING");
+        repo.save(q);
         return ResponseEntity.ok(mapToDTO(q));
     }
 

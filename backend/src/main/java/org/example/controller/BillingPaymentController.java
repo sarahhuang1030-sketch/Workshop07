@@ -248,18 +248,14 @@ public class BillingPaymentController {
             Principal principal
     ) throws Exception {
 
-        // =========================
-        // Validate user
-        // =========================
-        UserAccount user = getUserFromPrincipal(principal);
+            // Validate user
+            UserAccount user = getUserFromPrincipal(principal);
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
 
-        // =========================
-        // Find card in DB
-        // =========================
-        Optional<PaymentAccounts> optCard = paymentAccountRepo
+            // Find card in DB
+            Optional<PaymentAccounts> optCard = paymentAccountRepo
                 .findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId())
                 .stream()
                 .filter(c -> stripePaymentMethodId.equals(c.getStripePaymentMethodId()))
@@ -271,30 +267,22 @@ public class BillingPaymentController {
 
         PaymentAccounts card = optCard.get();
 
-        // =========================
-        // Detach from Stripe
-        // =========================
-        stripeService.detachPaymentMethod(stripePaymentMethodId);
+            // Detach from Stripe
+            stripeService.detachPaymentMethod(stripePaymentMethodId);
 
-        // =========================
-        // Remove from database
-        // =========================
-        paymentAccountRepo.delete(card);
+            // Remove from database
+            paymentAccountRepo.delete(card);
 
-        // =========================
-        // Audit log
-        // =========================
-        auditService.log(
+            // Audit log
+            auditService.log(
                 "PaymentMethod",
                 "Delete",
                 "Customer " + user.getCustomerId() + " ****" + card.getLast4(),
                 user.getUsername()
         );
 
-        // =========================
-        // Reassign default card if needed
-        // =========================
-        if (card.getIsDefault() == 1) {
+            // Reassign default card if needed
+            if (card.getIsDefault() == 1) {
 
             List<PaymentAccounts> remainingCards =
                     paymentAccountRepo.findAllByCustomerIdOrderByCreatedAtDesc(user.getCustomerId());
