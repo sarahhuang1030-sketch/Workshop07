@@ -5,9 +5,7 @@ import java.util.List;
 
 public class InvoiceDTO {
 
-    // =========================
     // Basic invoice fields
-    // =========================
     public String invoiceNumber;
     public String status;
     public String issueDate;
@@ -19,21 +17,15 @@ public class InvoiceDTO {
     public BigDecimal taxTotal;
     public BigDecimal total;
 
-    // =========================
     // Payment info (IMPORTANT)
-    // =========================
     public PaymentAccountDTO paidByAccount;
 
-    // =========================
     // Invoice items
-    // =========================
     public List<InvoiceItemDTO> items;
 
     private String customerName;
 
-    // =========================
     // Customer name getter/setter
-    // =========================
     public String getCustomerName() {
         return customerName;
     }
@@ -42,9 +34,7 @@ public class InvoiceDTO {
         this.customerName = customerName;
     }
 
-    // =========================
     // PaymentAccountDTO
-    // =========================
     public static class PaymentAccountDTO {
 
         private Integer accountId;
@@ -73,9 +63,7 @@ public class InvoiceDTO {
         public void setExpiryYear(String expiryYear) { this.expiryYear = expiryYear; }
     }
 
-    // =========================
     // Invoice item DTO
-    // =========================
     public static class InvoiceItemDTO {
         public String description;
         public Integer quantity;

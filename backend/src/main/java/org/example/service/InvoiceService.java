@@ -51,9 +51,7 @@ public class InvoiceService {
         this.addOnRepository = addOnRepository;
     }
 
-    // =========================
     // STATUS
-    // =========================
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_PAID = "PAID";
@@ -62,9 +60,7 @@ public class InvoiceService {
         return "INV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    // =========================
     // CREATE INVOICE
-    // =========================
     @Transactional
     public Invoices createInvoice(InvoiceRequestDTO body) {
 
@@ -82,6 +78,7 @@ public class InvoiceService {
         );
 
         invoice.setStatus(STATUS_PENDING);
+        invoice.setIssueDate(LocalDate.now());
 
         invoice.setSubtotal(body.getSubtotal() == null ? 0.0 : body.getSubtotal());
         invoice.setTaxTotal(body.getTaxTotal() == null ? 0.0 : body.getTaxTotal());
@@ -157,9 +154,7 @@ public class InvoiceService {
         return savedInvoice;
     }
 
-    // =========================
     // CREATE FROM QUOTE
-    // =========================
     @Transactional
     public Invoices createFromQuote(Quote q) {
 
@@ -182,9 +177,7 @@ public class InvoiceService {
         return saved;
     }
 
-    // =========================
     // UPDATE
-    // =========================
     @Transactional
     public Invoices updateInvoice(String invoiceNumber, InvoiceRequestDTO body) {
 
@@ -202,9 +195,7 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
-    // =========================
     // DELETE
-    // =========================
     @Transactional
     public boolean deleteInvoice(String invoiceNumber) {
 
@@ -219,9 +210,7 @@ public class InvoiceService {
         return true;
     }
 
-    // =========================
     // APPROVE
-    // =========================
     public Invoices approveInvoice(String invoiceNumber) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -235,9 +224,7 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
-    // =========================
     // MARK PAID
-    // =========================
     public Invoices markAsPaid(String invoiceNumber, Integer paymentAccountId) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -256,9 +243,7 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
-    // =========================
     // DTO
-    // =========================
     public InvoiceDTO convertToDTO(Invoices invoice) {
 
         InvoiceDTO dto = new InvoiceDTO();
@@ -321,9 +306,7 @@ public class InvoiceService {
         return dto;
     }
 
-    // =========================
     // FINDERS
-    // =========================
     public List<Invoices> findAllInvoices() {
         return invoiceRepository.findAll();
     }
@@ -332,11 +315,17 @@ public class InvoiceService {
         return invoiceRepository.findByCustomerIdOrderByIssueDateDesc(customerId);
     }
 
+    public Invoices findLatestByCustomerId(Integer customerId) {
+        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDescInvoiceIdDesc(customerId);
+    }
+
+//    public Invoices findLatestByCustomerId(Integer customerId) {
+//        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDesc(customerId);
+//    }
+
     public Invoices findByInvoiceNumber(String invoiceNumber) {
         return invoiceRepository.findByInvoiceNumber(invoiceNumber);
     }
 
-    public Invoices findLatestByCustomerId(Integer customerId) {
-        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDesc(customerId);
-    }
+//
 }

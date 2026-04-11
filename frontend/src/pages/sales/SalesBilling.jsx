@@ -132,7 +132,7 @@ export default function SalesBilling({ darkMode = false }) {
                                                 <div className="mt-3">
                                                     <div className="mb-2 small">
                                                         <div><strong>Start Date:</strong> {inv.startDate || "—"}</div>
-                                                        <div><strong>End Date:</strong> {inv.endDate || "—"}</div>
+                                                        <div><strong>Due Date:</strong> {inv.dueDate || "—"}</div>
                                                     </div>
 
                                                     <Table bordered size="sm" className={darkMode ? "table-dark" : ""}>

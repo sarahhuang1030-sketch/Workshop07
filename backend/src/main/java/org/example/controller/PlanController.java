@@ -18,10 +18,8 @@ public class PlanController {
         this.repo = repo;
     }
 
-    // =========================
     // GET PLANS (MAIN API)
     // FIX: removed duplicate mapping
-    // =========================
     @GetMapping
     public List<PlanDTO> getPlans(
             @RequestParam(required = false, defaultValue = "Internet") String type,

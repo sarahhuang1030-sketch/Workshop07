@@ -187,7 +187,7 @@ public interface InvoiceRepository extends JpaRepository<Invoices, Integer> {
      * Get all invoices ordered by latest first
      */
     List<Invoices> findAllByOrderByIssueDateDesc();
-
+    Invoices findTopByCustomerIdOrderByIssueDateDescInvoiceIdDesc(Integer customerId);
 
     // ======================================================
     // DASHBOARD

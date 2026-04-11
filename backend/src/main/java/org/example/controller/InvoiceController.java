@@ -24,9 +24,7 @@ public class InvoiceController {
         this.userAccountRepo = userAccountRepo;
     }
 
-    // =========================
     // ADMIN: get all invoices
-    // =========================
     @GetMapping("/admin/all")
     public ResponseEntity<List<InvoiceDTO>> getAllInvoicesAdmin() {
         List<Invoices> invoices = invoiceService.findAllInvoices();
@@ -36,9 +34,7 @@ public class InvoiceController {
         return ResponseEntity.ok(dtos);
     }
 
-    // =========================
     // USER: get latest invoice
-    // =========================
     @GetMapping("/latest")
     public ResponseEntity<InvoiceDTO> getLatestInvoice(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
@@ -53,9 +49,7 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.convertToDTO(latestInvoice));
     }
 
-    // =========================
     // USER: get all invoices
-    // =========================
     @GetMapping("/user/all")
     public ResponseEntity<List<InvoiceDTO>> getAllInvoicesUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
@@ -72,9 +66,7 @@ public class InvoiceController {
         return ResponseEntity.ok(dtos);
     }
 
-    // =========================
     // Get invoice by number
-    // =========================
     @GetMapping("/{invoiceNumber}")
     public ResponseEntity<InvoiceDTO> getInvoice(@PathVariable String invoiceNumber) {
         Invoices invoice = invoiceService.findByInvoiceNumber(invoiceNumber);
@@ -82,9 +74,7 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.convertToDTO(invoice));
     }
 
-    // =========================
     // Get invoices (AUTO by role)
-    // =========================
     @GetMapping("/all")
     public ResponseEntity<List<InvoiceDTO>> getInvoices(Authentication authentication) {
 

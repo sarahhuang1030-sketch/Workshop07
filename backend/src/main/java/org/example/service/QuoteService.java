@@ -38,9 +38,7 @@ public class QuoteService {
         this.emailService = emailService;
     }
 
-    // =========================
     // CREATE QUOTE
-    // =========================
     public Quote createQuote(QuoteRequestDTO dto) {
 
         Quote q = new Quote();
@@ -109,16 +107,15 @@ public class QuoteService {
         return saved;
     }
 
-    // =========================
     // UPDATE QUOTE
-    // =========================
     public Quote updateQuote(Integer id, QuoteUpdateDTO dto) {
 
         Quote q = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Quote not found"));
 
-        if (!"PENDING".equalsIgnoreCase(q.getStatus())) {
-            throw new IllegalStateException("Only PENDING quotes can be edited");
+        if (!"PENDING".equalsIgnoreCase(q.getStatus()) &&
+                !"DECLINED".equalsIgnoreCase(q.getStatus())) {
+            throw new IllegalStateException("Only PENDING or DECLINED quotes can be edited");
         }
 
         q.setCustomerId(dto.getCustomerId());
@@ -140,7 +137,6 @@ public class QuoteService {
         }
 
         double subtotal = calculate(dto.getPlanId(), addonIds);
-
         q.setAmount(subtotal);
 
         return repo.save(q);
