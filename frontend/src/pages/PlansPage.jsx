@@ -333,6 +333,18 @@ export default function PlansPage() {
     const FeatureTypeIcon = getFeatureIcon(serviceType);
     const includeItems = getTopIncludeItems(serviceType);
 
+    const averageRating = useMemo(() => {
+        if (!selectedPlanReviews.length) return 0;
+
+        const total = selectedPlanReviews.reduce(
+            (sum, r) => sum + Number(r.rating || 0),
+            0
+        );
+
+        return (total / selectedPlanReviews.length).toFixed(1); // e.g. 4.3
+    }, [selectedPlanReviews]);
+
+
     return (
         <>
             <Container className="py-4">
@@ -772,7 +784,10 @@ export default function PlansPage() {
                                                     <Button
                                                         variant="link"
                                                         className="p-0 text-decoration-none fw-semibold"
-                                                        onClick={() => openPlanReviews(p)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();   // ⭐ FIX
+                                                            openPlanReviews(p);
+                                                        }}
                                                     >
                                                         View Reviews ({getPlanReviews(p.id).length})
                                                     </Button>
@@ -1253,7 +1268,14 @@ export default function PlansPage() {
                 centered
             >
                 <Modal.Header closeButton>
-                    <Modal.Title>{selectedPlanReviewTitle} Reviews</Modal.Title>
+                    <Modal.Title className="d-flex align-items-center gap-2">
+                        {selectedPlanReviewTitle} Reviews
+                        {selectedPlanReviews.length > 0 && (
+                            <Badge bg="warning" text="dark">
+                                ⭐ {averageRating}
+                            </Badge>
+                        )}
+                    </Modal.Title>
                 </Modal.Header>
 
                 <Modal.Body>
