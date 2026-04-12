@@ -3,17 +3,8 @@ package org.example.controller;
 import org.example.dto.AddOnDTO;
 import org.example.dto.ManagerSubscriptionDTO;
 import org.example.dto.SubscriptionAddOnDTO;
-import org.example.model.Customer;
-import org.example.model.Plan;
-import org.example.model.Subscription;
-import org.example.model.SubscriptionAddOn;
-import org.example.model.UserAccount;
-import org.example.repository.AddOnRepository;
-import org.example.repository.CustomerRepository;
-import org.example.repository.PlanRepository;
-import org.example.repository.SubscriptionAddOnRepository;
-import org.example.repository.SubscriptionRepository;
-import org.example.repository.UserAccountRepository;
+import org.example.model.*;
+import org.example.repository.*;
 import org.example.service.AuditService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +26,7 @@ public class ManagerSubscriptionController {
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
     private final PlanRepository planRepository;
+    private final SubscriptionStatusRepository subscriptionStatusRepository;
 
     public ManagerSubscriptionController(
             SubscriptionRepository subscriptionRepository,
@@ -43,7 +35,8 @@ public class ManagerSubscriptionController {
             AuditService auditService,
             UserAccountRepository userAccountRepository,
             CustomerRepository customerRepository,
-            PlanRepository planRepository
+            PlanRepository planRepository,
+            SubscriptionStatusRepository subscriptionStatusRepository
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.subscriptionAddOnRepository = subscriptionAddOnRepository;
@@ -52,6 +45,7 @@ public class ManagerSubscriptionController {
         this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.planRepository = planRepository;
+        this.subscriptionStatusRepository = subscriptionStatusRepository;
     }
 
     @GetMapping
@@ -405,5 +399,10 @@ public class ManagerSubscriptionController {
                 "Subscription " + subscriptionId + " -> Add-on " + addOnId,
                 authentication.getName()
         );
+    }
+
+    @GetMapping("/statuses")
+    public List<SubscriptionStatus> getAllStatuses() {
+        return subscriptionStatusRepository.findAll();
     }
 }

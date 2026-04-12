@@ -18,6 +18,7 @@ import { apiFetch } from "../../services/api";
 const API_BASE = "/api/manager/subscriptions";
 const PLANS_API = "/api/manager/plans";
 const CUSTOMERS_API = "/api/manager/customers";
+const STATUSES_API = "/api/manager/subscriptions/statuses";
 
 export default function ManagerSubscription({ darkMode = false }) {
     const navigate = useNavigate();
@@ -52,6 +53,26 @@ export default function ManagerSubscription({ darkMode = false }) {
     const cardClass = darkMode ? "bg-dark text-light border-secondary" : "bg-white";
     const mutedTextClass = darkMode ? "text-light" : "text-muted";
 
+    const [statuses, setStatuses] = useState([]);
+    const statusMap = useMemo(() => {
+        const map = new Map();
+        statuses.forEach((s) => {
+            map.set(String(s.statusCode || "").toLowerCase(), s);
+            map.set(String(s.displayName || "").toLowerCase(), s);
+        });
+        return map;
+    }, [statuses]);
+
+
+
+    async function loadStatuses() {
+        const res = await apiFetch(STATUSES_API);
+        if (!res.ok) throw new Error("Failed to load statuses");
+
+        const data = await res.json();
+        setStatuses(Array.isArray(data) ? data : []);
+    }
+
     async function loadSubscriptions() {
         const res = await apiFetch(API_BASE);
         if (!res.ok) throw new Error("Failed to load subscriptions");
@@ -80,7 +101,7 @@ export default function ManagerSubscription({ darkMode = false }) {
         try {
             setLoading(true);
             setError("");
-            await Promise.all([loadSubscriptions(), loadPlans(), loadCustomers()]);
+            await Promise.all([loadSubscriptions(), loadPlans(), loadCustomers(), loadStatuses()]);
         } catch (err) {
             setError(err.message || "Failed to load subscription data");
         } finally {
@@ -471,6 +492,7 @@ export default function ManagerSubscription({ darkMode = false }) {
                         <option value="Active">Active</option>
                         <option value="Suspended">Suspended</option>
                         <option value="Cancelled">Cancelled</option>
+                        <option value="pending">Pending</option>
                     </Form.Select>
 
                     <Button onClick={openCreateModal}>Add New</Button>
@@ -570,7 +592,7 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                         {group.subscriptions.map((sub) => {
                                                             const totalAmount =
                                                                 calculateSubscriptionTotal(sub);
-
+                                                            const statusObj = statusMap.get(String(sub.status || "").toLowerCase());
                                                             return (
                                                                 <tr key={sub.subscriptionId}>
                                                                     <td>{sub.subscriptionId}</td>
@@ -583,16 +605,18 @@ export default function ManagerSubscription({ darkMode = false }) {
                                                                     <td>
                                                                         <Badge
                                                                             bg={
-                                                                                sub.status === "Active"
+                                                                                String(sub.status || "").toLowerCase() === "active"
                                                                                     ? "success"
-                                                                                    : sub.status === "Suspended"
-                                                                                        ? "warning"
-                                                                                        : sub.status === "Cancelled"
-                                                                                            ? "danger"
-                                                                                            : "secondary"
+                                                                                    : String(sub.status || "").toLowerCase() === "pending"
+                                                                                        ? "primary"
+                                                                                        : String(sub.status || "").toLowerCase() === "suspended"
+                                                                                            ? "warning"
+                                                                                            : String(sub.status || "").toLowerCase() === "cancelled"
+                                                                                                ? "danger"
+                                                                                                : "secondary"
                                                                             }
                                                                         >
-                                                                            {sub.status || "Unknown"}
+                                                                            {statusObj?.displayName || sub.status || "Unknown"}
                                                                         </Badge>
                                                                     </td>
                                                                     <td>{sub.billingCycleDay ?? "—"}</td>
@@ -761,9 +785,14 @@ export default function ManagerSubscription({ darkMode = false }) {
                                         value={formData.status}
                                         onChange={handleChange}
                                     >
-                                        <option value="Active">Active</option>
-                                        <option value="Suspended">Suspended</option>
-                                        <option value="Cancelled">Cancelled</option>
+                                        {statuses
+                                            .filter((s) => s.isActive === true || s.isActive === 1)
+                                            .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+                                            .map((s) => (
+                                                <option key={s.statusId} value={s.displayName}>
+                                                    {s.displayName}
+                                                </option>
+                                            ))}
                                     </Form.Select>
                                 </Form.Group>
                             </Col>
