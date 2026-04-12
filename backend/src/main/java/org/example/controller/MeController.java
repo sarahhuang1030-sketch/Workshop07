@@ -94,6 +94,11 @@ public class MeController {
                                 Authentication auth,
                                 @AuthenticationPrincipal OAuth2User oauthUser) {
         try {
+            System.out.println("Principal: " + principal);
+            System.out.println("Auth: " + auth);
+            System.out.println("Auth name: " + (auth != null ? auth.getName() : null));
+            System.out.println("Authorities: " + (auth != null ? auth.getAuthorities() : null));
+
             if (principal == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -196,15 +201,7 @@ public class MeController {
                             : "/uploads/avatars/default.jpg");
             out.put("points", ua.getPoints());
 
-            if (ua.getCustomerId() != null) {
-                out.put("userType", "CUSTOMER");
-                customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
-                    out.put("firstName", c.getFirstName());
-                    out.put("lastName", c.getLastName());
-                    out.put("email", c.getEmail());
-                    out.put("phone", c.getHomePhone());
-                });
-            } else if (ua.getEmployeeId() != null) {
+            if (ua.getEmployeeId() != null) {
                 out.put("userType", "EMPLOYEE");
                 out.put("username", ua.getUsername());
 
@@ -220,7 +217,6 @@ public class MeController {
                     out.put("hireDate", emp.getHireDate());
                     out.put("managerId", emp.getManagerId());
 
-
                     String locationName = null;
                     if (emp.getPrimaryLocationId() != null) {
                         locationName = locationRepo.findById(emp.getPrimaryLocationId())
@@ -228,6 +224,24 @@ public class MeController {
                                 .orElse(null);
                     }
                     out.put("locationName", locationName);
+                });
+
+                // Optional: still include customer info too if linked
+                if (ua.getCustomerId() != null) {
+                    customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
+                        out.putIfAbsent("customerFirstName", c.getFirstName());
+                        out.putIfAbsent("customerLastName", c.getLastName());
+                        out.putIfAbsent("customerEmail", c.getEmail());
+                        out.putIfAbsent("customerPhone", c.getHomePhone());
+                    });
+                }
+            } else if (ua.getCustomerId() != null) {
+                out.put("userType", "CUSTOMER");
+                customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
+                    out.put("firstName", c.getFirstName());
+                    out.put("lastName", c.getLastName());
+                    out.put("email", c.getEmail());
+                    out.put("phone", c.getHomePhone());
                 });
             } else {
                 out.put("userType", "Unknown");

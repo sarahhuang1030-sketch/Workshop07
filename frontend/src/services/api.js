@@ -23,8 +23,7 @@ export async function apiFetch(url, options = {}) {
 
     // If token is expired/invalid, remove it so the app stops reusing it
     if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        console.warn("Unauthorized - token may be invalid");
     }
 
     return response;

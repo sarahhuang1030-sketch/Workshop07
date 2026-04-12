@@ -31,11 +31,17 @@ export default function RequireRole({ user, allow = [], authReady, children }) {
         user.employeeActive !== true;
 
     if (isInactiveEmployee && isEmployeeDashboardRoute) {
-        sessionStorage.setItem(
-            "inactive_dashboard_message",
-            `Hello ${user.firstName || "there"}, your profile is inactive, so you can't access the dashboard.`
+        const message = `Hello ${user.firstName || "there"}, your profile is inactive, so you can't access the dashboard.`;
+
+        sessionStorage.setItem("inactive_dashboard_message", message);
+
+        return (
+            <Navigate
+                to="/profile"
+                replace
+                state={{ inactiveMessage: message }}
+            />
         );
-        return <Navigate to="/profile" replace />;
     }
 
     const role = String(user.role || "").toLowerCase();

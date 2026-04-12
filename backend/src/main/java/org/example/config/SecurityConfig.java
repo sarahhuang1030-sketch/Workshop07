@@ -134,6 +134,8 @@ public class SecurityConfig {
                         // Billing requires login
                         .requestMatchers("/api/billing/payment/**").authenticated()
 
+                        .requestMatchers("/api/me/**").authenticated()
+
                         /**
                          * ROLE-BASED ACCESS CONTROL (FIXED)
                          */

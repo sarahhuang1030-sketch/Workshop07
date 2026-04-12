@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Container, Row, Col, Card, Button, Spinner, Alert, Toast, ToastContainer } from "react-bootstrap";
 import { Star, Crown, AlertTriangle } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
     AvatarCard,
     BillingCard,
@@ -29,6 +29,7 @@ const POINTS_PER_DOLLAR = 1;
 const BRONZE_REQUIREMENT = 5000;
 const BRONZE_DISCOUNT_CAP = 1000;
 
+
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
         ? "—"
@@ -36,7 +37,7 @@ const formatMoney = (n) =>
 
 export default function ProfilePage({ user: userProp, onLogout, darkMode = false, refreshMe }) {
     const navigate = useNavigate();
-
+    const location = useLocation();
     const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
     const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
 
@@ -207,14 +208,20 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     }, []);
 
     useEffect(() => {
+        const stateMessage = location.state?.inactiveMessage;
         const savedMessage = sessionStorage.getItem("inactive_dashboard_message");
+        const message = stateMessage || savedMessage;
 
-        if (savedMessage) {
-            setInactiveMessage(savedMessage);
+        if (message) {
+            setInactiveMessage(message);
             setShowInactiveToast(true);
             sessionStorage.removeItem("inactive_dashboard_message");
+
+            if (stateMessage) {
+                navigate(location.pathname, { replace: true, state: {} });
+            }
         }
-    }, []);
+    }, [location, navigate]);
 
     useEffect(() => {
         if (!userProp) {
