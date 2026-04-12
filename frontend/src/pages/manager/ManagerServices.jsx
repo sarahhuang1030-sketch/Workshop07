@@ -58,6 +58,20 @@ export default function ManagerService({ darkMode = false }) {
         ? "bg-dark text-light border-secondary"
         : "bg-white text-dark";
 
+    const [currentUser, setCurrentUser] = useState(null);
+
+    async function loadCurrentUser() {
+        try {
+            const res = await apiFetch("/api/me");
+            if (!res.ok) throw new Error("Failed to load user");
+
+            const data = await res.json();
+            setCurrentUser(data);
+        } catch (err) {
+            setError(err.message || "Failed to load user");
+        }
+    }
+
     async function loadCustomers() {
         try {
             const res = await apiFetch("/api/manager/customers");
@@ -105,7 +119,12 @@ export default function ManagerService({ darkMode = false }) {
         loadRequests();
         loadCustomers();
         loadEmployees();
+        loadCurrentUser();
     }, []);
+
+    const currentUserName = currentUser
+        ? `${currentUser.firstName} ${currentUser.lastName}`
+        : "";
 
     const filteredRequests = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -345,7 +364,7 @@ export default function ManagerService({ darkMode = false }) {
         setEditingRequest(null);
         setFormData({
             customerId: "",
-            createdByUserId: "",
+            createdByUserId: currentUser?.userId?.toString() ?? "",
             assignedTechnicianUserId: "",
             requestType: "",
             priority: "Medium",
@@ -652,22 +671,14 @@ export default function ManagerService({ darkMode = false }) {
                             </Col>
 
                             <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Created By</Form.Label>
-                                    <Form.Select
-                                        name="createdByUserId"
-                                        value={formData.createdByUserId}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="">Select employee</option>
-                                        {createdByOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.userId}>
-                                                {employee.firstName} {employee.lastName}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-                                </Form.Group>
+                                    <Form.Group>
+                                        <Form.Label>Created By</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            value={currentUserName}
+                                            readOnly
+                                        />
+                                    </Form.Group>
                             </Col>
 
                             <Col md={6}>
