@@ -12,6 +12,7 @@ import org.example.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -240,5 +241,23 @@ public class ServiceDashboardService {
 
         Employee employee = employeeOpt.get();
         return (employee.getFirstName() + " " + employee.getLastName()).trim();
+    }
+
+    @Transactional
+    public void updateWorkOrder(Integer appointmentId, String status, LocalDateTime scheduledEnd, String notes) {
+        ServiceAppointment appt = serviceAppointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Service Appointment not found"));
+
+        if (status != null && !status.isBlank()) {
+            String normalizedStatus = normalizeStatus(status);
+            appt.setStatus(normalizedStatus);
+        }
+
+        appt.setScheduledEnd(scheduledEnd);
+        appt.setNotes(notes);
+
+        serviceAppointmentRepository.save(appt);
+
+        syncRequestStatusFromAppointments(appt.getRequestId(), appt.getStatus());
     }
 }
