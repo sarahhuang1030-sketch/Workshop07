@@ -131,7 +131,7 @@ export default function SalesBilling({ darkMode = false }) {
                                             <Collapse in={openInvoiceId === inv.invoiceNumber}>
                                                 <div className="mt-3">
                                                     <div className="mb-2 small">
-                                                        <div><strong>Start Date:</strong> {inv.startDate || "—"}</div>
+                                                        <div><strong>Start Date:</strong> {inv.issueDate || "—"}</div>
                                                         <div><strong>Due Date:</strong> {inv.dueDate || "—"}</div>
                                                     </div>
 

@@ -219,6 +219,8 @@ export default function CheckoutPage() {
        HANDLE CHECKOUT
     ========================= */
     const handleCheckout = async () => {
+        console.log("devices in cart:", JSON.stringify(devices, null, 2));
+
         if (!paymentMethod) return alert("Please select a payment card.");
         if (!stripe) return alert("Stripe not ready.");
         if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode) {

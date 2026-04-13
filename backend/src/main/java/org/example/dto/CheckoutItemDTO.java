@@ -1,6 +1,7 @@
 package org.example.dto;
 
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class CheckoutItemDTO {
 
@@ -12,8 +13,12 @@ public class CheckoutItemDTO {
     private List<String> subscribers;
 
     // NEW FIELDS
-    private Integer id; // PlanId or AddonId
-    private String itemType;   // "plan", "addon", "device"
+    @JsonAlias({"type", "itemType"})
+    private String itemType;
+
+    @JsonAlias({"planId", "addonId", "id"})
+    private Integer id;
+
     private String serviceType;
     private Integer phoneId;
     private String pricingType;

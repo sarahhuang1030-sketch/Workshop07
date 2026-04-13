@@ -21,7 +21,7 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
     @Query(value = """
     SELECT COUNT(*)
     FROM invoices
-    WHERE Status = 'Open'
+    WHERE Status NOT IN ('Paid', 'Success', 'Approved')
       AND DueDate < CURDATE()
 """, nativeQuery = true)
     long countPastDueInvoices();

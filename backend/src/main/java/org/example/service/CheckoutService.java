@@ -234,13 +234,20 @@ public class CheckoutService {
         }
 
         for (CheckoutItemDTO dto : items) {
+            System.out.println("Item: itemType=" + dto.getItemType()
+                    + " id=" + dto.getId()
+                    + " description=" + dto.getDescription());
+
             if ("plan".equalsIgnoreCase(dto.getItemType())) {
+                if (dto.getId() == null) {
+                    System.out.println("WARNING: plan item missing id, skipping subscription");
+                    continue;
+                }
                 Subscription sub = new Subscription();
                 sub.setCustomerId(user.getCustomerId());
                 sub.setPlanId(dto.getId());
                 sub.setStartDate(LocalDate.now());
                 sub.setStatus("ACTIVE");
-
                 sub = subscriptionRepo.save(sub);
                 subscriptionId = sub.getSubscriptionId();
             }
