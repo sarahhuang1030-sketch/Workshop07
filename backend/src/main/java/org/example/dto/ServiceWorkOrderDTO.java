@@ -12,7 +12,8 @@ public class ServiceWorkOrderDTO {
     private LocalDateTime scheduledEnd;
     private String status;
     private String notes;
-
+    private Integer technicianUserId;
+    private String technicianName;
 
     private String requestDescription;
     private String priority;
@@ -50,4 +51,11 @@ public class ServiceWorkOrderDTO {
 
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }
+
+    public Integer getTechnicianUserId() { return technicianUserId; }
+    public void setTechnicianUserId(Integer technicianUserId) { this.technicianUserId = technicianUserId; }
+
+    public String getTechnicianName() { return technicianName; }
+    public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
+
 }

@@ -166,6 +166,8 @@ public class ServiceDashboardService {
         dto.setScheduledEnd(appt.getScheduledEnd());
         dto.setStatus(normalizeStatus(appt.getStatus()));
         dto.setNotes(appt.getNotes());
+        dto.setTechnicianUserId(appt.getTechnicianUserId());
+        dto.setTechnicianName(resolveEmployeeNameFromUserId(appt.getTechnicianUserId()));
 
         serviceRequestRepository.findById(appt.getRequestId()).ifPresent(req -> {
             dto.setRequestDescription(req.getDescription());
