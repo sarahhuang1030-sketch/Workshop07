@@ -169,14 +169,21 @@ public class ServiceDashboardService {
         dto.setTechnicianUserId(appt.getTechnicianUserId());
         dto.setTechnicianName(resolveEmployeeNameFromUserId(appt.getTechnicianUserId()));
 
+
         serviceRequestRepository.findById(appt.getRequestId()).ifPresent(req -> {
+            dto.setRequestType(req.getRequestType());
             dto.setRequestDescription(req.getDescription());
             dto.setPriority(req.getPriority() != null ? req.getPriority().name() : null);
 
-            customerRepository.findById(req.getCustomerId()).ifPresent(c ->
-                    dto.setCustomerName(c.getFirstName() + " " + c.getLastName())
-            );
+            customerRepository.findById(req.getCustomerId()).ifPresent(c -> {
+                String fullName = ((c.getFirstName() != null ? c.getFirstName() : "")
+                        + " "
+                        + (c.getLastName() != null ? c.getLastName() : "")).trim();
+
+                dto.setCustomerName(fullName.isEmpty() ? null : fullName);
+            });
         });
+
 
         if (appt.getAddressId() != null) {
             customerAddressRepository.findById(Long.valueOf(appt.getAddressId()))

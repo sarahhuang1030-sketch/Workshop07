@@ -14,7 +14,7 @@ public class ServiceWorkOrderDTO {
     private String notes;
     private Integer technicianUserId;
     private String technicianName;
-
+    private String requestType;
     private String requestDescription;
     private String priority;
 
@@ -58,4 +58,11 @@ public class ServiceWorkOrderDTO {
     public String getTechnicianName() { return technicianName; }
     public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
 
+    public String getRequestType() {
+        return requestType;
+    }
+
+    public void setRequestType(String requestType) {
+        this.requestType = requestType;
+    }
 }
