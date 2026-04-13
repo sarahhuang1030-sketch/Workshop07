@@ -188,6 +188,7 @@ public class MeController {
 
             // Build response
             Map<String, Object> out = new LinkedHashMap<>();
+            out.put("userId", ua.getUserId());
             out.put("name", principal.getName());
             out.put("lookupKey", key);
             out.put("employeeId", ua.getEmployeeId());

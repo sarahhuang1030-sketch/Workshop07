@@ -199,7 +199,7 @@ export default function ManagerService({ darkMode = false }) {
         notes: "",
     });
 
-    const appointmentStatusOptions = ["Assigned", "In Progress", "Completed", "Cancelled"];
+    const appointmentStatusOptions = ["Scheduled", "Completed", "Cancelled", "Pending"];
     const locationTypeOptions = ["InStore", "Remote", "OnSite"];
 
     function handleAppointmentChange(e) {
@@ -566,8 +566,8 @@ export default function ManagerService({ darkMode = false }) {
                             <thead>
                             <tr>
                                 <th>Request ID</th>
-                                <th>Customer</th>
-                                <th>Created By</th>
+                                <th>Requested By</th>
+                                <th>Assigned By</th>
                                 <th>Assigned Technician</th>
                                 <th>Request Type</th>
                                 <th>Priority</th>
@@ -652,7 +652,7 @@ export default function ManagerService({ darkMode = false }) {
                         <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
-                                    <Form.Label>Customer</Form.Label>
+                                    <Form.Label>Requested By</Form.Label>
                                     <Form.Select
                                         name="customerId"
                                         value={formData.customerId}
@@ -672,7 +672,7 @@ export default function ManagerService({ darkMode = false }) {
 
                             <Col md={6}>
                                     <Form.Group>
-                                        <Form.Label>Created By</Form.Label>
+                                        <Form.Label>Assigned By</Form.Label>
                                         <Form.Control
                                             type="text"
                                             value={currentUserName}
@@ -882,19 +882,25 @@ export default function ManagerService({ darkMode = false }) {
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Assigned Technician</Form.Label>
-                                    <Form.Select
-                                        name="technicianUserId"
-                                        value={appointmentForm.technicianUserId}
-                                        onChange={handleAppointmentChange}
-                                        required
-                                    >
-                                        <option value="">Select technician</option>
-                                        {technicianOptions.map((employee) => (
-                                            <option key={employee.employeeId} value={employee.userId}>
-                                                {employee.firstName} {employee.lastName}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
+                                    <Form.Control
+                                        type="text"
+                                        value={
+                                            technicianOptions.find(
+                                                (e) => String(e.userId) === String(appointmentForm.technicianUserId)
+                                            )
+                                                ? `${
+                                                    technicianOptions.find(
+                                                        (e) => String(e.userId) === String(appointmentForm.technicianUserId)
+                                                    ).firstName
+                                                } ${
+                                                    technicianOptions.find(
+                                                        (e) => String(e.userId) === String(appointmentForm.technicianUserId)
+                                                    ).lastName
+                                                }`
+                                                : selectedRequest?.technicianName || "No technician assigned"
+                                        }
+                                        readOnly
+                                    />
                                 </Form.Group>
                             </Col>
 
