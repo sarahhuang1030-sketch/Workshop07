@@ -14,6 +14,18 @@ function formatDateTime(value) {
     }
 }
 
+function formatDurationFromMinutes(totalMinutes) {
+    if (totalMinutes == null || Number.isNaN(totalMinutes)) return "—";
+
+    const rounded = Math.max(0, Math.round(totalMinutes));
+    const hours = Math.floor(rounded / 60);
+    const minutes = rounded % 60;
+
+    if (hours <= 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+}
+
 function getStatusBadge(status) {
     const value = String(status || "").toUpperCase();
 
@@ -91,49 +103,6 @@ export default function ManagerChatWorkspace() {
         loadRequests();
         loadConversations();
     }, [currentUserId]);
-
-    // useEffect(() => {
-    //     if (!requests.length && !conversations.length) return;
-    //     if (selectedRequest || selectedConversation) return;
-    //
-    //     const activeRequest = requests.find(
-    //         (r) => String(r.status || "").toUpperCase() === "ACTIVE"
-    //     );
-    //
-    //     if (activeRequest) {
-    //         setSelectedRequest(activeRequest);
-    //
-    //         const matchingConversation =
-    //             conversations.find(
-    //                 (c) => Number(c.conversationId) === Number(activeRequest.conversationId)
-    //             ) || {
-    //                 conversationId: activeRequest.conversationId,
-    //                 status: activeRequest.status,
-    //                 customerUserId: activeRequest.customerUserId,
-    //                 customerId: activeRequest.customerId,
-    //                 otherUserId: activeRequest.customerUserId,
-    //                 reason: activeRequest.reason,
-    //                 requestId: activeRequest.requestId,
-    //                 customerName:
-    //                     activeRequest.customerName ||
-    //                     `Customer #${activeRequest.customerId || activeRequest.customerUserId}`
-    //             };
-    //
-    //         setSelectedConversation(matchingConversation);
-    //         loadMessages(matchingConversation.conversationId);
-    //         loadCustomer(activeRequest);
-    //         loadCustomerConversationHistory(activeRequest.customerUserId);
-    //         return;
-    //     }
-    //
-    //     const activeConversation = conversations.find(
-    //         (c) => String(c.status || "").toUpperCase() === "ACTIVE"
-    //     );
-    //
-    //     if (activeConversation) {
-    //         openConversationOnPage(activeConversation);
-    //     }
-    // }, [requests, conversations]);
 
     useEffect(() => {
         const userId =
@@ -747,19 +716,59 @@ export default function ManagerChatWorkspace() {
     }, [requests, requestSearch, requestFilter]);
 
     const requestStats = useMemo(() => {
-        return requests.reduce(
-            (acc, req) => {
-                const status = String(req.status || "").toUpperCase();
-                acc.total += 1;
-                if (status === "PENDING") acc.pending += 1;
-                if (status === "ACTIVE") acc.active += 1;
-                if (status === "CLOSED") acc.closed += 1;
-                if (status === "CANCELLED") acc.cancelled += 1;
-                return acc;
-            },
-            { total: 0, pending: 0, active: 0, closed: 0, cancelled: 0 }
-        );
+        const initial = {
+            total: 0,
+            pending: 0,
+            active: 0,
+            closed: 0,
+            cancelled: 0,
+            responseCount: 0,
+            responseMinutesTotal: 0,
+            oldestPendingMinutes: null
+        };
+
+        return requests.reduce((acc, req) => {
+            const status = String(req.status || "").toUpperCase();
+            acc.total += 1;
+
+            if (status === "PENDING") acc.pending += 1;
+            if (status === "ACTIVE") acc.active += 1;
+            if (status === "CLOSED") acc.closed += 1;
+            if (status === "CANCELLED") acc.cancelled += 1;
+
+            if (req.requestedAt && req.acceptedAt) {
+                const requestedMs = new Date(req.requestedAt).getTime();
+                const acceptedMs = new Date(req.acceptedAt).getTime();
+
+                if (!Number.isNaN(requestedMs) && !Number.isNaN(acceptedMs) && acceptedMs >= requestedMs) {
+                    acc.responseCount += 1;
+                    acc.responseMinutesTotal += (acceptedMs - requestedMs) / 60000;
+                }
+            }
+
+            if (status === "PENDING" && req.requestedAt) {
+                const requestedMs = new Date(req.requestedAt).getTime();
+
+                if (!Number.isNaN(requestedMs)) {
+                    const pendingMinutes = Math.max(0, (Date.now() - requestedMs) / 60000);
+
+                    if (
+                        acc.oldestPendingMinutes == null ||
+                        pendingMinutes > acc.oldestPendingMinutes
+                    ) {
+                        acc.oldestPendingMinutes = pendingMinutes;
+                    }
+                }
+            }
+
+            return acc;
+        }, initial);
     }, [requests]);
+
+    const avgResponseMinutes =
+        requestStats.responseCount > 0
+            ? requestStats.responseMinutesTotal / requestStats.responseCount
+            : null;
 
     const customerContacts = useMemo(() => {
         const map = new Map();
@@ -870,13 +879,17 @@ export default function ManagerChatWorkspace() {
     return (
         <Container fluid className="py-3">
             <Row className="g-3 mb-1">
-                <Col md={6} xl={3}>
+                <Col md={6} xl={2}>
                     <Card
                         className="border-0"
-                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
                     >
-                        <Card.Body className="p-3">
-                            <div className="text-muted small mb-1">Total Requests</div>
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="fw-bold small mb-1">Total Requests</div>
                             <div className="fw-bold" style={{ fontSize: "1.6rem" }}>
                                 {requestStats.total}
                             </div>
@@ -884,13 +897,17 @@ export default function ManagerChatWorkspace() {
                     </Card>
                 </Col>
 
-                <Col md={6} xl={3}>
+                <Col md={6} xl={2}>
                     <Card
                         className="border-0"
-                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
                     >
-                        <Card.Body className="p-3">
-                            <div className="text-muted small mb-1">Pending</div>
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="fw-bold small mb-1">Pending</div>
                             <div className="fw-bold text-warning" style={{ fontSize: "1.6rem" }}>
                                 {requestStats.pending}
                             </div>
@@ -898,13 +915,17 @@ export default function ManagerChatWorkspace() {
                     </Card>
                 </Col>
 
-                <Col md={6} xl={3}>
+                <Col md={6} xl={2}>
                     <Card
                         className="border-0"
-                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
                     >
-                        <Card.Body className="p-3">
-                            <div className="text-muted small mb-1">Active</div>
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="fw-bold small mb-1">Active</div>
                             <div className="fw-bold text-success" style={{ fontSize: "1.6rem" }}>
                                 {requestStats.active}
                             </div>
@@ -912,15 +933,64 @@ export default function ManagerChatWorkspace() {
                     </Card>
                 </Col>
 
-                <Col md={6} xl={3}>
+                <Col md={6} xl={2}>
                     <Card
                         className="border-0"
-                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
                     >
-                        <Card.Body className="p-3">
-                            <div className="text-muted small mb-1">Closed / Cancelled</div>
-                            <div className="fw-bold" style={{ fontSize: "1.6rem" }}>
-                                {requestStats.closed + requestStats.cancelled}
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="d-flex flex-column gap-1">
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <span className="fw-bold small">Closed</span>
+                                    <span className="fw-bold">{requestStats.closed}</span>
+                                </div>
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <span className="fw-bold small">Cancelled</span>
+                                    <span className="fw-bold">{requestStats.cancelled}</span>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col md={6} xl={2}>
+                    <Card
+                        className="border-0"
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
+                    >
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="fw-bold small mb-1">Avg Response Time</div>
+                            <div className="fw-bold" style={{ fontSize: "1.35rem" }}>
+                                {formatDurationFromMinutes(avgResponseMinutes)}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col md={6} xl={2}>
+                    <Card
+                        className="border-0"
+                        style={{
+                            borderRadius: 18,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "130px"
+                        }}
+                    >
+                        <Card.Body className="p-3 d-flex flex-column justify-content-center h-100">
+                            <div className="fw-bold small mb-1">Oldest Pending</div>
+                            <div className="fw-bold" style={{ fontSize: "1.35rem" }}>
+                                {formatDurationFromMinutes(requestStats.oldestPendingMinutes)}
+                            </div>
+                            <div className="fw-bold small mt-1">
+                                current wait time
                             </div>
                         </Card.Body>
                     </Card>
