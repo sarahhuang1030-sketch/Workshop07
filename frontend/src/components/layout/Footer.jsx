@@ -24,7 +24,7 @@ export default function AppFooter({ onOpenReviewModal }) {
                 <Row className="g-4">
                     <Col md={4}>
                         <div className="fw-black" style={{ fontWeight: 900, fontSize: "1.2rem" }}>
-                            TeleConnect
+                            SJY Telecom
                         </div>
                         <div style={{ color: "rgba(255,255,255,0.75)" }}>
                             Fast plans, rewards, and support—built for your project demo.
@@ -58,7 +58,7 @@ export default function AppFooter({ onOpenReviewModal }) {
 
                     <Col md={3}>
                         <div className="fw-bold mb-2">Support</div>
-                        <div style={{ color: "rgba(255,255,255,0.75)" }}>support@teleconnect.ca</div>
+                        <div style={{ color: "rgba(255,255,255,0.75)" }}>support@sjytelecom.ca</div>
                         <div style={{ color: "rgba(255,255,255,0.75)" }}>1-800-555-0100</div>
                         <div className="small mt-2" style={{ color: "rgba(255,255,255,0.6)" }}>
                             24/7 Chat Support
@@ -77,7 +77,7 @@ export default function AppFooter({ onOpenReviewModal }) {
                 <hr style={{ borderColor: "rgba(255,255,255,0.15)" }} />
 
                 <div className="text-center small" style={{ color: "rgba(255,255,255,0.6)" }}>
-                    © {new Date().getFullYear()} TeleConnect. Made with ❤️ in Canada
+                    © {new Date().getFullYear()} SJY Telecom. Made with ❤️ in Canada
                 </div>
             </Container>
         </footer>

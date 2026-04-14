@@ -4,5 +4,6 @@ public record ServiceDashboardSummaryDTO(
         long assignedRequests,
         long openRequests,
         long todayAppointments,
-        long completedRequests
+        long completedRequests,
+        long assignedAppointments
 ) {}

@@ -257,7 +257,7 @@ export default function SalesDashboard({ darkMode = false }) {
 
                 if (!isMounted) return;
 
-                // ✅ FIX 4: ONLY use existing state fields (NO UI CHANGE)
+                // ONLY use existing state fields
                 setSummary(prev => ({
                     ...prev,
                     customers: c.length,
@@ -325,7 +325,7 @@ export default function SalesDashboard({ darkMode = false }) {
             <Row className="g-3">
 
                 <Col md={3}>
-                    <Stat title="Customers" value={summary.customers} hint="All accounts" icon={Users} darkMode={darkMode}>
+                    <Stat title="Total Customers" value={summary.customers} hint="All accounts" icon={Users} darkMode={darkMode}>
                         <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/customers")}>
                             Details
                         </Button>
@@ -341,7 +341,7 @@ export default function SalesDashboard({ darkMode = false }) {
                 </Col>
 
                 <Col md={3}>
-                    <Stat title="Quotes" value={summary.pendingQuotes} hint="Awaiting approval" icon={Clock} darkMode={darkMode}>
+                    <Stat title="Pending Quotes" value={summary.pendingQuotes} hint="Awaiting approval" icon={Clock} darkMode={darkMode}>
                         <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/quotes")}>
                             Details
                         </Button>
@@ -349,11 +349,11 @@ export default function SalesDashboard({ darkMode = false }) {
                 </Col>
 
                 <Col md={3}>
-                    <Stat title="Revenue" value={formatMoney(summary.monthlyRevenue)} hint="Estimated" icon={Package} darkMode={darkMode} />
+                    <Stat title="Monthly Revenue" value={formatMoney(summary.monthlyRevenue)} hint="Estimated" icon={Package} darkMode={darkMode} />
                 </Col>
 
                 <Col md={3}>
-                    <Stat title="Subscriptions" value={summary.activeSubs} hint="Currently active" icon={Repeat} darkMode={darkMode}>
+                    <Stat title="Active Subscriptions" value={summary.activeSubs} hint="Currently active" icon={Repeat} darkMode={darkMode}>
                         <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/subscriptions")}>
                             Details
                         </Button>
@@ -361,20 +361,20 @@ export default function SalesDashboard({ darkMode = false }) {
                 </Col>
 
                 <Col md={3}>
-                    <Stat title="Add-ons" value={summary.addOns} hint="Currently active" icon={Package} darkMode={darkMode}>
+                    <Stat title="Total Add-ons" value={summary.addOns} hint="Currently active" icon={Package} darkMode={darkMode}>
                         <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/addons")}>
                             Details
                         </Button>
                     </Stat>
                 </Col>
 
-                <Col md={3}>
-                    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>
-                            Details
-                        </Button>
-                    </Stat>
-                </Col>
+                {/*<Col md={3}>*/}
+                {/*    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>*/}
+                {/*        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>*/}
+                {/*            Details*/}
+                {/*        </Button>*/}
+                {/*    </Stat>*/}
+                {/*</Col>*/}
 
                 <Col xs={12} md={6} lg={3}>
                     <Stat
@@ -400,9 +400,9 @@ export default function SalesDashboard({ darkMode = false }) {
                     </Stat>
                 </Col>
 
-                <Col md={3}>
-                    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />
-                </Col>
+                {/*<Col md={3}>*/}
+                {/*    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />*/}
+                {/*</Col>*/}
 
             </Row>
 

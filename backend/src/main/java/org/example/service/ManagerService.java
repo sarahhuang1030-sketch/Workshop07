@@ -1,5 +1,3 @@
-//for the dashboard
-
 package org.example.service;
 
 import org.example.dto.ManagerSummaryDTO;
@@ -21,7 +19,6 @@ public class ManagerService {
         long customers = managerRepository.countCustomers();
         long activeSubs = managerRepository.countActiveSubscriptions();
         long pastDueInvoices = managerRepository.countPastDueInvoices();
-        long suspendedSubs = managerRepository.countSuspendedSubscriptions();
         BigDecimal monthlyRevenue = managerRepository.calculateMonthlyRevenue();
         long addOns = managerRepository.countAddOns();
         long planFeatures = managerRepository.countPlanFeatures();
@@ -33,13 +30,13 @@ public class ManagerService {
             monthlyRevenue = BigDecimal.ZERO;
         }
 
-        int combinedPastDueAndSuspended = (int) (pastDueInvoices + suspendedSubs);
+        System.out.println("pastDueInvoices = " + pastDueInvoices);
 
         return new ManagerSummaryDTO(
                 (int) customers,
                 (int) activeSubs,
                 monthlyRevenue,
-                combinedPastDueAndSuspended,
+                (int) pastDueInvoices,
                 addOns,
                 planFeatures,
                 location,

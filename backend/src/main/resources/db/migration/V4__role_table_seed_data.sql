@@ -15,11 +15,15 @@ INSERT INTO roles (RoleName) VALUES
 ALTER TABLE employees ADD RoleId INT;
 ALTER TABLE useraccounts ADD RoleId INT;
 
--- Map employees (safe)
-UPDATE employees e
-    JOIN roles r ON e.PositionTitle = r.RoleName
-    SET e.RoleId = r.RoleId;
-
+-- Map employees based on V2 PositionTitle values
+UPDATE employees
+SET RoleId = CASE
+                 WHEN LOWER(PositionTitle) = 'manager' THEN 1
+                 WHEN LOWER(PositionTitle) = 'sales agent' THEN 2
+                 WHEN LOWER(PositionTitle) = 'senior sales agent' THEN 2
+                 WHEN LOWER(PositionTitle) = 'service technician' THEN 3
+                 ELSE 4
+    END;
 -- Map useraccounts (handles messy data)
 UPDATE useraccounts
 SET RoleId = CASE
@@ -54,12 +58,13 @@ ALTER TABLE employees DROP COLUMN PositionTitle;
 ALTER TABLE useraccounts DROP COLUMN Role;
 
 -- Insert new employees (optional)
-INSERT INTO employees
-(PrimaryLocationId, ReportsToEmployeeId, FirstName, LastName, Email, Phone, RoleId, Salary, HireDate, Status, Active, ManagerId)
-VALUES
-    (3, NULL, 'Miley', 'Simon', 'miley@example.ca', '403-222-3345', 1, 85000.00, '2023-01-15', 'Active', 1, NULL),
-    (1, NULL, 'Europe', 'Perrot', 'europe@example.ca', '403-346-7890', 2, 59000.00, '2024-03-01', 'Active', 1, NULL),
-    (1, NULL, 'Berezi', 'Huffmann', 'berezi@example.com', '403-666-3457', 3, 60000.00, '2023-06-10', 'Active', 1, NULL),
-    (3, NULL, 'Morty', 'Jeffries', 'morty@example.com', '403-345-7532', 1, 95000.00, '2022-09-15', 'Active', 1, NULL),
-    (1, NULL, 'Githa', 'Winfield', 'githa@example.ca', '403-444-3322', 2, 74000.00, '2023-10-02', 'Active', 1, NULL),
-    (1, NULL, 'Patrick', 'Benson', 'patrick@example.com', '403-480-1235', 3, 100000.00, '2025-06-10', 'Active', 1, NULL);
+-- INSERT INTO employees
+-- (PrimaryLocationId, ReportsToEmployeeId, FirstName, LastName, Email, Phone, RoleId, Salary, HireDate, Status, Active, ManagerId)
+-- VALUES
+--     (3, NULL, 'Miley', 'Simon', 'miley@example.ca', '403-222-3345', 1, 85000.00, '2023-01-15', 'Active', 1, NULL),
+--     (1, NULL, 'Europe', 'Perrot', 'europe@example.ca', '403-346-7890', 2, 59000.00, '2024-03-01', 'Active', 1, NULL),
+--     (1, NULL, 'Berezi', 'Huffmann', 'berezi@example.com', '403-666-3457', 3, 60000.00, '2023-06-10', 'Active', 1, NULL),
+--     (3, NULL, 'Morty', 'Jeffries', 'morty@example.com', '403-345-7532', 1, 95000.00, '2022-09-15', 'Active', 1, NULL),
+--     (1, NULL, 'Githa', 'Winfield', 'githa@example.ca', '403-444-3322', 2, 74000.00, '2023-10-02', 'Active', 1, NULL),
+--     (1, NULL, 'Patrick', 'Benson', 'patrick@example.com', '403-480-1235', 3, 100000.00, '2025-06-10', 'Active', 1, NULL);
+

@@ -49,8 +49,8 @@ export default function LoginPage({ refreshMe }) {
             });
 
             if (!res.ok) {
-                await res.text().catch(() => "");
-                setError("Invalid username or password");
+                const text = await res.text().catch(() => "");
+                setError(text || "Invalid username or password");
                 return;
             }
 
@@ -70,10 +70,30 @@ export default function LoginPage({ refreshMe }) {
                 return;
             }
 
+            const isInactiveEmployee =
+                !!data.employeeId &&
+                data.employeeActive !== true;
+
+            if (isInactiveEmployee) {
+                navigate("/profile", {
+                    replace: true,
+                    state: {
+                        inactiveMessage: `Hello ${data.firstName || "there"}, your profile is inactive now so you can't access your dashboard.`,
+                    },
+                });
+                return;
+            }
+
             const shouldOpenReview = localStorage.getItem("openReviewAfterLogin");
 
             if (shouldOpenReview === "true") {
                 navigate("/", { replace: true, state: { openReviewModal: true } });
+            } else if (mapped.role === "manager") {
+                navigate("/manager", { replace: true });
+            } else if (mapped.role === "salesagent") {
+                navigate("/sales", { replace: true });
+            } else if (mapped.role === "servicetechnician") {
+                navigate("/service", { replace: true });
             } else {
                 navigate("/profile", { replace: true });
             }

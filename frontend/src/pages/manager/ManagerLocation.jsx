@@ -225,7 +225,7 @@ export default function ManagerLocation({ darkMode = false }) {
                 <div>
                     <h2 className="mb-1">Manager Locations</h2>
                     <div className={darkMode ? "text-light-50" : "text-muted"}>
-                        Manage TeleConnect locations.
+                        Manage SJY Telecom locations.
                     </div>
                 </div>
 

@@ -14,6 +14,7 @@ import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
 import { ROLE_UI, roleKeyFromUser } from "../../config/roleUi";
 import WeatherCard from "../WeatherCard";
+import verticalLogo from "../../../public/verticallogo.png";
 
 export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
@@ -28,6 +29,8 @@ const planCount = plans.reduce(
 const deviceCount = devices.length;
 
 const cartCount = planCount + deviceCount;
+
+
 
     // Role-based UI config
     const roleKey = roleKeyFromUser(user);
@@ -73,42 +76,48 @@ const cartCount = planCount + deviceCount;
             <div className="container-xl px-3 py-2 position-relative">
                 {/* Brand */}
                 <Link className="navbar-brand d-flex align-items-center gap-3" to="/">
-                    <div
-                        className="d-flex align-items-center justify-content-center shadow"
-                        style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 16,
-                            background:
-                                "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",
-                        }}
-                    >
-                        <Signal size={22} color="white" />
-                    </div>
-                    <div className="lh-sm">
-                        <div
-                            className="fw-black"
-                            style={{
-                                fontSize: "1.35rem",
-                                fontWeight: 900,
-                                background:
-                                    "linear-gradient(90deg, rgb(147,51,234), rgb(236,72,153))",
-                                WebkitBackgroundClip: "text",
-                                color: "transparent",
-                            }}
-                        >
-                            TeleConnect
-                        </div>
-                        <div
-                            className={
-                                darkMode
-                                    ? "text-secondary small fw-semibold"
-                                    : "text-muted small fw-semibold"
-                            }
-                        >
-                            Stay Connected, Stay You
-                        </div>
-                    </div>
+                    <img
+                        src={verticalLogo}
+                        alt="SJY Telecom Logo"
+                        style={{ height: "45px", objectFit: "contain"  }}
+                    />
+
+                    {/*<div*/}
+                    {/*    className="d-flex align-items-center justify-content-center shadow"*/}
+                    {/*    style={{*/}
+                    {/*        width: 48,*/}
+                    {/*        height: 48,*/}
+                    {/*        borderRadius: 16,*/}
+                    {/*        background:*/}
+                    {/*            "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",*/}
+                    {/*    }}*/}
+                    {/*>*/}
+                    {/*    <Signal size={22} color="white" />*/}
+                    {/*</div>*/}
+                    {/*<div className="lh-sm">*/}
+                    {/*    <div*/}
+                    {/*        className="fw-black"*/}
+                    {/*        style={{*/}
+                    {/*            fontSize: "1.35rem",*/}
+                    {/*            fontWeight: 900,*/}
+                    {/*            background:*/}
+                    {/*                "linear-gradient(90deg, rgb(147,51,234), rgb(236,72,153))",*/}
+                    {/*            WebkitBackgroundClip: "text",*/}
+                    {/*            color: "transparent",*/}
+                    {/*        }}*/}
+                    {/*    >*/}
+                    {/*        TeleConnect*/}
+                    {/*    </div>*/}
+                    {/*    <div*/}
+                    {/*        className={*/}
+                    {/*            darkMode*/}
+                    {/*                ? "text-secondary small fw-semibold"*/}
+                    {/*                : "text-muted small fw-semibold"*/}
+                    {/*        }*/}
+                    {/*    >*/}
+                    {/*        Stay Connected, Stay You*/}
+                    {/*    </div>*/}
+                    {/*</div>*/}
                 </Link>
                 {/* Weather pill */}
                 {showWeather && (

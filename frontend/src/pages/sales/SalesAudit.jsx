@@ -117,7 +117,7 @@ export default function AuditPage({ darkMode = false }) {
                         <div>
                             <h3 className="mb-1">Audit Logs</h3>
                             <div className={darkMode ? "text-light-50" : "text-muted"}>
-                                Track important system activity across TeleConnect
+                                Track important system activity across SJY Telecom
                             </div>
                         </div>
 

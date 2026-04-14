@@ -94,6 +94,11 @@ public class MeController {
                                 Authentication auth,
                                 @AuthenticationPrincipal OAuth2User oauthUser) {
         try {
+            System.out.println("Principal: " + principal);
+            System.out.println("Auth: " + auth);
+            System.out.println("Auth name: " + (auth != null ? auth.getName() : null));
+            System.out.println("Authorities: " + (auth != null ? auth.getAuthorities() : null));
+
             if (principal == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -183,6 +188,7 @@ public class MeController {
 
             // Build response
             Map<String, Object> out = new LinkedHashMap<>();
+            out.put("userId", ua.getUserId());
             out.put("name", principal.getName());
             out.put("lookupKey", key);
             out.put("userId", ua.getUserId());
@@ -197,15 +203,7 @@ public class MeController {
                             : "/uploads/avatars/default.jpg");
             out.put("points", ua.getPoints());
 
-            if (ua.getCustomerId() != null) {
-                out.put("userType", "CUSTOMER");
-                customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
-                    out.put("firstName", c.getFirstName());
-                    out.put("lastName", c.getLastName());
-                    out.put("email", c.getEmail());
-                    out.put("phone", c.getHomePhone());
-                });
-            } else if (ua.getEmployeeId() != null) {
+            if (ua.getEmployeeId() != null) {
                 out.put("userType", "EMPLOYEE");
                 out.put("username", ua.getUsername());
 
@@ -217,10 +215,9 @@ public class MeController {
 
                     out.put("primaryLocationId", emp.getPrimaryLocationId());
                     out.put("status", emp.getStatus());
-                    out.put("active", emp.getActive());
+                    out.put("employeeActive", emp.getActive() != null && emp.getActive() == 1);
                     out.put("hireDate", emp.getHireDate());
                     out.put("managerId", emp.getManagerId());
-
 
                     String locationName = null;
                     if (emp.getPrimaryLocationId() != null) {
@@ -229,6 +226,24 @@ public class MeController {
                                 .orElse(null);
                     }
                     out.put("locationName", locationName);
+                });
+
+                // Optional: still include customer info too if linked
+                if (ua.getCustomerId() != null) {
+                    customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
+                        out.putIfAbsent("customerFirstName", c.getFirstName());
+                        out.putIfAbsent("customerLastName", c.getLastName());
+                        out.putIfAbsent("customerEmail", c.getEmail());
+                        out.putIfAbsent("customerPhone", c.getHomePhone());
+                    });
+                }
+            } else if (ua.getCustomerId() != null) {
+                out.put("userType", "CUSTOMER");
+                customerRepo.findById(ua.getCustomerId()).ifPresent(c -> {
+                    out.put("firstName", c.getFirstName());
+                    out.put("lastName", c.getLastName());
+                    out.put("email", c.getEmail());
+                    out.put("phone", c.getHomePhone());
                 });
             } else {
                 out.put("userType", "Unknown");
@@ -535,15 +550,32 @@ public class MeController {
 
         List<Object[]> rows = subscriptionRepository.findActivePlansByCustomerId(ua.getCustomerId());
 
-        List<CurrentPlanItemResponse> result = rows.stream().map(r -> new CurrentPlanItemResponse(
-                ((Number) r[0]).intValue(),
-                ((Number) r[1]).intValue(),
-                (String) r[2],
-                toBigDecimal(r[3]),
-                toBigDecimal(r[4]),
-                toBigDecimal(r[5]),
-                null
-        )).toList();
+        List<CurrentPlanItemResponse> result = rows.stream().map((Object[] r) -> {
+            Integer subscriptionId = ((Number) r[0]).intValue();
+            Integer planId = ((Number) r[1]).intValue();
+            String planName = (String) r[2];
+            java.math.BigDecimal monthlyPrice = toBigDecimal(r[3]);
+            java.math.BigDecimal addonTotal = toBigDecimal(r[4]);
+            java.math.BigDecimal totalMonthlyPrice = toBigDecimal(r[5]);
+            java.time.LocalDate startDate = r[6] != null ? ((java.sql.Date) r[6]).toLocalDate() : null;
+            Integer contractTermMonths = r[7] != null ? ((Number) r[7]).intValue() : null;
+            java.time.LocalDate endDate =
+                    (startDate != null && contractTermMonths != null)
+                            ? startDate.plusMonths(contractTermMonths)
+                            : null;
+
+            return new CurrentPlanItemResponse(
+                    subscriptionId,
+                    planId,
+                    planName,
+                    monthlyPrice,
+                    addonTotal,
+                    totalMonthlyPrice,
+                    startDate,
+                    contractTermMonths,
+                    endDate
+            );
+        }).toList();
 
         return ResponseEntity.ok(result);
     }

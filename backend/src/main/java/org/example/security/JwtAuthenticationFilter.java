@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 // this is just to test the backend on azure
-@Profile("!azuretest")
+//@Profile("!azuretest")
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -66,7 +66,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
+                System.out.println("JWT: " + jwt);
+                System.out.println("Username from token: " + username);
+                System.out.println("UserDetails username: " + userDetails.getUsername());
+                System.out.println("Token valid: " + jwtService.isTokenValid(jwt, userDetails));
+
                 if (jwtService.isTokenValid(jwt, userDetails)) {
+
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,

@@ -43,7 +43,7 @@ public class EmailServiceImpl implements EmailService {
                         "After logging in, you will be able to view and manage your quote.\n\n" +
 
                         "Thank you.\n\n"  +
-                        "TeleConnect Team"
+                        "SJY Telecom Team"
         );
 
         mailSender.send(message);

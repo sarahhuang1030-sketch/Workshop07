@@ -16,10 +16,8 @@ public class AddOnController {
         this.repo = repo;
     }
 
-    // =========================
     // GET ALL ADDONS OR BY PLAN
     // FIX: removed duplicate @GetMapping
-    // =========================
     @GetMapping
     public List<AddOnDTO> getAddOns(@RequestParam(required = false) Integer planId) {
 

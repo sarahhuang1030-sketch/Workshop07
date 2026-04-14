@@ -145,6 +145,10 @@ function mapMeToUser(meResponse) {
         email: dbEmail || fallbackEmail,
         username: dbUsername || fallbackUsername,
         picture: meResponse?.avatarUrl || meResponse?.oauthPicture || fallbackPicture,
+        employeeActive: meResponse?.employeeActive ?? meResponse?.active ?? null,
+        canUseCustomerFeatures: !!dbCustomerId,
+        canUseEmployeeDashboard:
+            !!dbEmployeeId && (meResponse?.employeeActive ?? meResponse?.active ?? null) === true,
         raw: meResponse,
     };
 }
@@ -271,6 +275,50 @@ export default function App() {
     }, [refreshMe]);
 
     useEffect(() => {
+        if (!authReady || !user) return;
+
+        const refreshSessionUser = async () => {
+            await refreshMe({ force: true });
+        };
+
+        const handleFocus = () => {
+            refreshSessionUser();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                refreshSessionUser();
+            }
+        };
+
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener("focus", handleFocus);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [authReady, user, authReady, refreshMe]);
+
+
+    useEffect(() => {
+        if (!authReady || !user) return;
+
+        const pathname = location.pathname || "";
+        const isEmployeeDashboardRoute =
+            pathname === "/manager" ||
+            pathname.startsWith("/manager/") ||
+            pathname === "/sales" ||
+            pathname.startsWith("/sales/") ||
+            pathname === "/service" ||
+            pathname.startsWith("/service/");
+
+        if (isEmployeeDashboardRoute) {
+            refreshMe({ force: true });
+        }
+    }, [location.pathname, authReady,refreshMe]);
+
+    useEffect(() => {
         if (!user) return;
         if (location.pathname !== "/login") return;
 
@@ -278,6 +326,20 @@ export default function App() {
 
         if (shouldOpenReview === "true") {
             navigate("/", { replace: true, state: { openReviewModal: true } });
+            return;
+        }
+
+        const isInactiveEmployee =
+            !!user.employeeId &&
+            user.employeeActive !== true;
+
+        if (isInactiveEmployee) {
+            sessionStorage.setItem(
+                "inactive_dashboard_message",
+                `Hello ${user.firstName || "there"}, your profile is inactive now so you can't access your dashboard.`
+            );
+
+            navigate("/profile", { replace: true });
             return;
         }
 
@@ -320,6 +382,8 @@ export default function App() {
             setTimeout(() => setIsLoggingOut(false), 300);
         }
     }
+
+
 
     return (
         <Routes>
@@ -419,7 +483,12 @@ export default function App() {
                 <Route
                     path="/sales"
                     element={
-                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
+                        <RequireRole
+                            user={user}
+                            allow={["salesagent", "manager"]}
+                            authReady={authReady}
+
+                        >
                             <SalesDashboard />
                         </RequireRole>
                     }
@@ -539,7 +608,7 @@ export default function App() {
                 <Route
                     path="/service"
                     element={
-                        <RequireRole user={user} allow={["servicetechnician", "manager"]} authReady={authReady}>
+                        <RequireRole user={user} allow={["servicetechnician", "manager"]} authReady={authReady} >
                             <ServiceDashboard />
                         </RequireRole>
                     }
@@ -572,7 +641,9 @@ export default function App() {
                 <Route
                     path="/manager"
                     element={
-                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                        <RequireRole user={user} allow={["manager"]}
+                                     authReady={authReady}
+                                     >
                             <ManagerDashboard />
                         </RequireRole>
                     }

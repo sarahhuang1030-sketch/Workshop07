@@ -1,9 +1,6 @@
 package org.example.controller;
 
-import org.example.dto.CustomerDTO;
-import org.example.dto.ServiceDashboardSummaryDTO;
-import org.example.dto.ServiceTicketDTO;
-import org.example.dto.ServiceWorkOrderDTO;
+import org.example.dto.*;
 import org.example.model.CustomerAddress;
 import org.example.service.CustomerAddressService;
 import org.example.service.CustomerService;
@@ -80,5 +77,20 @@ public class ServiceDashboardController {
             @PathVariable Integer customerId
     ) {
         return ResponseEntity.ok(customerAddressService.getAddresses(customerId));
+    }
+
+    @PutMapping("/work-orders/{appointmentId}")
+    @PreAuthorize("hasRole('SERVICE_TECHNICIAN')")
+    public ResponseEntity<Void> updateWorkOrder(
+            @PathVariable Integer appointmentId,
+            @RequestBody TechnicianWorkOrderUpdateRequest request
+    ) {
+        serviceDashboardService.updateWorkOrder(
+                appointmentId,
+                request.getStatus(),
+                request.getScheduledEnd(),
+                request.getNotes()
+        );
+        return ResponseEntity.ok().build();
     }
 }

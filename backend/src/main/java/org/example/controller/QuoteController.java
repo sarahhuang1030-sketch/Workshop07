@@ -100,25 +100,23 @@ public class QuoteController {
     // CREATE QUOTE
     // ======================================================
     @PostMapping
-    public Quote create(@RequestBody QuoteRequestDTO dto) {
-        return quoteService.createQuote(dto);
+    public ResponseEntity<QuoteDTO> create(@RequestBody QuoteRequestDTO dto) {
+        Quote saved = quoteService.createQuote(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapToDTO(saved));
     }
 
     // ======================================================
     // UPDATE QUOTE
     // ======================================================
     @PutMapping("/{id}")
-    public Quote update(@PathVariable Integer id,
-                        @RequestBody QuoteUpdateDTO dto) {
-        return quoteService.updateQuote(id, dto);
+    public QuoteDTO update(@PathVariable Integer id, @RequestBody QuoteUpdateDTO dto) {
+        Quote updated = quoteService.updateQuote(id, dto);
+        return mapToDTO(updated);
     }
 
-    // ======================================================
     // CANCEL QUOTE
-    // ======================================================
     @PatchMapping("/{id}/cancel")
-    public Quote cancel(@PathVariable Integer id) {
-
+    public QuoteDTO cancel(@PathVariable Integer id) {
         Quote q = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Quote not found"));
 
@@ -127,12 +125,11 @@ public class QuoteController {
         }
 
         q.setStatus("CANCELLED");
-        return repo.save(q);
+        Quote saved = repo.save(q);
+        return mapToDTO(saved);
     }
 
-    // ======================================================
     // APPROVE QUOTE (Status only → Pay later)
-    // ======================================================
     @PatchMapping("/{id}/approve")
     public ResponseEntity<QuoteDTO> approve(@PathVariable Integer id) {
 
@@ -148,6 +145,38 @@ public class QuoteController {
         repo.save(q);
 
         // 2. RETURN QUOTE DTO
+        return ResponseEntity.ok(mapToDTO(q));
+    }
+
+    // Decline QUOTE
+    @PatchMapping("/{id}/decline")
+    public ResponseEntity<QuoteDTO> decline(@PathVariable Integer id) {
+
+        Quote q = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Quote not found"));
+
+        if (!"PENDING".equalsIgnoreCase(q.getStatus()) &&
+                !"APPROVED".equalsIgnoreCase(q.getStatus())) {
+            throw new IllegalStateException("Only PENDING or APPROVED quotes can be declined");
+        }
+
+        q.setStatus("DECLINED");
+        repo.save(q);
+        return ResponseEntity.ok(mapToDTO(q));
+    }
+
+    // resend QUOTE
+    @PatchMapping("/{id}/resend")
+    public ResponseEntity<QuoteDTO> resend(@PathVariable Integer id) {
+        Quote q = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Quote not found"));
+
+        if (!"DECLINED".equalsIgnoreCase(q.getStatus())) {
+            throw new IllegalStateException("Only DECLINED quotes can be resent");
+        }
+
+        q.setStatus("PENDING");
+        repo.save(q);
         return ResponseEntity.ok(mapToDTO(q));
     }
 

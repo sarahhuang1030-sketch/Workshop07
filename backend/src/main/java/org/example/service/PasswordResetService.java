@@ -63,7 +63,7 @@ public class PasswordResetService {
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(email);
-        msg.setSubject("Reset your TeleConnect password");
+        msg.setSubject("Reset your SJY Telecom password");
         msg.setText("Click this link to reset your password (valid 30 minutes):\n" + link);
 
         mailSender.send(msg);

@@ -14,6 +14,8 @@ public class CurrentPlanItemResponse {
     private BigDecimal addonTotal;
     private BigDecimal totalMonthlyPrice;
     private LocalDate startDate;
+    private Integer contractTermMonths;
+    private LocalDate endDate;
 
     public CurrentPlanItemResponse(Integer subscriptionId,
                                    Integer planId,
@@ -21,13 +23,37 @@ public class CurrentPlanItemResponse {
                                    BigDecimal monthlyPrice,
                                    BigDecimal addonTotal,
                                    BigDecimal totalMonthlyPrice,
-                                   LocalDate startDate) {
+                                   LocalDate startDate,
+                                   Integer contractTermMonths,
+                                   LocalDate endDate) {
         this.subscriptionId = subscriptionId;
         this.planId = planId;
         this.planName = planName;
         this.monthlyPrice = monthlyPrice;
         this.addonTotal = addonTotal;
         this.totalMonthlyPrice = totalMonthlyPrice;
+        this.startDate = startDate;
+        this.contractTermMonths = contractTermMonths;
+        this.endDate = endDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public Integer getContractTermMonths() {
+        return contractTermMonths;
+    }
+
+    public void setContractTermMonths(Integer contractTermMonths) {
+        this.contractTermMonths = contractTermMonths;
+    }
+
+    public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
     }
 

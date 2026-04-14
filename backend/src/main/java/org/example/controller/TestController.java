@@ -10,7 +10,7 @@ public class TestController {
 
     @GetMapping("/")
     public String home() {
-        return "TeleConnect backend is running";
+        return "SJY Telecom backend is running";
     }
 
     @GetMapping("/ping")

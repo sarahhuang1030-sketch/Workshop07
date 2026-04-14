@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 @RestController
 @RequestMapping("/api/invoices")
@@ -24,9 +25,7 @@ public class InvoiceController {
         this.userAccountRepo = userAccountRepo;
     }
 
-    // =========================
     // ADMIN: get all invoices
-    // =========================
     @GetMapping("/admin/all")
     public ResponseEntity<List<InvoiceDTO>> getAllInvoicesAdmin() {
         List<Invoices> invoices = invoiceService.findAllInvoices();
@@ -36,9 +35,7 @@ public class InvoiceController {
         return ResponseEntity.ok(dtos);
     }
 
-    // =========================
     // USER: get latest invoice
-    // =========================
     @GetMapping("/latest")
     public ResponseEntity<InvoiceDTO> getLatestInvoice(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
@@ -53,9 +50,7 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.convertToDTO(latestInvoice));
     }
 
-    // =========================
     // USER: get all invoices
-    // =========================
     @GetMapping("/user/all")
     public ResponseEntity<List<InvoiceDTO>> getAllInvoicesUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
@@ -72,9 +67,7 @@ public class InvoiceController {
         return ResponseEntity.ok(dtos);
     }
 
-    // =========================
     // Get invoice by number
-    // =========================
     @GetMapping("/{invoiceNumber}")
     public ResponseEntity<InvoiceDTO> getInvoice(@PathVariable String invoiceNumber) {
         Invoices invoice = invoiceService.findByInvoiceNumber(invoiceNumber);
@@ -82,9 +75,7 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.convertToDTO(invoice));
     }
 
-    // =========================
     // Get invoices (AUTO by role)
-    // =========================
     @GetMapping("/all")
     public ResponseEntity<List<InvoiceDTO>> getInvoices(Authentication authentication) {
 
@@ -177,5 +168,39 @@ public class InvoiceController {
     public ResponseEntity<Void> deleteInvoice(@PathVariable String invoiceNumber) {
         boolean deleted = invoiceService.deleteInvoice(invoiceNumber);
         return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    // Get invoices sold by current logged-in employee this month
+    @GetMapping("/my-sales")
+    public ResponseEntity<List<InvoiceDTO>> getMySalesInvoices(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated())
+            return ResponseEntity.status(401).build();
+
+        UserAccount ua = userAccountRepo
+                .findByUsernameIgnoreCase(authentication.getName())
+                .orElse(null);
+
+        if (ua == null)
+            return ResponseEntity.status(404).build();
+
+        // If employee, filter by their subscriptions this month
+        // If not employee, return current month all invoices
+        List<Invoices> invoices;
+
+        if (ua.getEmployeeId() != null) {
+            invoices = invoiceService.findByEmployeeIdThisMonth(ua.getEmployeeId());
+        } else {
+            // fallback: return this month's all invoices
+            LocalDate start = LocalDate.now().withDayOfMonth(1);
+            LocalDate end   = LocalDate.now().withDayOfMonth(
+                    LocalDate.now().lengthOfMonth());
+            invoices = invoiceService.findByDateRange(start, end);
+        }
+
+        List<InvoiceDTO> dtos = invoices.stream()
+                .map(invoiceService::convertToDTO)
+                .toList();
+
+        return ResponseEntity.ok(dtos);
     }
 }
