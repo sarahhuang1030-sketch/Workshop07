@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { apiFetch } from "../services/api";
 import PaymentCardUI from "../components/PaymentCardUI";
 import { useNavigate, useLocation } from "react-router-dom";
+import "../style/style.css";
 
 /* =========================
    Province tax rates
@@ -16,49 +17,85 @@ const PROVINCE_TAX = {
     QC: 0.14975,
 };
 
+/* =========================
+   Province display names
+========================= */
+const PROVINCE_LABELS = {
+    ON: "Ontario",
+    BC: "British Columbia",
+    AB: "Alberta",
+    QC: "Quebec",
+};
+
 export default function CheckoutPage() {
     const stripe = useStripe();
     const { plans, addOns, devices, clearCart } = useCart();
 
-    const [paymentMethod, setPaymentMethod] = useState(null);
-    const [submitted, setSubmitted] = useState(false);
-    const [orderNumber, setOrderNumber] = useState("");
-    const [billingCycle, setBillingCycle] = useState("monthly");
-    const [province, setProvince] = useState("ON");
+    const [paymentMethod, setPaymentMethod]   = useState(null);
+    const [submitted, setSubmitted]           = useState(false);
+    const [orderNumber, setOrderNumber]       = useState("");
+    const [billingCycle, setBillingCycle]     = useState("monthly");
+    const [province, setProvince]             = useState("ON");
 
     const [externalInvoice, setExternalInvoice] = useState(null);
-    const [loadingInvoice, setLoadingInvoice] = useState(false);
+    const [loadingInvoice, setLoadingInvoice]   = useState(false);
 
-    const [quote, setQuote] = useState(null);
+    const [quote, setQuote]             = useState(null);
     const [loadingQuote, setLoadingQuote] = useState(false);
 
     const [billingAddress, setBillingAddress] = useState({
-        street1: "",
-        street2: "",
-        city: "",
-        province: "ON",
-        postalCode: "",
-        country: "Canada",
+        street1: "", street2: "", city: "",
+        province: "ON", postalCode: "", country: "Canada",
     });
-    const [addressLoaded, setAddressLoaded] = useState(false);
+    const [addressLoaded, setAddressLoaded]     = useState(false);
+    const [postalCodeError, setPostalCodeError] = useState("");
+    const [postalCodeTouched, setPostalCodeTouched] = useState(false); // true only after user edits the field
 
-    const navigate = useNavigate();
-    const location = useLocation();
+    /* =========================
+       POSTAL CODE HELPERS
+       Canadian format: A1A 1A1
+    ========================= */
 
-    const queryParams = new URLSearchParams(location.search);
+    // Strip non-alphanumeric, uppercase, insert space after 3rd char
+    const formatPostalCode = (raw) => {
+        const clean = raw.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6);
+        return clean.length > 3 ? clean.slice(0, 3) + " " + clean.slice(3) : clean;
+    };
+
+    // Full Canadian postal code: L D L (space) D L D
+    const POSTAL_REGEX = /^[A-Z]\d[A-Z] \d[A-Z]\d$/;
+
+    const handlePostalCodeChange = (e) => {
+        const formatted = formatPostalCode(e.target.value);
+        setBillingAddress((prev) => ({ ...prev, postalCode: formatted }));
+        setPostalCodeTouched(true); // mark dirty so green border can appear
+        if (postalCodeError) setPostalCodeError("");
+    };
+
+    const handlePostalCodeBlur = () => {
+        const val = billingAddress.postalCode.trim();
+        if (!val) {
+            setPostalCodeError("Postal code is required.");
+        } else if (!POSTAL_REGEX.test(val)) {
+            setPostalCodeError("Must be in format A1A 1A1 (e.g. M5V 3A8).");
+        } else {
+            setPostalCodeError("");
+        }
+    };
+
+    const navigate  = useNavigate();
+    const location  = useLocation();
+
+    const queryParams   = new URLSearchParams(location.search);
     const invoiceNumber = queryParams.get("invoiceNumber");
-    const quoteId = queryParams.get("quoteId");
+    const quoteId       = queryParams.get("quoteId");
 
     /* =========================
        LOAD INVOICE / QUOTE / ADDRESS
     ========================= */
     useEffect(() => {
-        if (invoiceNumber) {
-            loadInvoice(invoiceNumber);
-        }
-        if (quoteId) {
-            loadQuote(quoteId);
-        }
+        if (invoiceNumber) loadInvoice(invoiceNumber);
+        if (quoteId)       loadQuote(quoteId);
         loadAddress();
     }, [invoiceNumber, quoteId]);
 
@@ -67,9 +104,7 @@ export default function CheckoutPage() {
             setLoadingInvoice(true);
             const res = await apiFetch(`/api/invoices/${num}`);
             if (!res.ok) throw new Error("Invoice not found");
-
-            const data = await res.json();
-            setExternalInvoice(data);
+            setExternalInvoice(await res.json());
         } catch (err) {
             console.error(err);
             alert("Failed to load invoice details.");
@@ -83,9 +118,7 @@ export default function CheckoutPage() {
             setLoadingQuote(true);
             const res = await apiFetch(`/api/quotes/${id}`);
             if (!res.ok) throw new Error("Quote not found");
-
-            const data = await res.json();
-            setQuote(data);
+            setQuote(await res.json());
         } catch (err) {
             console.error(err);
             alert("Failed to load quote details.");
@@ -101,12 +134,9 @@ export default function CheckoutPage() {
                 const data = await res.json();
                 if (data.street1) {
                     setBillingAddress({
-                        street1: data.street1,
-                        street2: data.street2,
-                        city: data.city,
-                        province: data.province || "ON",
-                        postalCode: data.postalCode,
-                        country: data.country || "Canada",
+                        street1: data.street1, street2: data.street2,
+                        city: data.city, province: data.province || "ON",
+                        postalCode: data.postalCode, country: data.country || "Canada",
                     });
                     setProvince(data.province || "ON");
                     setAddressLoaded(true);
@@ -125,28 +155,14 @@ export default function CheckoutPage() {
 
         if (externalInvoice) {
             const subtotal = Number(externalInvoice.subtotal ?? 0);
-            const taxRate = PROVINCE_TAX[province] || 0.13;
-
-            const yearlyDiscount = 0;
-
             const tax = subtotal * taxRate;
-            const finalTotal = subtotal + tax;
-
             return {
-                subtotal,
-                yearlyDiscount,
-                tax,
-                finalTotal,
-                hasRecurringItems: true,
-                hasOneTimeItems: false,
-                isExternal: true,
+                subtotal, yearlyDiscount: 0, tax, finalTotal: subtotal + tax,
+                hasRecurringItems: true, hasOneTimeItems: false, isExternal: true,
             };
         }
 
-        let baseSubtotal = 0;
-        let recurringMonthly = 0;
-        let hasRecurring = false;
-        let isQuote = false;
+        let baseSubtotal = 0, recurringMonthly = 0, hasRecurring = false, isQuote = false;
 
         if (quote) {
             baseSubtotal = Number(quote.amount || 0);
@@ -155,63 +171,38 @@ export default function CheckoutPage() {
             isQuote = true;
         } else {
             const recurringPlans = plans.reduce(
-                (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0),
-                0
+                (sum, p) => sum + Number(p?.totalPrice ?? p?.price ?? p?.monthlyPrice ?? 0), 0
             );
-
             const recurringAddOns = addOns.reduce(
-                (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0),
-                0
+                (sum, a) => sum + Number(a?.monthlyPrice ?? a?.price ?? 0), 0
             );
-
             const financedDevices = devices
                 .filter((d) => d.pricingType === "monthly")
                 .reduce((sum, d) => sum + Number(d?.monthlyPrice ?? 0), 0);
-
             const outrightDevices = devices
                 .filter((d) => d.pricingType === "full")
                 .reduce((sum, d) => sum + Number(d?.fullPrice ?? 0), 0);
 
             recurringMonthly = recurringPlans + recurringAddOns + financedDevices;
-            const oneTimeSubtotal = outrightDevices;
-
-            baseSubtotal = recurringMonthly + oneTimeSubtotal;
-            hasRecurring = recurringMonthly > 0;
+            baseSubtotal     = recurringMonthly + outrightDevices;
+            hasRecurring     = recurringMonthly > 0;
         }
 
-        const yearlyBase = recurringMonthly * 12;
-        const yearlyDiscount = (billingCycle === "yearly" && hasRecurring)
-            ? yearlyBase * 0.1
-            : 0;
+        const yearlyBase     = recurringMonthly * 12;
+        const yearlyDiscount = (billingCycle === "yearly" && hasRecurring) ? yearlyBase * 0.1 : 0;
+        const yearlyNet      = yearlyBase - yearlyDiscount;
 
-        const yearlyNet = yearlyBase - yearlyDiscount;
+        const calculatedSubtotal = (billingCycle === "yearly" && hasRecurring)
+            ? yearlyNet + (baseSubtotal - recurringMonthly)
+            : baseSubtotal;
 
-        let calculatedSubtotal;
-
-        if (billingCycle === "yearly" && hasRecurring) {
-            calculatedSubtotal = yearlyNet + (baseSubtotal - recurringMonthly);
-        } else {
-            calculatedSubtotal = baseSubtotal;
-        }
-
-        const tax = calculatedSubtotal * taxRate;
+        const tax        = calculatedSubtotal * taxRate;
         const finalTotal = calculatedSubtotal + tax;
 
-        const monthlyRecurring = recurringMonthly;
-
         return {
-            subtotal: calculatedSubtotal,
-            tax,
-            finalTotal,
-
-            monthlyRecurring,
-            yearlyBase,
-            yearlyDiscount,
-            yearlyNet,
-
-            hasRecurringItems: hasRecurring,
-            isExternal: false,
-            isQuote
+            subtotal: calculatedSubtotal, tax, finalTotal,
+            monthlyRecurring: recurringMonthly, yearlyBase, yearlyDiscount, yearlyNet,
+            hasRecurringItems: hasRecurring, isExternal: false, isQuote,
         };
     }, [plans, addOns, devices, billingCycle, province, externalInvoice, quote]);
 
@@ -219,12 +210,16 @@ export default function CheckoutPage() {
        HANDLE CHECKOUT
     ========================= */
     const handleCheckout = async () => {
-        console.log("devices in cart:", JSON.stringify(devices, null, 2));
-
         if (!paymentMethod) return alert("Please select a payment card.");
-        if (!stripe) return alert("Stripe not ready.");
-        if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode) {
+        if (!stripe)        return alert("Stripe not ready.");
+        if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode)
             return alert("Please complete your billing address.");
+
+        // Validate Canadian postal code format A1A 1A1
+        const POSTAL_RE = /^[A-Z]\d[A-Z] \d[A-Z]\d$/;
+        if (!POSTAL_RE.test(billingAddress.postalCode.trim())) {
+            setPostalCodeError("Must be in format A1A 1A1 (e.g. M5V 3A8).");
+            return alert("Please enter a valid Canadian postal code (e.g. M5V 3A8).");
         }
 
         try {
@@ -235,65 +230,35 @@ export default function CheckoutPage() {
                 quoteId: quoteId || null,
             };
 
-            const intentRes = await apiFetch("/api/payment-intent", {
-                method: "POST",
-                body: JSON.stringify(payload),
-            });
-
+            const intentRes  = await apiFetch("/api/payment-intent", { method: "POST", body: JSON.stringify(payload) });
             const intentData = await intentRes.json();
             if (!intentRes.ok) return alert(intentData.error || "Payment setup failed");
 
             const result = await stripe.confirmCardPayment(intentData.clientSecret, {
                 payment_method: paymentMethod.stripePaymentMethodId,
             });
-
-            if (result.error) {
-                alert(result.error.message);
-                return;
-            }
+            if (result.error) { alert(result.error.message); return; }
 
             const checkoutItems = [];
-
-            // Add plans
-            plans.forEach(p => {
-                checkoutItems.push({
-                    description: p.name,
-                    quantity: p.lines || 1,
-                    unitPrice: p.pricePerLine || p.totalPrice || p.price || 0,
-                    lineTotal: p.totalPrice || p.price || 0,
-                    itemType: "plan",
-                    serviceType: p.serviceType,
-                    id: p.planId,
-                    subscribers: p.subscribers?.map(s => s.fullName) || []
-                });
-            });
-
-            // Add addons
-            addOns.forEach(a => {
-                checkoutItems.push({
-                    description: a.addOnName,
-                    quantity: 1,
-                    unitPrice: a.monthlyPrice || a.price || 0,
-                    lineTotal: a.monthlyPrice || a.price || 0,
-                    itemType: "addon",
-                    serviceType: a.serviceType,
-                    id: a.addOnId
-                });
-            });
-
-            // Add devices
-            devices.forEach(d => {
-                checkoutItems.push({
-                    description: `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
-                    quantity: 1,
-                    unitPrice: d.totalPrice || 0,
-                    lineTotal: d.totalPrice || 0,
-                    itemType: "device",
-                    phoneId: d.phoneId || d.id,
-                    pricingType: d.pricingType,
-                    subscribers: [d.assignedSubscriberName]
-                });
-            });
+            plans.forEach(p => checkoutItems.push({
+                description: p.name, quantity: p.lines || 1,
+                unitPrice: p.pricePerLine || p.totalPrice || p.price || 0,
+                lineTotal: p.totalPrice || p.price || 0, itemType: "plan",
+                serviceType: p.serviceType, id: p.planId,
+                subscribers: p.subscribers?.map(s => s.fullName) || [],
+            }));
+            addOns.forEach(a => checkoutItems.push({
+                description: a.addOnName, quantity: 1,
+                unitPrice: a.monthlyPrice || a.price || 0,
+                lineTotal: a.monthlyPrice || a.price || 0,
+                itemType: "addon", serviceType: a.serviceType, id: a.addOnId,
+            }));
+            devices.forEach(d => checkoutItems.push({
+                description: `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
+                quantity: 1, unitPrice: d.totalPrice || 0, lineTotal: d.totalPrice || 0,
+                itemType: "device", phoneId: d.phoneId || d.id,
+                pricingType: d.pricingType, subscribers: [d.assignedSubscriberName],
+            }));
 
             const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
@@ -307,19 +272,15 @@ export default function CheckoutPage() {
                     paymentIntentId: result.paymentIntent.id,
                     quoteId: quoteId || null,
                     items: checkoutItems,
-                    ...billingAddress
+                    ...billingAddress,
                 }),
             });
 
             const invoice = await invoiceRes.json();
-
-            if (!invoiceRes.ok) {
-                return alert(invoice.error || "Checkout failed");
-            }
+            if (!invoiceRes.ok) return alert(invoice.error || "Checkout failed");
 
             setOrderNumber(invoice.invoiceNumber);
             setSubmitted(true);
-
             if (!pricing.isExternal && !pricing.isQuote) clearCart();
         } catch (err) {
             console.error(err);
@@ -332,180 +293,402 @@ export default function CheckoutPage() {
     ========================= */
     if (submitted) {
         return (
-            <Container className="py-5 text-center">
-                <Alert variant="success">
-                    🎉 Payment Successful
-                    <br />
-                    Order Number: {orderNumber}
-                </Alert>
+            <div
+                style={{
+                    minHeight: "100vh",
+                    background: "linear-gradient(135deg, #f5f3ff, #fce7f3, #dbeafe)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "2rem",
+                }}
+            >
+                <div style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
+                    {/* Success icon circle */}
+                    <div
+                        style={{
+                            width: 80, height: 80, borderRadius: "50%",
+                            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            margin: "0 auto 1.5rem",
+                            boxShadow: "0 8px 32px rgba(79,70,229,0.35)",
+                        }}
+                    >
+                        <span style={{ fontSize: "2rem", lineHeight: 1 }}>✓</span>
+                    </div>
 
-                <Button
-                    className="mt-3"
-                    onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
-                >
-                    View Invoice
-                </Button>
-            </Container>
+                    <h2 className="fw-bold mb-2" style={{ fontSize: "1.75rem" }}>Payment Successful!</h2>
+                    <p className="tc-muted-light mb-1" style={{ fontSize: "1rem" }}>
+                        Your order has been confirmed.
+                    </p>
+                    <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "2rem" }}>
+                        Order Number:&nbsp;
+                        <strong style={{ color: "#4f46e5", fontFamily: "monospace" }}>{orderNumber}</strong>
+                    </p>
+
+                    <Button
+                        className="rounded-pill px-5 py-2 fw-bold"
+                        style={{
+                            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                            border: "none",
+                            boxShadow: "0 4px 20px rgba(79,70,229,0.35)",
+                            fontSize: "0.95rem",
+                        }}
+                        onClick={() => navigate(`/customer/invoice/${orderNumber}`)}
+                    >
+                        View Invoice
+                    </Button>
+                </div>
+            </div>
         );
     }
+
+    /* =========================
+       SECTION HEADER HELPER
+    ========================= */
+    const SectionLabel = ({ icon, children }) => (
+        <div className="d-flex align-items-center gap-2 mb-3">
+            <div
+                style={{
+                    width: 32, height: 32, borderRadius: "8px",
+                    background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.9rem", flexShrink: 0,
+                }}
+            >
+                {icon}
+            </div>
+            <h5 className="fw-bold mb-0" style={{ fontSize: "1rem" }}>{children}</h5>
+        </div>
+    );
 
     /* =========================
        MAIN UI
     ========================= */
     return (
-        <Container style={{ maxWidth: 700 }} className="py-5">
-            <h2 className="mb-4">Checkout</h2>
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "linear-gradient(135deg, #f5f3ff 0%, #fce7f3 50%, #dbeafe 100%)",
+                padding: "3rem 0 5rem",
+            }}
+        >
+            <Container style={{ maxWidth: 680 }}>
 
-            {loadingInvoice && (
-                <div className="text-center mb-3">
-                    <Spinner animation="border" />
+                {/* ── Page title ── */}
+                <div className="mb-4">
+                    <div className="tc-section-chip tc-section-chip-light mb-2">Secure Checkout</div>
+                    <h2 className="fw-bold mb-0" style={{ fontSize: "clamp(1.6rem, 3vw, 2rem)" }}>
+                        Complete Your Order
+                    </h2>
                 </div>
-            )}
 
-            {pricing.hasRecurringItems && (
-                <Card className="mb-3 p-3">
-                    <h5>Billing Cycle</h5>
-                    <Form.Check
-                        type="radio"
-                        label="Monthly"
-                        checked={billingCycle === "monthly"}
-                        onChange={() => setBillingCycle("monthly")}
-                    />
-                    <Form.Check
-                        type="radio"
-                        label="Yearly (10% OFF)"
-                        checked={billingCycle === "yearly"}
-                        onChange={() => setBillingCycle("yearly")}
-                    />
-                </Card>
-            )}
-
-            <Card className="mb-3 p-3">
-                <h5>Province</h5>
-                <Form.Select value={province} onChange={(e) => setProvince(e.target.value)}>
-                    {Object.keys(PROVINCE_TAX).map((p) => (
-                        <option key={p} value={p}>
-                            {p}
-                        </option>
-                    ))}
-                </Form.Select>
-            </Card>
-
-            <Card className="mb-3 p-3">
-                <h5>Billing Address</h5>
-                {addressLoaded ? (
-                    <div className="small text-muted mb-2">
-                        {billingAddress.street1}, {billingAddress.city}, {billingAddress.province}, {billingAddress.postalCode}
+                {/* ── Loading spinner ── */}
+                {loadingInvoice && (
+                    <div className="text-center mb-4">
+                        <Spinner animation="border" variant="primary" />
+                        <div className="tc-muted-light mt-2 small">Loading invoice…</div>
                     </div>
-                ) : (
-                    <Alert variant="warning" className="py-2 small">
-                        No billing address found. Please enter it below.
-                    </Alert>
-                )}
-                <Row className="g-2">
-                    <Col md={12}>
-                        <Form.Control
-                            size="sm"
-                            placeholder="Street Address"
-                            value={billingAddress.street1}
-                            onChange={(e) => setBillingAddress({...billingAddress, street1: e.target.value})}
-                        />
-                    </Col>
-                    <Col md={6}>
-                        <Form.Control
-                            size="sm"
-                            placeholder="City"
-                            value={billingAddress.city}
-                            onChange={(e) => setBillingAddress({...billingAddress, city: e.target.value})}
-                        />
-                    </Col>
-                    <Col md={6}>
-                        <Form.Control
-                            size="sm"
-                            placeholder="Postal Code"
-                            value={billingAddress.postalCode}
-                            onChange={(e) => setBillingAddress({...billingAddress, postalCode: e.target.value})}
-                        />
-                    </Col>
-                </Row>
-            </Card>
-
-            <PaymentCardUI onCardSelect={setPaymentMethod} />
-
-            {/*<Card className="mt-3 p-3">*/}
-            {/*    <h5>Order Summary</h5>*/}
-            {/*    <hr />*/}
-
-
-
-            {/*    {billingCycle === "yearly" && pricing.yearlyDiscount > 0 && (*/}
-            {/*        <div className="d-flex justify-content-between text-success">*/}
-            {/*            <span>Yearly Discount (10%)</span>*/}
-            {/*            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>*/}
-            {/*        </div>*/}
-            {/*    )}*/}
-
-            {/*    <div className="d-flex justify-content-between">*/}
-            {/*        <span>Subtotal</span>*/}
-            {/*        <span>${pricing.subtotal.toFixed(2)}</span>*/}
-            {/*    </div>*/}
-
-            {/*    <div className="d-flex justify-content-between">*/}
-            {/*        <span>Tax</span>*/}
-            {/*        <span>${(pricing.tax ?? 0).toFixed(2)}</span>*/}
-            {/*    </div>*/}
-
-            {/*    <hr />*/}
-
-            {/*    <div className="d-flex justify-content-between fw-bold fs-5">*/}
-            {/*        <span>Total</span>*/}
-            {/*        <span>${(pricing.finalTotal ?? 0).toFixed(2)}</span>*/}
-            {/*    </div>*/}
-            {/*</Card>*/}
-
-            <Card className="mt-3 p-3">
-                <h5>Order Summary</h5>
-                <hr />
-
-                {/* YEARLY BREAKDOWN */}
-                {billingCycle === "yearly" && pricing.hasRecurringItems && (
-                    <>
-                        <div className="d-flex justify-content-between">
-                            <span>12-Month Recurring Total</span>
-                            <span>${pricing.yearlyBase.toFixed(2)}</span>
-                        </div>
-
-                        <div className="d-flex justify-content-between text-success">
-                            <span>Yearly Discount (10%)</span>
-                            <span>-${pricing.yearlyDiscount.toFixed(2)}</span>
-                        </div>
-
-                        <hr />
-                    </>
                 )}
 
-                <div className="d-flex justify-content-between">
-                    <span>Subtotal</span>
-                    <span>${pricing.subtotal.toFixed(2)}</span>
+                {/* ── Billing Cycle ── */}
+                {pricing.hasRecurringItems && (
+                    <Card
+                        className="mb-3 border-0 shadow-sm"
+                        style={{ borderRadius: "1rem", overflow: "hidden" }}
+                    >
+                        <Card.Body className="p-4">
+                            <SectionLabel icon="🔁">Billing Cycle</SectionLabel>
+
+                            <div className="d-flex gap-3 flex-wrap">
+                                {/* Monthly option */}
+                                <label
+                                    className="d-flex align-items-start gap-3 flex-fill p-3"
+                                    style={{
+                                        cursor: "pointer",
+                                        border: `2px solid ${billingCycle === "monthly" ? "#4f46e5" : "#e5e7eb"}`,
+                                        borderRadius: "0.75rem",
+                                        background: billingCycle === "monthly" ? "rgba(79,70,229,0.05)" : "#fff",
+                                        transition: "all 0.2s ease",
+                                    }}
+                                >
+                                    <Form.Check
+                                        type="radio"
+                                        checked={billingCycle === "monthly"}
+                                        onChange={() => setBillingCycle("monthly")}
+                                        style={{ marginTop: 2 }}
+                                    />
+                                    <div>
+                                        <div className="fw-semibold" style={{ fontSize: "0.95rem" }}>Monthly</div>
+                                        <div className="tc-muted-light" style={{ fontSize: "0.8rem" }}>Pay month to month</div>
+                                    </div>
+                                </label>
+
+                                {/* Yearly option */}
+                                <label
+                                    className="d-flex align-items-start gap-3 flex-fill p-3"
+                                    style={{
+                                        cursor: "pointer",
+                                        border: `2px solid ${billingCycle === "yearly" ? "#4f46e5" : "#e5e7eb"}`,
+                                        borderRadius: "0.75rem",
+                                        background: billingCycle === "yearly" ? "rgba(79,70,229,0.05)" : "#fff",
+                                        transition: "all 0.2s ease",
+                                    }}
+                                >
+                                    <Form.Check
+                                        type="radio"
+                                        checked={billingCycle === "yearly"}
+                                        onChange={() => setBillingCycle("yearly")}
+                                        style={{ marginTop: 2 }}
+                                    />
+                                    <div>
+                                        <div className="fw-semibold d-flex align-items-center gap-2" style={{ fontSize: "0.95rem" }}>
+                                            Yearly
+                                            {/* tc-badge-hot: yellow→orange gradient chip */}
+                                            <span
+                                                className="tc-badge-hot px-2 py-0"
+                                                style={{ fontSize: "0.65rem", borderRadius: "999px", fontWeight: 700, letterSpacing: "0.5px" }}
+                                            >
+                                                10% OFF
+                                            </span>
+                                        </div>
+                                        <div className="tc-muted-light" style={{ fontSize: "0.8rem" }}>Save with annual billing</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                )}
+
+                {/* ── Province ── */}
+                <Card
+                    className="mb-3 border-0 shadow-sm"
+                    style={{ borderRadius: "1rem" }}
+                >
+                    <Card.Body className="p-4">
+                        <SectionLabel icon="📍">Province</SectionLabel>
+                        <Form.Select
+                            value={province}
+                            onChange={(e) => setProvince(e.target.value)}
+                            style={{ borderRadius: "0.6rem", border: "1.5px solid #e5e7eb", fontSize: "0.9rem" }}
+                        >
+                            {Object.entries(PROVINCE_TAX).map(([p, rate]) => (
+                                <option key={p} value={p}>
+                                    {PROVINCE_LABELS[p] || p} — {(rate * 100).toFixed(2)}% tax
+                                </option>
+                            ))}
+                        </Form.Select>
+                    </Card.Body>
+                </Card>
+
+                {/* ── Billing Address ── */}
+                <Card
+                    className="mb-3 border-0 shadow-sm"
+                    style={{ borderRadius: "1rem" }}
+                >
+                    <Card.Body className="p-4">
+                        <SectionLabel icon="🏠">Billing Address</SectionLabel>
+
+                        {addressLoaded ? (
+                            <div
+                                className="mb-3 px-3 py-2 d-flex align-items-center gap-2"
+                                style={{
+                                    background: "rgba(79,70,229,0.06)",
+                                    border: "1px solid rgba(79,70,229,0.18)",
+                                    borderRadius: "0.6rem",
+                                    fontSize: "0.85rem",
+                                    color: "#4f46e5",
+                                }}
+                            >
+                                <span>📌</span>
+                                <span>
+                                    {billingAddress.street1}, {billingAddress.city},{" "}
+                                    {billingAddress.province}, {billingAddress.postalCode}
+                                </span>
+                            </div>
+                        ) : (
+                            <Alert
+                                variant="warning"
+                                className="py-2 mb-3"
+                                style={{ fontSize: "0.82rem", borderRadius: "0.6rem" }}
+                            >
+                                No billing address found. Please enter it below.
+                            </Alert>
+                        )}
+
+                        <Row className="g-2">
+                            <Col md={12}>
+                                <Form.Control
+                                    size="sm"
+                                    placeholder="Street Address"
+                                    value={billingAddress.street1}
+                                    onChange={(e) => setBillingAddress({ ...billingAddress, street1: e.target.value })}
+                                    style={{ borderRadius: "0.6rem", border: "1.5px solid #e5e7eb" }}
+                                />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Control
+                                    size="sm"
+                                    placeholder="City"
+                                    value={billingAddress.city}
+                                    onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })}
+                                    style={{ borderRadius: "0.6rem", border: "1.5px solid #e5e7eb" }}
+                                />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Control
+                                    size="sm"
+                                    placeholder="Postal Code (A1A 1A1)"
+                                    value={billingAddress.postalCode}
+                                    onChange={handlePostalCodeChange}
+                                    onBlur={handlePostalCodeBlur}
+                                    maxLength={7}
+                                    isInvalid={!!postalCodeError}
+                                    isValid={postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode)}
+                                    style={{
+                                        borderRadius: "0.6rem",
+                                        border: `1.5px solid ${postalCodeError ? "#ef4444" : postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode) ? "#22c55e" : "#e5e7eb"}`,
+                                        fontFamily: "monospace",
+                                        letterSpacing: "0.08em",
+                                        textTransform: "uppercase",
+                                    }}
+                                />
+                                {postalCodeError && (
+                                    <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <span>⚠</span> {postalCodeError}
+                                    </div>
+                                )}
+                                {postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode) && (
+                                    <div style={{ fontSize: "0.75rem", color: "#16a34a", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <span>✓</span> Valid Canadian postal code
+                                    </div>
+                                )}
+                            </Col>
+                        </Row>
+                    </Card.Body>
+                </Card>
+
+                {/* ── Payment Card (unchanged component) ── */}
+                <Card
+                    className="mb-3 border-0 shadow-sm"
+                    style={{ borderRadius: "1rem", overflow: "hidden" }}
+                >
+                    <Card.Body className="p-4">
+                        <SectionLabel icon="💳">Payment Method</SectionLabel>
+                        <PaymentCardUI onCardSelect={setPaymentMethod} />
+                    </Card.Body>
+                </Card>
+
+                {/* ── Order Summary ── */}
+                <Card
+                    className="mb-4 border-0 shadow-sm"
+                    style={{ borderRadius: "1rem", overflow: "hidden" }}
+                >
+                    <Card.Body className="p-4">
+                        <SectionLabel icon="🧾">Order Summary</SectionLabel>
+
+                        {/* Yearly breakdown rows */}
+                        {billingCycle === "yearly" && pricing.hasRecurringItems && (
+                            <>
+                                <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
+                                    <span className="tc-muted-light">12-Month Recurring Total</span>
+                                    <span className="fw-semibold">${pricing.yearlyBase.toFixed(2)}</span>
+                                </div>
+                                <div
+                                    className="d-flex justify-content-between mb-2 px-3 py-2"
+                                    style={{
+                                        fontSize: "0.88rem",
+                                        background: "rgba(22,163,74,0.07)",
+                                        border: "1px solid rgba(22,163,74,0.2)",
+                                        borderRadius: "0.5rem",
+                                        color: "#15803d",
+                                    }}
+                                >
+                                    <span>🎉 Yearly Discount (10%)</span>
+                                    <span className="fw-semibold">-${pricing.yearlyDiscount.toFixed(2)}</span>
+                                </div>
+                                <hr style={{ borderColor: "#f3f4f6", margin: "0.75rem 0" }} />
+                            </>
+                        )}
+
+                        {/* Subtotal */}
+                        <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
+                            <span className="tc-muted-light">Subtotal</span>
+                            <span className="fw-semibold">${pricing.subtotal.toFixed(2)}</span>
+                        </div>
+
+                        {/* Tax */}
+                        <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
+                            <span className="tc-muted-light">
+                                Tax ({((PROVINCE_TAX[province] || 0.13) * 100).toFixed(2)}%)
+                            </span>
+                            <span className="fw-semibold">${pricing.tax.toFixed(2)}</span>
+                        </div>
+
+                        {/* Divider + Total */}
+                        <hr style={{ borderColor: "#f3f4f6", margin: "0.75rem 0" }} />
+                        <div
+                            className="d-flex justify-content-between align-items-center px-3 py-3"
+                            style={{
+                                background: "linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.07))",
+                                borderRadius: "0.75rem",
+                                border: "1px solid rgba(79,70,229,0.12)",
+                            }}
+                        >
+                            <span className="fw-bold" style={{ fontSize: "1rem" }}>Total Due Today</span>
+                            <span
+                                className="fw-bold"
+                                style={{
+                                    fontSize: "1.4rem",
+                                    background: "linear-gradient(90deg, #4f46e5, #7c3aed)",
+                                    WebkitBackgroundClip: "text",
+                                    WebkitTextFillColor: "transparent",
+                                    backgroundClip: "text",
+                                }}
+                            >
+                                ${pricing.finalTotal.toFixed(2)}
+                            </span>
+                        </div>
+                    </Card.Body>
+                </Card>
+
+                {/* ── Pay Button ── */}
+                <Button
+                    className="w-100 fw-bold rounded-pill"
+                    size="lg"
+                    style={{
+                        background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                        border: "none",
+                        boxShadow: "0 6px 28px rgba(79,70,229,0.4)",
+                        fontSize: "1.05rem",
+                        padding: "0.85rem",
+                        letterSpacing: "0.3px",
+                        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                        e.currentTarget.style.boxShadow = "0 10px 36px rgba(79,70,229,0.5)";
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = "0 6px 28px rgba(79,70,229,0.4)";
+                    }}
+                    onClick={handleCheckout}
+                >
+                    🔒 Pay ${(pricing.finalTotal ?? 0).toFixed(2)}
+                </Button>
+
+                {/* ── Trust badges ── */}
+                <div
+                    className="d-flex justify-content-center gap-4 mt-3"
+                    style={{ fontSize: "0.78rem", color: "#9ca3af" }}
+                >
+                    <span>🔐 SSL Encrypted</span>
+                    <span>🛡️ Secure Payment</span>
+                    <span>↩️ Cancel Anytime</span>
                 </div>
 
-                <div className="d-flex justify-content-between">
-                    <span>Tax</span>
-                    <span>${pricing.tax.toFixed(2)}</span>
-                </div>
-
-                <hr />
-
-                <div className="d-flex justify-content-between fw-bold fs-5">
-                    <span>Total</span>
-                    <span>${pricing.finalTotal.toFixed(2)}</span>
-                </div>
-            </Card>
-
-
-            <Button className="mt-4 w-100" size="lg" onClick={handleCheckout}>
-                Pay ${(pricing.finalTotal ?? 0).toFixed(2)}
-            </Button>
-        </Container>
+            </Container>
+        </div>
     );
 }

@@ -1,112 +1,128 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Badge, Spinner, Alert, Button } from "react-bootstrap";
-import { Package } from "lucide-react";
+import { Card, Badge, Spinner, Button } from "react-bootstrap";
+import { Package, CalendarDays, Receipt, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api";
+import "../style/style.css";
 
-// Utility function: format a number as CAD currency
+/* ── helpers ── */
 const formatMoney = (n) =>
     n == null || Number.isNaN(Number(n))
         ? "—"
         : Number(n).toLocaleString(undefined, { style: "currency", currency: "CAD" });
 
-const formatDate = (dateValue) => {
-    if (!dateValue) return "—";
-    const d = new Date(dateValue);
-    if (Number.isNaN(d.getTime())) return "—";
-    return d.toISOString().split("T")[0];
+const formatDate = (v) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? "—" : d.toISOString().split("T")[0];
 };
 
-const addMonthsToDate = (dateValue, months) => {
-    if (!dateValue || !months) return "—";
-
-    const d = new Date(dateValue);
+const addMonthsToDate = (v, months) => {
+    if (!v || !months) return "—";
+    const d = new Date(v);
     if (Number.isNaN(d.getTime())) return "—";
-
-    const originalDay = d.getDate();
+    const day = d.getDate();
     d.setMonth(d.getMonth() + Number(months));
-
-    if (d.getDate() < originalDay) {
-        d.setDate(0);
-    }
-
+    if (d.getDate() < day) d.setDate(0);
     return formatDate(d);
 };
+
+/* ── status badge config ── */
+const STATUS_CONFIG = {
+    PAID:     { label: "Paid",     bg: "#dcfce7", color: "#15803d", dot: "#22c55e" },
+    UNPAID:   { label: "Unpaid",   bg: "#fef9c3", color: "#a16207", dot: "#eab308" },
+    APPROVED: { label: "Approved", bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6" },
+    DEFAULT:  { label: "Active",   bg: "#ede9fe", color: "#6d28d9", dot: "#7c3aed" },
+};
+const statusCfg = (s) => STATUS_CONFIG[String(s).toUpperCase()] ?? STATUS_CONFIG.DEFAULT;
+
 export default function SubscriptionPage({ darkMode = false }) {
-    // const [loading, setLoading] = useState(true); // Loading state for subscription data
-    // const [latestInvoice, setLatestInvoice] = useState(null); // Latest invoice data
-    const [loading, setLoading] = useState(true);
+    const [loading,       setLoading]       = useState(true);
     const [latestInvoice, setLatestInvoice] = useState(null);
-    const [currentPlan, setCurrentPlan] = useState(null);
+    const [currentPlan,   setCurrentPlan]   = useState(null);
     const navigate = useNavigate();
 
-    // CSS classes for dark/light modes
-    const cardBase = darkMode ? "bg-dark border-secondary" : "bg-white";
-    const mutedClass = darkMode ? "text-light-50 text-secondary" : "text-muted";
+    const mutedClass = darkMode ? "tc-muted-dark" : "tc-muted-light";
 
-    // Fetch latest invoice on mount
     useEffect(() => {
-        let isMounted = true;
+        let alive = true;
 
         async function loadData() {
             try {
-                const [invoiceRes, plansRes] = await Promise.all([
-                    apiFetch("/api/invoices/latest"),
-                    apiFetch("/api/me/plans")
-                ]);
-
+                // /api/invoices/latest — authenticated, returns current user's latest invoice
+                const invoiceRes = await apiFetch("/api/invoices/latest");
                 if (invoiceRes.ok) {
-                    const invoiceData = await invoiceRes.json();
-                    if (isMounted) setLatestInvoice(invoiceData);
+                    const data = await invoiceRes.json();
+                    if (alive) setLatestInvoice(data);
                 }
 
-                if (plansRes.ok) {
-                    const plansData = await plansRes.json();
-                    console.log("PLANS DATA:", plansData);
-
-                    let activePlan = null;
-
-                    if (Array.isArray(plansData)) {
-                        activePlan =
-                            plansData.find(
-                                (p) =>
+                // /api/me/plans — may not exist; ignore errors gracefully
+                try {
+                    const plansRes = await apiFetch("/api/me/plans");
+                    if (plansRes.ok) {
+                        const plansData = await plansRes.json();
+                        let activePlan = null;
+                        if (Array.isArray(plansData)) {
+                            activePlan =
+                                plansData.find(p =>
                                     p.isActive === true ||
-                                    p.active === true ||
+                                    p.active   === true ||
                                     String(p.status || "").toLowerCase() === "active"
-                            ) || plansData[0] || null;
-                    } else if (plansData && typeof plansData === "object") {
-                        activePlan = plansData;
+                                ) || plansData[0] || null;
+                        } else if (plansData && typeof plansData === "object") {
+                            activePlan = plansData;
+                        }
+                        if (alive) setCurrentPlan(activePlan);
                     }
+                } catch (_) { /* /api/me/plans is optional */ }
 
-                    if (isMounted) setCurrentPlan(activePlan);
-                }
             } catch (err) {
                 console.error("Failed to load subscription data:", err);
             } finally {
-                if (isMounted) setLoading(false);
+                if (alive) setLoading(false);
             }
         }
 
         loadData();
-        return () => { isMounted = false; };
+        return () => { alive = false; };
     }, []);
 
-    // Loading UI
+    /* ── loading ── */
     if (loading) {
         return (
-            <Container className="py-5 text-center">
-                <Spinner animation="border" />
-                <div className={`mt-2 ${mutedClass}`}>Loading subscription data…</div>
-            </Container>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem 0" }}>
+                <Spinner animation="border" variant="primary" style={{ width: "2rem", height: "2rem" }} />
+                <div className={`mt-2 ${mutedClass}`} style={{ fontSize: "0.85rem" }}>Loading subscription…</div>
+            </div>
         );
     }
 
-    const hasInvoice = latestInvoice?.items?.length > 0;
+    /* ── derive display data ── */
 
-    const mainPlan = latestInvoice?.items?.find(item => item.itemType === "plan");
-    // const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon");
-    const addOnsItems = latestInvoice?.items?.filter(item => item.itemType === "addon") || [];
+    // hasInvoice: true when ANY invoice exists for this user — items may be empty
+    // This fixes the original bug where items=[] caused "No Plan" to show
+    const hasInvoice = latestInvoice != null;
 
+    const mainPlan    = latestInvoice?.items?.find(i => i.itemType === "plan") || null;
+    const addOnsItems = latestInvoice?.items?.filter(i => i.itemType === "addon") || [];
+    const otherItems  = latestInvoice?.items?.filter(i => i.itemType !== "plan" && i.itemType !== "addon") || [];
+
+    // Plan name: prefer item description → currentPlan name → invoice-level fallback
+    const planName =
+        mainPlan?.description ||
+        currentPlan?.name ||
+        currentPlan?.planName ||
+        (latestInvoice?.items?.[0]?.description) ||
+        "Subscribed Plan";
+
+    // Plan price
+    const planPrice =
+        mainPlan?.lineTotal ??
+        currentPlan?.monthlyPrice ??
+        latestInvoice?.subtotal ??
+        null;
+
+    // Dates
     const startDate =
         currentPlan?.startDate ||
         latestInvoice?.startDate ||
@@ -118,122 +134,194 @@ export default function SubscriptionPage({ darkMode = false }) {
         currentPlan?.plan?.contractTermMonths ||
         null;
 
-    const calculatedEndDate =
+    const endDate =
         currentPlan?.endDate ||
         latestInvoice?.endDate ||
         addMonthsToDate(startDate, contractTermMonths);
 
-    return (
-        <Container className="py-4">
-            <Card className={cardBase} style={{ borderRadius: 22 }}>
-                <Card.Body className="p-4">
-                    {/* Header: Plan overview */}
-                    <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-                        <div>
-                            <div
-                                className={`${darkMode ? "text-light" : "text-dark"}`}
-                                style={{ fontWeight: 900, fontSize: "1.25rem" }}
-                            >
-                                Your current plan
-                            </div>
-                            <div className={mutedClass}>Plan and add-ons overview.</div>
-                        </div>
+    const invoiceStatus = latestInvoice?.status || null;
+    const cfg = invoiceStatus ? statusCfg(invoiceStatus) : STATUS_CONFIG.DEFAULT;
 
-                        <Badge
-                            bg={hasInvoice ? "success" : "secondary"}
-                            style={{ borderRadius: 999, padding: "0.45rem 0.75rem", width: "fit-content" }}
-                        >
-                            {hasInvoice ? "Active" : "No Plan"}
-                        </Badge>
+    /* ── info row helper ── */
+    const InfoRow = ({ icon, label, value }) => (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0", borderBottom: `1px solid ${darkMode ? "rgba(255,255,255,0.07)" : "#f3f4f6"}` }}>
+            <div style={{ color: "#7c3aed", flexShrink: 0 }}>{icon}</div>
+            <span className={mutedClass} style={{ fontSize: "0.82rem", minWidth: 80 }}>{label}</span>
+            <span style={{ fontSize: "0.88rem", fontWeight: 600, color: darkMode ? "#f9fafb" : "#111827", marginLeft: "auto" }}>
+                {value}
+            </span>
+        </div>
+    );
+
+    return (
+        <Card
+            className={`border-0 shadow-sm ${darkMode ? "tc-card-dark" : "bg-white"}`}
+            style={{ borderRadius: "1rem", overflow: "hidden" }}
+        >
+            {/* Gradient top bar */}
+            <div style={{ height: 4, background: "linear-gradient(90deg, #4f46e5, #7c3aed)" }} />
+
+            <Card.Body className="p-4">
+                {/* ── Header ── */}
+                <div className="d-flex align-items-start justify-content-between gap-2 mb-4">
+                    <div className="d-flex align-items-center gap-2">
+                        <div style={{ width: 32, height: 32, borderRadius: "0.5rem", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Package size={15} color="#fff" />
+                        </div>
+                        <div>
+                            <div className="fw-bold" style={{ fontSize: "0.95rem", color: darkMode ? "#f9fafb" : "#111827" }}>
+                                Your Current Plan
+                            </div>
+                            <div className={mutedClass} style={{ fontSize: "0.78rem" }}>
+                                Plan and add-ons overview
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Plan + Add-ons */}
-                    <Row className="g-3 mt-3">
-                        <Col>
-                            <div
-                                className={`p-3 ${darkMode ? "tc-card-dark" : "bg-light"}`}
-                                style={{ borderRadius: 18 }}
-                            >
-                                <div className="d-flex align-items-center gap-2">
-                                    <Package size={18} />
-                                    <div className={`fw-bold ${darkMode ? "text-light" : "text-dark"}`}>
-                                        Plan & Add-ons
-                                    </div>
-                                </div>
+                    {/* Status badge */}
+                    <div
+                        style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            fontSize: "0.75rem", fontWeight: 700,
+                            background: cfg.bg, color: cfg.color,
+                            padding: "4px 12px", borderRadius: "999px",
+                            border: `1px solid ${cfg.dot}44`, flexShrink: 0,
+                        }}
+                    >
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />
+                        {hasInvoice ? cfg.label : "No Plan"}
+                    </div>
+                </div>
 
-                                {hasInvoice ? (
-                                    <div className="mt-2">
-                                        {/* Display main plan */}
-                                        {mainPlan && (
-                                            <div
-                                                className={`${darkMode ? "text-light" : "text-dark"}`}
-                                                style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: 4 }}
-                                            >
-                                                {mainPlan.description} ({formatMoney(mainPlan.lineTotal)})
-                                            </div>
-                                        )}
-
-                                        {/* Display add-ons */}
-                                        {addOnsItems?.map((item, idx) => (
-                                            <div
-                                                key={idx}
-                                                className={`${darkMode ? "text-light" : "text-dark"}`}
-                                                style={{ fontSize: "0.95rem", marginBottom: 2 }}
-                                            >
-                                                • {item.description} ({formatMoney(item.lineTotal)})
-                                            </div>
-                                        ))}
-
-                                        {/* Fallback if no specific plan/addon tagged items but items exist */}
-                                        {!mainPlan && latestInvoice.items.length > 0 && (
-                                            <div
-                                                className={`${darkMode ? "text-light" : "text-dark"}`}
-                                                style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: 4 }}
-                                            >
-                                                {latestInvoice.items[0].description} ({formatMoney(latestInvoice.items[0].lineTotal)})
-                                            </div>
-                                        )}
-
-                                        {/* Date information from latest invoice */}
-                                        <div className={`mt-3 small ${mutedClass}`}>
-                                            <div>
-                                                {/*<strong>Start Date:</strong> {latestInvoice.startDate || "—"}*/}
-                                                <strong>Start Date:</strong> {formatDate(startDate)}
-                                            </div>
-                                            <div>
-                                                {/*<strong>End Date:</strong> {latestInvoice.endDate || "—"}*/}
-                                                <strong>End Date:</strong> {calculatedEndDate}
-                                            </div>
-                                        </div>
-
-                                        {/* Button: Navigate to full invoice page */}
-                                        <Button
-                                            variant={darkMode ? "outline-light" : "outline-secondary"}
-                                            className="mt-3 fw-bold"
-                                            style={{ borderRadius: 14 }}
-                                            onClick={() => navigate("/customer/billing")}
-                                        >
-                                            Check Invoice
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="mt-3">
-                                        <Alert variant={darkMode ? "secondary" : "info"}>
-                                            You have no invoice yet. Subscribe to a plan to get started.
-                                        </Alert>
-                                        <Button
-                                            variant="primary"
-                                            onClick={() => navigate("/plans")}
-                                        >
-                                            Subscribe Now
-                                        </Button>
-                                    </div>
-                                )}
+                {hasInvoice ? (
+                    <>
+                        {/* ── Plan name + price ── */}
+                        <div
+                            style={{
+                                padding: "1rem 1.25rem",
+                                background: darkMode ? "rgba(79,70,229,0.1)" : "rgba(79,70,229,0.05)",
+                                border: "1px solid rgba(79,70,229,0.18)",
+                                borderRadius: "0.75rem",
+                                marginBottom: "1rem",
+                            }}
+                        >
+                            <div style={{ fontSize: "1.1rem", fontWeight: 800, color: darkMode ? "#e0e7ff" : "#3730a3", marginBottom: "0.15rem" }}>
+                                {planName}
                             </div>
-                        </Col>
-                    </Row>
-                </Card.Body>
-            </Card>
-        </Container>
+                            {planPrice != null && (
+                                <div style={{ fontSize: "0.85rem", color: darkMode ? "#a5b4fc" : "#6d28d9" }}>
+                                    {formatMoney(planPrice)}
+                                    <span style={{ fontSize: "0.72rem", marginLeft: 3, opacity: 0.75 }}>/billing period</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Add-ons ── */}
+                        {addOnsItems.length > 0 && (
+                            <div className="mb-3">
+                                <div className={`mb-2 ${mutedClass}`} style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>
+                                    Add-ons
+                                </div>
+                                {addOnsItems.map((item, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                                            padding: "0.45rem 0.85rem", marginBottom: "0.35rem",
+                                            background: darkMode ? "rgba(255,255,255,0.04)" : "#f9fafb",
+                                            borderRadius: "0.5rem", fontSize: "0.85rem",
+                                        }}
+                                    >
+                                        <span style={{ color: darkMode ? "#e5e7eb" : "#374151" }}>✦ {item.description}</span>
+                                        <span style={{ fontWeight: 600, color: darkMode ? "#a5b4fc" : "#4f46e5" }}>{formatMoney(item.lineTotal)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── Other items (devices etc.) ── */}
+                        {otherItems.length > 0 && (
+                            <div className="mb-3">
+                                <div className={`mb-2 ${mutedClass}`} style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>
+                                    Other Items
+                                </div>
+                                {otherItems.map((item, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                                            padding: "0.45rem 0.85rem", marginBottom: "0.35rem",
+                                            background: darkMode ? "rgba(255,255,255,0.04)" : "#f9fafb",
+                                            borderRadius: "0.5rem", fontSize: "0.85rem",
+                                        }}
+                                    >
+                                        <span style={{ color: darkMode ? "#e5e7eb" : "#374151" }}>{item.description}</span>
+                                        <span style={{ fontWeight: 600, color: darkMode ? "#d1d5db" : "#374151" }}>{formatMoney(item.lineTotal)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── Date + invoice info rows ── */}
+                        <div style={{ marginBottom: "1.25rem" }}>
+                            <InfoRow icon={<CalendarDays size={14} />} label="Start date"  value={formatDate(startDate)} />
+                            <InfoRow icon={<CalendarDays size={14} />} label="End date"    value={endDate} />
+                            {latestInvoice?.invoiceNumber && (
+                                <InfoRow icon={<Receipt size={14} />}  label="Invoice"     value={latestInvoice.invoiceNumber} />
+                            )}
+                            {latestInvoice?.total != null && (
+                                <InfoRow icon={<Receipt size={14} />}  label="Total billed" value={formatMoney(latestInvoice.total)} />
+                            )}
+                        </div>
+
+                        {/* ── CTA ── */}
+                        <button
+                            style={{
+                                display: "inline-flex", alignItems: "center", gap: 6,
+                                fontSize: "0.85rem", fontWeight: 600,
+                                padding: "7px 18px", borderRadius: "999px", border: "none", cursor: "pointer",
+                                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
+                                color: "#fff", boxShadow: "0 3px 14px rgba(79,70,229,0.3)",
+                                transition: "transform 0.15s, box-shadow 0.15s",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(79,70,229,0.4)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)";    e.currentTarget.style.boxShadow = "0 3px 14px rgba(79,70,229,0.3)"; }}
+                            onClick={() => navigate("/customer/billing")}
+                        >
+                            View Full Invoice <ArrowRight size={14} />
+                        </button>
+                    </>
+                ) : (
+                    /* ── No plan state ── */
+                    <div
+                        style={{
+                            textAlign: "center", padding: "2rem 1rem",
+                            background: darkMode ? "rgba(255,255,255,0.04)" : "#f9fafb",
+                            borderRadius: "0.75rem",
+                            border: `1px dashed ${darkMode ? "rgba(255,255,255,0.15)" : "#d1d5db"}`,
+                        }}
+                    >
+                        <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📦</div>
+                        <div className="fw-semibold mb-1" style={{ color: darkMode ? "#f9fafb" : "#111827" }}>
+                            No active plan yet
+                        </div>
+                        <div className={mutedClass} style={{ fontSize: "0.82rem", marginBottom: "1.25rem" }}>
+                            Subscribe to a plan to get started.
+                        </div>
+                        <button
+                            style={{
+                                fontSize: "0.85rem", fontWeight: 600, padding: "7px 20px",
+                                borderRadius: "999px", border: "none", cursor: "pointer",
+                                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
+                                color: "#fff", boxShadow: "0 3px 14px rgba(79,70,229,0.3)",
+                            }}
+                            onClick={() => navigate("/plans")}
+                        >
+                            Browse Plans
+                        </button>
+                    </div>
+                )}
+            </Card.Body>
+        </Card>
     );
 }
