@@ -9,16 +9,26 @@ public class Conversation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ConversationId")
     private Integer conversationId;
 
+    @Column(name = "UserHighId", nullable = false)
     private Integer userHighId;
+
+    @Column(name = "UserLowId", nullable = false)
     private Integer userLowId;
 
+    @Column(name = "CreatedAt", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "LastMessageAt", nullable = false)
     private LocalDateTime lastMessageAt;
 
     @Column(name = "Status", nullable = false)
     private String status = "ACTIVE";
+
+    @Column(name = "Reason")
+    private String reason;
 
     public Integer getConversationId() {
         return conversationId;
@@ -44,6 +54,10 @@ public class Conversation {
         return status;
     }
 
+    public String getReason() {
+        return reason;
+    }
+
     public void setConversationId(Integer conversationId) {
         this.conversationId = conversationId;
     }
@@ -66,5 +80,9 @@ public class Conversation {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 }

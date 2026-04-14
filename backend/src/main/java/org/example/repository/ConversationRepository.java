@@ -12,4 +12,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Inte
     );
 
     List<Conversation> findByStatusOrderByCreatedAtDesc(String status);
+
+    List<Conversation> findByUserHighIdOrUserLowIdOrderByCreatedAtDesc(
+            Integer high, Integer low
+    );
 }

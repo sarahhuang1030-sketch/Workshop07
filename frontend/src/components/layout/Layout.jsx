@@ -6,6 +6,8 @@ import "../../style/style.css";
 import { useState, useEffect } from "react";
 import ReviewModal from "../common/ReviewModal";
 import { apiFetch } from "../../services/api.js";
+import { ChatProvider } from "../../context/ChatContext";
+import GlobalChatDrawer from "../chat/GlobalChatDrawer";
 
 export default function Layout({ user, setUser, onLogout }) {
     const { darkMode } = useTheme();
@@ -115,9 +117,15 @@ export default function Layout({ user, setUser, onLogout }) {
         >
             <AppNavbar user={user} setUser={setUser} onLogout={onLogout} />
 
-            <main className="flex-grow-1">
-                <Outlet context={{ reviews, customerPlans }} />
-            </main>
+            <ChatProvider currentUserId={user?.userId}>
+                <main className="flex-grow-1">
+                    <Outlet context={{ reviews, customerPlans }} />
+                </main>
+
+                {(user?.role === "manager" || user?.role === "salesagent") && (
+                    <GlobalChatDrawer currentUserId={user?.userId} />
+                )}
+            </ChatProvider>
 
             <AppFooter onOpenReviewModal={() => setShowReviewModal(true)} />
 

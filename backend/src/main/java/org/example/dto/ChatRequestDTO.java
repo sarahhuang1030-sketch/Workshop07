@@ -4,8 +4,10 @@ public class ChatRequestDTO {
 
     private Integer requestId;
     private Integer customerUserId;
+    private Integer customerId;
     private Integer assignedEmployeeUserId;
     private Integer conversationId;
+    private String customerName;
     private String reason;
     private String comment;
     private String status;
@@ -29,6 +31,14 @@ public class ChatRequestDTO {
         this.customerUserId = customerUserId;
     }
 
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
     public Integer getAssignedEmployeeUserId() {
         return assignedEmployeeUserId;
     }
@@ -43,6 +53,14 @@ public class ChatRequestDTO {
 
     public void setConversationId(Integer conversationId) {
         this.conversationId = conversationId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
     }
 
     public String getReason() {

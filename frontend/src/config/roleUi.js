@@ -24,6 +24,7 @@ export const ROLE_UI = {
         dashboardPath: "/sales",
         nav: [
             { label: "Dashboard", to: "/sales" },
+            { label: "Chat Hub", to: "/sales/chat" },
             // { label: "Customers", to: "/sales/CustomersPage.jsx" },
             // { label: "Create Quote", to: "/sales/quotes/new" },
             // { label: "Activations", to: "/sales/activations" },
@@ -41,6 +42,7 @@ export const ROLE_UI = {
         dashboardPath: "/manager",
         nav: [
             { label: "Dashboard", to: "/manager" },
+            { label: "Chat Hub", to: "/manager/chat" },
             // { label: "User Management", to: "/manager/users" },
             // { label: "Reports", to: "/manager/reports" },
             // { label: "Promotions", to: "/manager/promotions" },

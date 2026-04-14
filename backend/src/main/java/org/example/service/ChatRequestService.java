@@ -3,8 +3,12 @@ package org.example.service;
 import org.example.dto.ChatRequestDTO;
 import org.example.model.ChatRequest;
 import org.example.model.Conversation;
+import org.example.model.Customer;
+import org.example.model.UserAccount;
 import org.example.repository.ChatRequestRepository;
 import org.example.repository.ConversationRepository;
+import org.example.repository.CustomerRepository;
+import org.example.repository.UserAccountRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,16 +22,22 @@ public class ChatRequestService {
     private final ChatRequestRepository chatRequestRepository;
     private final ConversationRepository conversationRepository;
     private final ChatNotificationService chatNotificationService;
+    private final UserAccountRepository userAccountRepository;
+    private final CustomerRepository customerRepository;
 
     private static final DateTimeFormatter CHAT_TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
     public ChatRequestService(ChatRequestRepository chatRequestRepository,
                               ConversationRepository conversationRepository,
-                              ChatNotificationService chatNotificationService) {
+                              ChatNotificationService chatNotificationService,
+                              UserAccountRepository userAccountRepository,
+                              CustomerRepository customerRepository) {
         this.chatRequestRepository = chatRequestRepository;
         this.conversationRepository = conversationRepository;
         this.chatNotificationService = chatNotificationService;
+        this.userAccountRepository = userAccountRepository;
+        this.customerRepository = customerRepository;
     }
 
     public List<ChatRequestDTO> getPendingRequests() {
@@ -43,7 +53,36 @@ public class ChatRequestService {
         return result;
     }
 
+    public ChatRequestDTO getCurrentRequestForCustomer(Integer customerUserId) {
+        List<ChatRequest> requests =
+                chatRequestRepository.findByCustomerUserIdOrderByRequestedAtDesc(customerUserId);
+
+        for (ChatRequest r : requests) {
+            if ("ACTIVE".equalsIgnoreCase(r.getStatus())) {
+                return toDto(r);
+            }
+        }
+
+        for (ChatRequest r : requests) {
+            if ("PENDING".equalsIgnoreCase(r.getStatus())) {
+                return toDto(r);
+            }
+        }
+
+        return null;
+    }
+
     public ChatRequestDTO createRequest(Integer customerUserId, String reason, String comment) {
+        List<ChatRequest> existing =
+                chatRequestRepository.findByCustomerUserIdOrderByRequestedAtDesc(customerUserId);
+
+        for (ChatRequest r : existing) {
+            if ("PENDING".equalsIgnoreCase(r.getStatus()) ||
+                    "ACTIVE".equalsIgnoreCase(r.getStatus())) {
+                throw new RuntimeException("Customer already has an open chat request");
+            }
+        }
+
         ChatRequest request = new ChatRequest();
         request.setCustomerUserId(customerUserId);
         request.setReason(reason);
@@ -53,7 +92,9 @@ public class ChatRequestService {
 
         ChatRequest saved = chatRequestRepository.save(request);
         ChatRequestDTO dto = toDto(saved);
+
         chatNotificationService.notifyNewChatRequest(dto);
+
         return dto;
     }
 
@@ -75,6 +116,7 @@ public class ChatRequestService {
         conversation.setCreatedAt(LocalDateTime.now());
         conversation.setLastMessageAt(LocalDateTime.now());
         conversation.setStatus("ACTIVE");
+        conversation.setReason(request.getReason());
 
         Conversation savedConversation = conversationRepository.save(conversation);
 
@@ -93,10 +135,12 @@ public class ChatRequestService {
         ChatRequest request = chatRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Chat request not found"));
 
-        if (!"CLOSED".equalsIgnoreCase(request.getStatus())) {
-            request.setStatus("CLOSED");
-            request.setClosedAt(LocalDateTime.now());
+        if (!"ACTIVE".equalsIgnoreCase(request.getStatus())) {
+            throw new RuntimeException("Only active requests can be closed");
         }
+
+        request.setStatus("CLOSED");
+        request.setClosedAt(LocalDateTime.now());
 
         ChatRequest saved = chatRequestRepository.save(request);
         ChatRequestDTO dto = toDto(saved);
@@ -104,10 +148,53 @@ public class ChatRequestService {
         return dto;
     }
 
+    public ChatRequestDTO closeRequestByConversationId(Integer conversationId) {
+        ChatRequest request = chatRequestRepository.findByConversationId(conversationId)
+                .orElse(null);
+
+        if (request == null) {
+            return null;
+        }
+
+        if (!"CLOSED".equalsIgnoreCase(request.getStatus())) {
+            request.setStatus("CLOSED");
+            request.setClosedAt(LocalDateTime.now());
+        }
+
+        ChatRequest saved = chatRequestRepository.save(request);
+        ChatRequestDTO dto = toDto(saved);
+
+        chatNotificationService.notifyChatRequestClosed(dto);
+
+        return dto;
+    }
+
+    public ChatRequestDTO cancelRequest(Integer requestId, Integer customerUserId) {
+        ChatRequest request = chatRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Chat request not found"));
+
+        if (!request.getCustomerUserId().equals(customerUserId)) {
+            throw new RuntimeException("Unauthorized cancel attempt");
+        }
+
+        if (!"PENDING".equalsIgnoreCase(request.getStatus())) {
+            throw new RuntimeException("Only pending requests can be cancelled");
+        }
+
+        request.setStatus("CANCELLED");
+
+        ChatRequest saved = chatRequestRepository.save(request);
+        return toDto(saved);
+    }
+
     private ChatRequestDTO toDto(ChatRequest request) {
         ChatRequestDTO dto = new ChatRequestDTO();
+
+        Customer customer = resolveCustomer(request.getCustomerUserId());
+
         dto.setRequestId(request.getRequestId());
         dto.setCustomerUserId(request.getCustomerUserId());
+        dto.setCustomerId(customer != null ? customer.getCustomerId() : null);
         dto.setAssignedEmployeeUserId(request.getAssignedEmployeeUserId());
         dto.setConversationId(request.getConversationId());
         dto.setReason(request.getReason());
@@ -116,7 +203,37 @@ public class ChatRequestService {
         dto.setRequestedAt(format(request.getRequestedAt()));
         dto.setAcceptedAt(format(request.getAcceptedAt()));
         dto.setClosedAt(format(request.getClosedAt()));
+        dto.setCustomerName(buildCustomerName(request.getCustomerUserId(), customer));
+
         return dto;
+    }
+
+    private Customer resolveCustomer(Integer customerUserId) {
+        if (customerUserId == null) {
+            return null;
+        }
+
+        UserAccount ua = userAccountRepository.findById(customerUserId).orElse(null);
+        if (ua == null || ua.getCustomerId() == null) {
+            return null;
+        }
+
+        return customerRepository.findById(ua.getCustomerId()).orElse(null);
+    }
+
+    private String buildCustomerName(Integer customerUserId, Customer customer) {
+        if (customer == null) {
+            return customerUserId == null ? "Customer" : "Customer #" + customerUserId;
+        }
+
+        String fullName = ((customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                (customer.getLastName() != null ? customer.getLastName() : "")).trim();
+
+        if (!fullName.isBlank()) {
+            return fullName;
+        }
+
+        return "Customer #" + customerUserId;
     }
 
     private String format(LocalDateTime value) {

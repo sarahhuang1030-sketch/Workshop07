@@ -52,6 +52,7 @@ import SalesLocation from "./pages/sales/SalesLocation";
 // import SalesPastDue from "./pages/sales/SalesPastDue";
 import CreateBundle from "./pages/sales/CreateBundle";
 import SalesService from "./pages/sales/SalesServices.jsx";
+import SalesChatHub from "./pages/sales/SalesChatHub";
 
 // Service
 import ServiceWorkOrders from "./pages/service/ServiceWorkOrders";
@@ -71,6 +72,7 @@ import ManagerPlanFeature from "./pages/manager/ManagerPlanFeature";
 import ManagerLocation from "./pages/manager/ManagerLocation";
 import ManagerServices from "./pages/manager/ManagerServices";
 import ManagerEmployeeSales from "./pages/manager/ManagerEmployeeSales";
+import ManagerChatHub from "./pages/manager/ManagerChatHub";
 
 import RequireRole from "./components/auth/RequireRole";
 import { apiFetch } from "./services/api";
@@ -558,6 +560,14 @@ export default function App() {
                         </RequireRole>
                     }
                 />
+                <Route
+                    path="/sales/chat"
+                    element={
+                        <RequireRole user={user} allow={["salesagent", "manager"]} authReady={authReady}>
+                            <SalesChatHub />
+                        </RequireRole>
+                    }
+                />
 
                 <Route
                     path="/manager"
@@ -652,6 +662,14 @@ export default function App() {
                     element={
                         <RequireRole user={user} allow={["manager"]} authReady={authReady}>
                             <ManagerEmployeeSales />
+                        </RequireRole>
+                    }
+                />
+                <Route
+                    path="/manager/chat"
+                    element={
+                        <RequireRole user={user} allow={["manager"]} authReady={authReady}>
+                            <ManagerChatHub />
                         </RequireRole>
                     }
                 />

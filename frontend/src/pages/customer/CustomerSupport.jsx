@@ -8,12 +8,12 @@ import {
     Badge,
     Row,
     Col,
-    Alert,
     Spinner,
     Modal
 } from "react-bootstrap";
 import { Client } from "@stomp/stompjs";
 import { apiFetch } from "../../services/api";
+import ChatDrawer from "../../components/chat/ChatDrawer.jsx";
 
 const REQUESTS_API = "/api/customer/service-requests";
 const CHAT_REQUESTS_API = "/api/chat/chat-requests";
@@ -21,7 +21,6 @@ const CHAT_REQUESTS_API = "/api/chat/chat-requests";
 export default function CustomerSupport({ darkMode = false }) {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const [showDetails, setShowDetails] = useState(false);
@@ -34,13 +33,10 @@ export default function CustomerSupport({ darkMode = false }) {
     });
 
     const [chatSubmitting, setChatSubmitting] = useState(false);
-    const [chatError, setChatError] = useState("");
-    const [chatSuccess, setChatSuccess] = useState("");
     const [createdChatRequest, setCreatedChatRequest] = useState(null);
 
     const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
     const [chatSocketConnected, setChatSocketConnected] = useState(false);
-    const [chatEventText, setChatEventText] = useState("");
 
     const [chatForm, setChatForm] = useState({
         reason: "Customer Support",
@@ -57,7 +53,12 @@ export default function CustomerSupport({ darkMode = false }) {
     const conversationSubscriptionRef = useRef(null);
     const connectedUserIdRef = useRef(null);
     const subscribedConversationIdRef = useRef(null);
-    const messagesEndRef = useRef(null);
+
+    const [drawerHeight, setDrawerHeight] = useState(420);
+
+    const isResizingRef = useRef(false);
+    const startYRef = useRef(0);
+    const startHeightRef = useRef(420);
 
     const requestTypes = [
         "Technical Support",
@@ -75,16 +76,45 @@ export default function CustomerSupport({ darkMode = false }) {
     }, []);
 
     useEffect(() => {
+        restoreCurrentChat();
+    }, []);
+
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (!isResizingRef.current) return;
+
+            const deltaY = startYRef.current - e.clientY;
+            const nextHeight = startHeightRef.current + deltaY;
+
+            const minHeight = 320;
+            const maxHeight = Math.floor(window.innerHeight * 0.75);
+
+            setDrawerHeight(Math.max(minHeight, Math.min(maxHeight, nextHeight)));
+        };
+
+        const handleMouseUp = () => {
+            if (!isResizingRef.current) return;
+
+            isResizingRef.current = false;
+            document.body.style.userSelect = "";
+            document.body.style.cursor = "";
+        };
+
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, []);
+
+    useEffect(() => {
         const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
         const userId = storedUser?.userId ?? storedUser?.raw?.userId ?? null;
 
-        if (!userId) {
-            return;
-        }
-
-        if (stompClientRef.current && connectedUserIdRef.current === userId) {
-            return;
-        }
+        if (!userId) return;
+        if (stompClientRef.current && connectedUserIdRef.current === userId) return;
 
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const wsUrl = `${protocol}://localhost:8080/ws`;
@@ -102,7 +132,9 @@ export default function CustomerSupport({ darkMode = false }) {
             if (userSubscriptionRef.current) {
                 try {
                     userSubscriptionRef.current.unsubscribe();
-                } catch {}
+                } catch (err) {
+                    console.debug("Customer user topic unsubscribe skipped:", err);
+                }
             }
 
             userSubscriptionRef.current = client.subscribe(`/topic/user/${userId}`, (message) => {
@@ -111,7 +143,8 @@ export default function CustomerSupport({ darkMode = false }) {
 
                 try {
                     parsed = JSON.parse(body);
-                } catch {
+                } catch (err) {
+                    console.debug("Customer user topic parse failed:", err);
                     parsed = null;
                 }
 
@@ -143,14 +176,16 @@ export default function CustomerSupport({ darkMode = false }) {
                     parsed?.employeeUserId ??
                     null;
 
-                setChatEventText(body);
-
                 setCreatedChatRequest((prev) => {
                     if (!prev) return prev;
 
                     const prevRequestId = prev.requestId ?? prev.id ?? null;
 
-                    if (requestId != null && prevRequestId != null && Number(requestId) !== Number(prevRequestId)) {
+                    if (
+                        requestId != null &&
+                        prevRequestId != null &&
+                        Number(requestId) !== Number(prevRequestId)
+                    ) {
                         return prev;
                     }
 
@@ -174,20 +209,23 @@ export default function CustomerSupport({ darkMode = false }) {
                         eventType.includes("REQUEST_ACCEPTED")
                     ) {
                         next.status = "ACTIVE";
+                        setChatDrawerOpen(true);
+                    }
+
+                    if (eventType.includes("CLOSE") || eventType.includes("CLOSED")) {
+                        next.status = "CLOSED";
+
+                        // Keep drawer open so user can see closed state
+                        setChatDrawerOpen(true);
+                    }
+
+                    if (eventType.includes("CANCEL") || eventType.includes("CANCELLED")) {
+                        next.status = "CANCELLED";
+                        setChatDrawerOpen(false);
                     }
 
                     return next;
                 });
-
-                if (
-                    eventType.includes("ACCEPT") ||
-                    eventType.includes("ACTIVE") ||
-                    body.toUpperCase().includes("ACCEPT") ||
-                    body.toUpperCase().includes("ACTIVE")
-                ) {
-                    setChatDrawerOpen(true);
-                    setChatSuccess("Your chat request was accepted.");
-                }
             });
         };
 
@@ -212,18 +250,24 @@ export default function CustomerSupport({ darkMode = false }) {
                     userSubscriptionRef.current.unsubscribe();
                     userSubscriptionRef.current = null;
                 }
-            } catch {}
+            } catch (err) {
+                console.debug("Customer user subscription cleanup skipped:", err);
+            }
 
             try {
                 if (conversationSubscriptionRef.current) {
                     conversationSubscriptionRef.current.unsubscribe();
                     conversationSubscriptionRef.current = null;
                 }
-            } catch {}
+            } catch (err) {
+                console.debug("Customer conversation subscription cleanup skipped:", err);
+            }
 
             try {
                 client.deactivate();
-            } catch {}
+            } catch (err) {
+                console.debug("Customer STOMP deactivate skipped:", err);
+            }
 
             if (stompClientRef.current === client) {
                 stompClientRef.current = null;
@@ -239,19 +283,63 @@ export default function CustomerSupport({ darkMode = false }) {
         const conversationId = createdChatRequest?.conversationId;
         const isActive = String(createdChatRequest?.status || "").toUpperCase() === "ACTIVE";
 
-        if (!conversationId || !isActive) {
-            return;
-        }
+        if (!conversationId || !isActive) return;
 
         loadConversationMessages(conversationId);
         subscribeConversationTopic(conversationId);
     }, [createdChatRequest?.conversationId, createdChatRequest?.status]);
 
     useEffect(() => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        const status = String(createdChatRequest?.status || "").toUpperCase();
+
+        if (status === "PENDING" || status === "ACTIVE" || status === "CLOSED") return;
+
+        try {
+            if (conversationSubscriptionRef.current) {
+                conversationSubscriptionRef.current.unsubscribe();
+                conversationSubscriptionRef.current = null;
+            }
+        } catch (err) {
+            console.debug("Conversation unsubscribe skipped:", err);
         }
-    }, [conversationMessages]);
+
+        subscribedConversationIdRef.current = null;
+        setConversationMessages([]);
+        setMessageText("");
+    }, [createdChatRequest?.status]);
+
+    const restoreCurrentChat = async () => {
+        try {
+            const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
+            const userId = storedUser?.userId ?? storedUser?.raw?.userId ?? null;
+
+            if (!userId) return;
+
+            const res = await apiFetch(`/api/chat/chat-requests/customer/${userId}/current`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+            if (!data) {
+                // Do NOT force clear immediately — user might still need to see CLOSED state
+                return;
+            }
+
+            const status = String(data?.status || "").toUpperCase();
+
+            if (status !== "PENDING" && status !== "ACTIVE" && status !== "CLOSED") {
+                setCreatedChatRequest(null);
+                setChatDrawerOpen(false);
+                setConversationMessages([]);
+                setMessageText("");
+                return;
+            }
+
+            setCreatedChatRequest(data);
+            setChatDrawerOpen(true);
+        } catch (err) {
+            console.error("Failed to restore chat:", err);
+        }
+    };
 
     const loadRequests = async () => {
         try {
@@ -259,9 +347,10 @@ export default function CustomerSupport({ darkMode = false }) {
             const res = await apiFetch(REQUESTS_API);
             if (!res.ok) throw new Error("Failed to load requests");
             const data = await res.json();
-            setRequests(data);
+            setRequests(Array.isArray(data) ? data : []);
         } catch (err) {
-            setError(err.message || "Failed to load requests");
+            console.error("Failed to load requests:", err);
+            setRequests([]);
         } finally {
             setLoading(false);
         }
@@ -279,7 +368,8 @@ export default function CustomerSupport({ darkMode = false }) {
             const data = await res.json();
             setConversationMessages(Array.isArray(data) ? data : []);
         } catch (err) {
-            setChatError(err.message || "Failed to load conversation messages");
+            console.error("Failed to load conversation messages:", err);
+            setConversationMessages([]);
         } finally {
             setMessagesLoading(false);
         }
@@ -287,20 +377,17 @@ export default function CustomerSupport({ darkMode = false }) {
 
     const subscribeConversationTopic = (conversationId) => {
         const client = stompClientRef.current;
-        if (!client || !client.connected) {
-            return;
-        }
-
-        if (subscribedConversationIdRef.current === conversationId) {
-            return;
-        }
+        if (!client || !client.connected) return;
+        if (subscribedConversationIdRef.current === conversationId) return;
 
         try {
             if (conversationSubscriptionRef.current) {
                 conversationSubscriptionRef.current.unsubscribe();
                 conversationSubscriptionRef.current = null;
             }
-        } catch {}
+        } catch (err) {
+            console.debug("Conversation resubscribe cleanup skipped:", err);
+        }
 
         conversationSubscriptionRef.current = client.subscribe(
             `/topic/conversation/${conversationId}`,
@@ -310,13 +397,12 @@ export default function CustomerSupport({ darkMode = false }) {
 
                 try {
                     parsed = JSON.parse(body);
-                } catch {
+                } catch (err) {
+                    console.debug("Conversation message parse failed:", err);
                     parsed = null;
                 }
 
-                if (!parsed) {
-                    return;
-                }
+                if (!parsed) return;
 
                 setConversationMessages((prev) => {
                     const messageId = parsed?.messageId;
@@ -340,12 +426,13 @@ export default function CustomerSupport({ darkMode = false }) {
         e.preventDefault();
         try {
             setSubmitting(true);
-            setError("");
+
             const res = await apiFetch(REQUESTS_API, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData)
             });
+
             if (!res.ok) throw new Error("Failed to submit request");
 
             setFormData({
@@ -356,7 +443,7 @@ export default function CustomerSupport({ darkMode = false }) {
 
             await loadRequests();
         } catch (err) {
-            setError(err.message || "Failed to submit request");
+            console.error("Failed to submit request:", err);
         } finally {
             setSubmitting(false);
         }
@@ -372,14 +459,10 @@ export default function CustomerSupport({ darkMode = false }) {
 
         try {
             setChatSubmitting(true);
-            setChatError("");
-            setChatSuccess("");
-            setChatEventText("");
             setConversationMessages([]);
             setMessageText("");
 
             const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
-
             const customerUserId =
                 storedUser?.userId ??
                 storedUser?.raw?.userId ??
@@ -407,17 +490,82 @@ export default function CustomerSupport({ darkMode = false }) {
 
             setCreatedChatRequest(data);
             setChatDrawerOpen(true);
-            setChatSuccess("Live chat request created successfully.");
 
             setChatForm({
                 reason: "Customer Support",
                 comment: ""
             });
         } catch (err) {
-            setChatError(err.message || "Failed to create chat request");
+            console.error("Failed to create chat request:", err);
         } finally {
             setChatSubmitting(false);
         }
+    };
+
+    const handleCancelChatRequest = async () => {
+        try {
+            const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
+            const customerUserId =
+                storedUser?.userId ??
+                storedUser?.raw?.userId ??
+                null;
+
+            const requestId = createdChatRequest?.requestId ?? createdChatRequest?.id ?? null;
+
+            if (!customerUserId || !requestId) {
+                throw new Error("Missing request or user information");
+            }
+
+            const res = await apiFetch(
+                `/api/chat/chat-requests/${requestId}/cancel?customerUserId=${customerUserId}`,
+                { method: "POST" }
+            );
+
+            if (!res.ok) {
+                throw new Error("Failed to cancel chat request");
+            }
+
+            setCreatedChatRequest(null);
+            setChatDrawerOpen(false);
+            setConversationMessages([]);
+            setMessageText("");
+        } catch (err) {
+            console.error("Failed to cancel chat request:", err);
+        }
+    };
+
+    const handleCloseActiveChat = async () => {
+        try {
+            const conversationId = createdChatRequest?.conversationId;
+            if (!conversationId) {
+                throw new Error("Conversation ID not found");
+            }
+
+            const res = await apiFetch(`/api/chat/${conversationId}/close`, {
+                method: "POST"
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to close active chat");
+            }
+
+            setCreatedChatRequest(null);
+            setChatDrawerOpen(false);
+            setConversationMessages([]);
+            setMessageText("");
+        } catch (err) {
+            console.error("Failed to close active chat:", err);
+        }
+    };
+
+    const handleResizeStart = (e) => {
+        e.preventDefault();
+        isResizingRef.current = true;
+        startYRef.current = e.clientY;
+        startHeightRef.current = drawerHeight;
+
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "ns-resize";
     };
 
     const handleSendMessage = async (e) => {
@@ -426,18 +574,13 @@ export default function CustomerSupport({ darkMode = false }) {
         const conversationId = createdChatRequest?.conversationId;
         const status = String(createdChatRequest?.status || "").toUpperCase();
 
-        if (!conversationId || status !== "ACTIVE") {
-            return;
-        }
+        if (!conversationId || status !== "ACTIVE") return;
 
         const trimmed = messageText.trim();
-        if (!trimmed) {
-            return;
-        }
+        if (!trimmed) return;
 
         try {
             setSendingMessage(true);
-            setChatError("");
 
             const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
             const fromUserId =
@@ -483,7 +626,7 @@ export default function CustomerSupport({ darkMode = false }) {
 
             setMessageText("");
         } catch (err) {
-            setChatError(err.message || "Failed to send message");
+            console.error("Failed to send message:", err);
         } finally {
             setSendingMessage(false);
         }
@@ -497,18 +640,6 @@ export default function CustomerSupport({ darkMode = false }) {
         return "secondary";
     }
 
-    function getChatStatusBadge(status) {
-        const value = String(status || "").toLowerCase();
-        if (value === "active") return "success";
-        if (value === "pending") return "warning";
-        if (value === "closed") return "secondary";
-        return "primary";
-    }
-
-    const cardBase = darkMode
-        ? "bg-dark text-light border-secondary"
-        : "bg-white text-dark shadow-sm";
-
     const openDetails = (req) => {
         setSelectedRequest(req);
         setShowDetails(true);
@@ -516,26 +647,54 @@ export default function CustomerSupport({ darkMode = false }) {
 
     const currentUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
     const currentUserId = currentUser?.userId ?? currentUser?.raw?.userId ?? null;
-    const isActiveConversation = String(createdChatRequest?.status || "").toUpperCase() === "ACTIVE";
+    const chatStatus = String(createdChatRequest?.status || "").toUpperCase();
+    const isPendingConversation = chatStatus === "PENDING";
+    const isActiveConversation = chatStatus === "ACTIVE";
+    const isClosedConversation = chatStatus === "CLOSED";
+    const isCancelledConversation = chatStatus === "CANCELLED";
+    const hasCurrentChat =
+        isPendingConversation ||
+        isActiveConversation ||
+        isClosedConversation;
+
+    const statusDotColor = isActiveConversation
+        ? "#22c55e"
+        : isPendingConversation
+            ? "#f59e0b"
+            : isClosedConversation
+                ? "#ef4444"
+                : "#6b7280";
 
     return (
         <>
             <Container className="py-4">
-                <h2 className="fw-bold mb-4">Customer Support</h2>
+                <div className="text-center mb-5">
+                    <h2 className="fw-bold mb-2">Customer Support</h2>
+                    <div className="text-muted">
+                        Submit service requests or connect with live support for immediate help.
+                    </div>
+                </div>
 
-                {error && (
-                    <Alert variant="danger" dismissible onClose={() => setError("")}>
-                        {error}
-                    </Alert>
-                )}
+                <Row className="g-4 mb-4">
+                    <Col lg={6}>
+                        <Card
+                            className="h-100 border-0"
+                            style={{
+                                borderRadius: 20,
+                                boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)"
+                            }}
+                        >
+                            <Card.Body className="p-4 d-flex flex-column h-100">
+                                <h4 className="fw-bold mb-2" style={{ fontSize: "1.6rem" }}>
+                                    Submit a Service Request
+                                </h4>
 
-                <Row className="g-4">
-                    <Col lg={4}>
-                        <Card className={cardBase} style={{ borderRadius: 18 }}>
-                            <Card.Body className="p-4">
-                                <h4 className="mb-3">Submit a Service Request</h4>
-                                <Form onSubmit={handleSubmit}>
-                                    <Form.Group className="mb-3">
+                                <div className="text-muted mb-4" style={{ fontSize: "0.95rem" }}>
+                                    Tell us what you need and our team will assist you.
+                                </div>
+
+                                <Form onSubmit={handleSubmit} className="d-flex flex-column flex-grow-1">
+                                    <Form.Group className="mb-4">
                                         <Form.Label>Request Type</Form.Label>
                                         <Form.Select
                                             name="requestType"
@@ -543,14 +702,12 @@ export default function CustomerSupport({ darkMode = false }) {
                                             onChange={handleChange}
                                         >
                                             {requestTypes.map((t) => (
-                                                <option key={t} value={t}>
-                                                    {t}
-                                                </option>
+                                                <option key={t} value={t}>{t}</option>
                                             ))}
                                         </Form.Select>
                                     </Form.Group>
 
-                                    <Form.Group className="mb-3">
+                                    <Form.Group className="mb-4">
                                         <Form.Label>Priority</Form.Label>
                                         <Form.Select
                                             name="priority"
@@ -558,14 +715,12 @@ export default function CustomerSupport({ darkMode = false }) {
                                             onChange={handleChange}
                                         >
                                             {priorities.map((p) => (
-                                                <option key={p} value={p}>
-                                                    {p}
-                                                </option>
+                                                <option key={p} value={p}>{p}</option>
                                             ))}
                                         </Form.Select>
                                     </Form.Group>
 
-                                    <Form.Group className="mb-3">
+                                    <Form.Group className="mb-4">
                                         <Form.Label>Description</Form.Label>
                                         <Form.Control
                                             as="textarea"
@@ -574,26 +729,176 @@ export default function CustomerSupport({ darkMode = false }) {
                                             value={formData.description}
                                             onChange={handleChange}
                                             required
-                                            placeholder="Please describe your issue..."
+                                            placeholder="Describe your issue..."
                                         />
                                     </Form.Group>
 
-                                    <Button
-                                        type="submit"
-                                        variant="primary"
-                                        className="w-100"
-                                        disabled={submitting}
-                                        style={{ borderRadius: 12 }}
-                                    >
-                                        {submitting ? "Submitting..." : "Submit Request"}
-                                    </Button>
+                                    <div className="mt-auto d-flex justify-content-start">
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            disabled={submitting}
+                                            style={{
+                                                borderRadius: 12,
+                                                padding: "10px 18px",
+                                                fontWeight: 600,
+                                                minWidth: "170px"
+                                            }}
+                                        >
+                                            {submitting ? "Submitting..." : "Submit Request"}
+                                        </Button>
+                                    </div>
                                 </Form>
                             </Card.Body>
                         </Card>
                     </Col>
 
-                    <Col lg={8}>
-                        <Card className={cardBase} style={{ borderRadius: 18 }}>
+                    <Col lg={6}>
+                        <Card
+                            className="h-100 border-0"
+                            style={{
+                                borderRadius: 20,
+                                boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)"
+                            }}
+                        >
+                            <Card.Body className="p-4 d-flex flex-column h-100">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <h4 className="fw-bold mb-0" style={{ fontSize: "1.6rem" }}>
+                                        Live Chat Support
+                                    </h4>
+
+                                    <div
+                                        className="d-inline-flex align-items-center gap-2 px-3 py-1"
+                                        style={{
+                                            borderRadius: "999px",
+                                            backgroundColor: chatSocketConnected ? "#e8f9ef" : "#eef2f7",
+                                            color: chatSocketConnected ? "#15803d" : "#64748b",
+                                            fontSize: "0.82rem",
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: "50%",
+                                                backgroundColor: chatSocketConnected ? "#22c55e" : "#94a3b8",
+                                                display: "inline-block"
+                                            }}
+                                        />
+                                        {chatSocketConnected ? "Online" : "Offline"}
+                                    </div>
+                                </div>
+
+                                <div className="text-muted mb-4" style={{ fontSize: "0.95rem" }}>
+                                    Chat instantly with a support agent for real-time help.
+                                </div>
+
+                                <Form onSubmit={handleStartChatRequest} className="d-flex flex-column flex-grow-1">
+                                    <Form.Group className="mb-4">
+                                        <Form.Label>Reason</Form.Label>
+                                        <Form.Control
+                                            name="reason"
+                                            value={chatForm.reason}
+                                            onChange={handleChatFieldChange}
+                                            placeholder="Customer Support"
+                                            required
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-4">
+                                        <Form.Label>Comment</Form.Label>
+                                        <Form.Control
+                                            as="textarea"
+                                            rows={4}
+                                            name="comment"
+                                            value={chatForm.comment}
+                                            onChange={handleChatFieldChange}
+                                            placeholder="Describe your issue..."
+                                            required
+                                        />
+                                    </Form.Group>
+
+                                    {createdChatRequest && hasCurrentChat && (
+                                        <div
+                                            className="mb-3"
+                                            style={{
+                                                borderTop: "1px solid #e5e7eb",
+                                                paddingTop: "16px"
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    borderRadius: 14,
+                                                    background: "#f8fafc",
+                                                    padding: "14px 16px"
+                                                }}
+                                            >
+                                                <div className="small fw-semibold mb-1">
+                                                    Status: {createdChatRequest.status}
+                                                </div>
+
+                                                {isPendingConversation && (
+                                                    <div className="text-muted small">
+                                                        Waiting for a support agent to accept your request.
+                                                    </div>
+                                                )}
+
+                                                {isActiveConversation && (
+                                                    <div className="text-muted small">
+                                                        You are now connected to support.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-auto d-flex flex-column align-items-start">
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            disabled={
+                                                chatSubmitting ||
+                                                ["PENDING", "ACTIVE"].includes(
+                                                    String(createdChatRequest?.status || "").toUpperCase()
+                                                )
+                                            }
+                                            style={{
+                                                borderRadius: 12,
+                                                padding: "10px 18px",
+                                                fontWeight: 600,
+                                                minWidth: "170px"
+                                            }}
+                                        >
+                                            {chatSubmitting ? "Starting..." : "Start Live Chat"}
+                                        </Button>
+
+                                        {createdChatRequest && hasCurrentChat && (
+                                            <Button
+                                                type="button"
+                                                variant="outline-primary"
+                                                className="mt-2"
+                                                onClick={() => setChatDrawerOpen(true)}
+                                                style={{
+                                                    borderRadius: 12,
+                                                    padding: "10px 18px",
+                                                    fontWeight: 600,
+                                                    minWidth: "170px"
+                                                }}
+                                            >
+                                                Open Chat
+                                            </Button>
+                                        )}
+                                    </div>
+                                </Form>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                </Row>
+
+                <Row>
+                    <Col>
+                        <Card className="shadow-sm" style={{ borderRadius: 18 }}>
                             <Card.Body className="p-4">
                                 <h4 className="mb-3">My Service Requests</h4>
 
@@ -602,11 +907,7 @@ export default function CustomerSupport({ darkMode = false }) {
                                         <Spinner animation="border" />
                                     </div>
                                 ) : requests.length > 0 ? (
-                                    <Table
-                                        responsive
-                                        hover
-                                        className={`align-middle ${darkMode ? "table-dark" : ""}`}
-                                    >
+                                    <Table hover responsive>
                                         <thead>
                                         <tr>
                                             <th>ID</th>
@@ -614,7 +915,7 @@ export default function CustomerSupport({ darkMode = false }) {
                                             <th>Status</th>
                                             <th>Technician</th>
                                             <th>Created</th>
-                                            <th>Action</th>
+                                            <th></th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -631,7 +932,7 @@ export default function CustomerSupport({ darkMode = false }) {
                                                 <td>
                                                     {req.createdAt
                                                         ? new Date(req.createdAt).toLocaleDateString()
-                                                        : "—"}
+                                                        : "-"}
                                                 </td>
                                                 <td>
                                                     <Button
@@ -647,137 +948,8 @@ export default function CustomerSupport({ darkMode = false }) {
                                         </tbody>
                                     </Table>
                                 ) : (
-                                    <div className="text-center py-4 text-muted">
-                                        You have no service requests.
-                                    </div>
-                                )}
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-
-                <Row className="g-4 mt-1">
-                    <Col>
-                        <Card className={cardBase} style={{ borderRadius: 18 }}>
-                            <Card.Body className="p-4">
-                                <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
-                                    <div>
-                                        <h4 className="mb-2">Live Chat Support</h4>
-                                        <p className="text-muted mb-3">
-                                            Start a live chat request. This first step creates the request and opens the customer chat panel.
-                                        </p>
-                                    </div>
-
-                                    <div className="d-flex align-items-center gap-2">
-                                        <span className="small text-muted">Socket:</span>
-                                        <Badge bg={chatSocketConnected ? "success" : "secondary"}>
-                                            {chatSocketConnected ? "Connected" : "Offline"}
-                                        </Badge>
-                                    </div>
-                                </div>
-
-                                {chatError && (
-                                    <Alert
-                                        variant="danger"
-                                        dismissible
-                                        onClose={() => setChatError("")}
-                                    >
-                                        {chatError}
-                                    </Alert>
-                                )}
-
-                                {chatSuccess && (
-                                    <Alert
-                                        variant="success"
-                                        dismissible
-                                        onClose={() => setChatSuccess("")}
-                                    >
-                                        {chatSuccess}
-                                    </Alert>
-                                )}
-
-                                <Form onSubmit={handleStartChatRequest}>
-                                    <Row className="g-3">
-                                        <Col md={4}>
-                                            <Form.Group>
-                                                <Form.Label>Reason</Form.Label>
-                                                <Form.Control
-                                                    type="text"
-                                                    name="reason"
-                                                    value={chatForm.reason}
-                                                    onChange={handleChatFieldChange}
-                                                    placeholder="Customer Support"
-                                                    required
-                                                />
-                                            </Form.Group>
-                                        </Col>
-
-                                        <Col md={8}>
-                                            <Form.Group>
-                                                <Form.Label>Comment</Form.Label>
-                                                <Form.Control
-                                                    type="text"
-                                                    name="comment"
-                                                    value={chatForm.comment}
-                                                    onChange={handleChatFieldChange}
-                                                    placeholder="Briefly describe what you need help with..."
-                                                    required
-                                                />
-                                            </Form.Group>
-                                        </Col>
-                                    </Row>
-
-                                    <div className="mt-3 d-flex gap-2 flex-wrap">
-                                        <Button
-                                            type="submit"
-                                            variant="success"
-                                            disabled={chatSubmitting}
-                                            style={{ borderRadius: 12 }}
-                                        >
-                                            {chatSubmitting ? "Starting Chat..." : "Start Live Chat"}
-                                        </Button>
-
-                                        {createdChatRequest && (
-                                            <Button
-                                                type="button"
-                                                variant="outline-primary"
-                                                onClick={() => setChatDrawerOpen(true)}
-                                                style={{ borderRadius: 12 }}
-                                            >
-                                                Open Chat Panel
-                                            </Button>
-                                        )}
-                                    </div>
-                                </Form>
-
-                                {createdChatRequest && (
-                                    <div className="mt-4">
-                                        <hr />
-                                        <h6 className="fw-bold mb-2">Created Chat Request</h6>
-                                        <div className="small">
-                                            <div>
-                                                <strong>Request ID:</strong>{" "}
-                                                {createdChatRequest.requestId ?? createdChatRequest.id ?? "—"}
-                                            </div>
-                                            <div>
-                                                <strong>Status:</strong>{" "}
-                                                {createdChatRequest.status ?? "—"}
-                                            </div>
-                                            <div>
-                                                <strong>Reason:</strong>{" "}
-                                                {createdChatRequest.reason ?? chatForm.reason}
-                                            </div>
-                                            <div>
-                                                <strong>Comment:</strong>{" "}
-                                                {createdChatRequest.comment ?? "—"}
-                                            </div>
-                                            {createdChatRequest.conversationId != null && (
-                                                <div>
-                                                    <strong>Conversation ID:</strong>{" "}
-                                                    {createdChatRequest.conversationId}
-                                                </div>
-                                            )}
-                                        </div>
+                                    <div className="text-muted text-center py-3">
+                                        No service requests yet.
                                     </div>
                                 )}
                             </Card.Body>
@@ -786,211 +958,39 @@ export default function CustomerSupport({ darkMode = false }) {
                 </Row>
             </Container>
 
-            {createdChatRequest && (
-                <div
-                    style={{
-                        position: "fixed",
-                        right: "24px",
-                        bottom: "0",
-                        width: "380px",
-                        maxWidth: "calc(100vw - 24px)",
-                        zIndex: 1050
+            {createdChatRequest && hasCurrentChat && (
+                <ChatDrawer
+                    darkMode={darkMode}
+                    isOpen={chatDrawerOpen}
+                    height={drawerHeight}
+                    minHeight={320}
+                    maxHeight="75vh"
+                    title="Customer Support Chat"
+                    subtitle={createdChatRequest.reason || "Support Request"}
+                    statusDotColor={statusDotColor}
+                    isPendingConversation={isPendingConversation}
+                    isActiveConversation={isActiveConversation}
+                    isClosedConversation={isClosedConversation}
+                    isCancelledConversation={isCancelledConversation}
+                    currentUserId={currentUserId}
+                    messagesLoading={messagesLoading}
+                    conversationMessages={conversationMessages}
+                    messageText={messageText}
+                    sendingMessage={sendingMessage}
+                    onOpen={() => setChatDrawerOpen(true)}
+                    onMinimize={() => setChatDrawerOpen(false)}
+                    onResizeStart={handleResizeStart}
+                    onMessageTextChange={setMessageText}
+                    onSendMessage={handleSendMessage}
+                    onCancelChatRequest={handleCancelChatRequest}
+                    onCloseActiveChat={handleCloseActiveChat}
+                    onDone={() => {
+                        setCreatedChatRequest(null);
+                        setChatDrawerOpen(false);
+                        setConversationMessages([]);
+                        setMessageText("");
                     }}
-                >
-                    {!chatDrawerOpen ? (
-                        <Button
-                            onClick={() => setChatDrawerOpen(true)}
-                            variant="light"
-                            className="shadow border d-flex align-items-center justify-content-between px-3"
-                            style={{
-                                width: "280px",
-                                height: "44px",
-                                borderTopLeftRadius: 12,
-                                borderTopRightRadius: 12,
-                                borderBottomLeftRadius: 0,
-                                borderBottomRightRadius: 0,
-                                marginLeft: "auto"
-                            }}
-                        >
-                            <span className="fw-semibold">Customer Chat</span>
-                            <Badge bg={getChatStatusBadge(createdChatRequest.status)}>
-                                {createdChatRequest.status ?? "Pending"}
-                            </Badge>
-                        </Button>
-                    ) : (
-                        <Card
-                            className={`shadow ${darkMode ? "bg-dark text-light border-secondary" : "bg-white"}`}
-                            style={{
-                                borderTopLeftRadius: 14,
-                                borderTopRightRadius: 14,
-                                borderBottomLeftRadius: 0,
-                                borderBottomRightRadius: 0,
-                                overflow: "hidden"
-                            }}
-                        >
-                            <Card.Header
-                                className={`d-flex justify-content-between align-items-center ${
-                                    darkMode ? "bg-dark text-light border-secondary" : "bg-light"
-                                }`}
-                            >
-                                <div>
-                                    <div className="fw-bold">Customer Support Chat</div>
-                                    <div style={{ fontSize: "0.85rem" }}>
-                                        Request #{createdChatRequest.requestId ?? createdChatRequest.id ?? "—"} ·{" "}
-                                        <Badge bg={getChatStatusBadge(createdChatRequest.status)}>
-                                            {createdChatRequest.status ?? "Pending"}
-                                        </Badge>
-                                    </div>
-                                </div>
-
-                                <Button
-                                    size="sm"
-                                    variant="outline-secondary"
-                                    onClick={() => setChatDrawerOpen(false)}
-                                >
-                                    Minimize
-                                </Button>
-                            </Card.Header>
-
-                            <Card.Body style={{ height: "340px", overflowY: "auto" }}>
-                                <div className="mb-3">
-                                    <div className="fw-semibold mb-1">Reason</div>
-                                    <div>{createdChatRequest.reason ?? "—"}</div>
-                                </div>
-
-                                <div className="mb-3">
-                                    <div className="fw-semibold mb-1">Comment</div>
-                                    <div>{createdChatRequest.comment ?? "—"}</div>
-                                </div>
-
-                                {createdChatRequest.conversationId != null && (
-                                    <div className="mb-3">
-                                        <div className="fw-semibold mb-1">Conversation ID</div>
-                                        <div>{createdChatRequest.conversationId}</div>
-                                    </div>
-                                )}
-
-                                <hr />
-
-                                {isActiveConversation ? (
-                                    <>
-                                        <div className="text-success mb-3">
-                                            <p className="mb-2 fw-semibold">
-                                                Your chat request has been accepted.
-                                            </p>
-                                            <p className="mb-0">
-                                                The conversation is now active.
-                                            </p>
-                                        </div>
-
-                                        <div className="mb-2 fw-semibold">Messages</div>
-
-                                        {messagesLoading ? (
-                                            <div className="text-center py-3">
-                                                <Spinner animation="border" size="sm" />
-                                            </div>
-                                        ) : conversationMessages.length > 0 ? (
-                                            <div className="d-flex flex-column gap-2">
-                                                {conversationMessages.map((msg) => {
-                                                    const mine = Number(msg.fromUserId) === Number(currentUserId);
-
-                                                    return (
-                                                        <div
-                                                            key={msg.messageId ?? `${msg.sentAt}-${msg.messageText}`}
-                                                            className={`d-flex ${mine ? "justify-content-end" : "justify-content-start"}`}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    maxWidth: "78%",
-                                                                    padding: "10px 12px",
-                                                                    borderRadius: "14px",
-                                                                    background: mine
-                                                                        ? (darkMode ? "#2563eb" : "#dbeafe")
-                                                                        : (darkMode ? "#374151" : "#f3f4f6"),
-                                                                    color: darkMode ? "#fff" : "#111827",
-                                                                    wordBreak: "break-word"
-                                                                }}
-                                                            >
-                                                                <div style={{ fontSize: "0.95rem" }}>
-                                                                    {msg.messageText}
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: "0.72rem",
-                                                                        marginTop: "6px",
-                                                                        opacity: 0.8
-                                                                    }}
-                                                                >
-                                                                    {msg.sentAt ? new Date(msg.sentAt).toLocaleString() : ""}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                                <div ref={messagesEndRef} />
-                                            </div>
-                                        ) : (
-                                            <div className="text-muted">
-                                                No messages yet. Start the conversation below.
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="text-muted">
-                                        <p className="mb-2">
-                                            Your chat request has been created successfully.
-                                        </p>
-                                        <p className="mb-2">
-                                            Waiting for an employee to accept the request.
-                                        </p>
-                                        <p className="mb-0">
-                                            This panel will update automatically when your request becomes active.
-                                        </p>
-                                    </div>
-                                )}
-
-                                {chatEventText && (
-                                    <div className="mt-3">
-                                        <hr />
-                                        <div className="small text-muted">
-                                            <strong>Latest socket event:</strong>
-                                            <div className="mt-1" style={{ wordBreak: "break-word" }}>
-                                                {chatEventText}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </Card.Body>
-
-                            <Card.Footer
-                                className={`${darkMode ? "bg-dark border-secondary" : "bg-light"}`}
-                            >
-                                <Form onSubmit={handleSendMessage}>
-                                    <div className="d-flex gap-2">
-                                        <Form.Control
-                                            type="text"
-                                            value={messageText}
-                                            onChange={(e) => setMessageText(e.target.value)}
-                                            placeholder={
-                                                isActiveConversation
-                                                    ? "Type a message..."
-                                                    : "Message input stays disabled until the request becomes active..."
-                                            }
-                                            disabled={!isActiveConversation || sendingMessage}
-                                        />
-                                        <Button
-                                            type="submit"
-                                            variant="primary"
-                                            disabled={!isActiveConversation || sendingMessage || !messageText.trim()}
-                                        >
-                                            {sendingMessage ? "Sending..." : "Send"}
-                                        </Button>
-                                    </div>
-                                </Form>
-                            </Card.Footer>
-                        </Card>
-                    )}
-                </div>
+                />
             )}
 
             <Modal show={showDetails} onHide={() => setShowDetails(false)} centered size="lg">

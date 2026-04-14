@@ -1,11 +1,16 @@
 package org.example.controller;
 
 import org.example.dto.ChatRequestDTO;
+import org.example.dto.ConversationSummaryDTO;
 import org.example.dto.SendMessageRequestDTO;
 import org.example.model.ChatMessage;
 import org.example.model.Conversation;
+import org.example.model.Customer;
+import org.example.model.UserAccount;
 import org.example.repository.ChatMessageRepository;
 import org.example.repository.ConversationRepository;
+import org.example.repository.CustomerRepository;
+import org.example.repository.UserAccountRepository;
 import org.example.service.ChatNotificationService;
 import org.example.service.ChatRequestService;
 import org.springframework.web.bind.annotation.*;
@@ -22,49 +27,51 @@ public class ChatController {
     private final ChatMessageRepository messageRepo;
     private final ChatRequestService chatRequestService;
     private final ChatNotificationService chatNotificationService;
+    private final UserAccountRepository userAccountRepository;
+    private final CustomerRepository customerRepository;
 
     public ChatController(ConversationRepository conversationRepo,
                           ChatMessageRepository messageRepo,
                           ChatRequestService chatRequestService,
-                          ChatNotificationService chatNotificationService) {
+                          ChatNotificationService chatNotificationService,
+                          UserAccountRepository userAccountRepository,
+                          CustomerRepository customerRepository) {
         this.conversationRepo = conversationRepo;
         this.messageRepo = messageRepo;
         this.chatRequestService = chatRequestService;
         this.chatNotificationService = chatNotificationService;
+        this.userAccountRepository = userAccountRepository;
+        this.customerRepository = customerRepository;
     }
 
     private static final DateTimeFormatter CHAT_TIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
     // =========================
-    // GET CONVERSATIONS
+    // GET CONVERSATIONS (employee-scoped / live chat)
     // =========================
     @GetMapping("/conversations")
-    public List<Map<String, Object>> getConversations(@RequestParam int userId) {
-
+    public List<ConversationSummaryDTO> getConversations(@RequestParam int userId) {
         List<Conversation> list =
                 conversationRepo.findByUserHighIdOrUserLowIdOrderByLastMessageAtDesc(userId, userId);
 
-        List<Map<String, Object>> result = new ArrayList<>();
+        return buildConversationSummaryList(list, userId);
+    }
 
-        for (Conversation c : list) {
+    // =========================
+    // GET CONVERSATIONS FOR CUSTOMER (full history)
+    // =========================
+    @GetMapping("/conversations/customer/{customerUserId}")
+    public List<ConversationSummaryDTO> getCustomerConversationHistory(
+            @PathVariable Integer customerUserId
+    ) {
+        List<Conversation> list =
+                conversationRepo.findByUserHighIdOrUserLowIdOrderByCreatedAtDesc(
+                        customerUserId,
+                        customerUserId
+                );
 
-            int otherUserId =
-                    (c.getUserHighId().equals(userId))
-                            ? c.getUserLowId()
-                            : c.getUserHighId();
-
-            Map<String, Object> map = new HashMap<>();
-            map.put("conversationId", c.getConversationId());
-            map.put("otherUserId", otherUserId);
-            map.put("createdAt",
-                    c.getCreatedAt() != null ? c.getCreatedAt().format(CHAT_TIME_FMT) : "");
-            map.put("status", c.getStatus());
-
-            result.add(map);
-        }
-
-        return result;
+        return buildConversationSummaryList(list, customerUserId);
     }
 
     // =========================
@@ -72,7 +79,6 @@ public class ChatController {
     // =========================
     @GetMapping("/requests")
     public List<Map<String, Object>> getConversationRequests() {
-
         List<Conversation> list =
                 conversationRepo.findByStatusOrderByCreatedAtDesc("REQUEST");
 
@@ -86,11 +92,17 @@ public class ChatController {
             map.put("createdAt",
                     c.getCreatedAt() != null ? c.getCreatedAt().format(CHAT_TIME_FMT) : "");
             map.put("status", c.getStatus());
+            map.put("reason", c.getReason());
 
             result.add(map);
         }
 
         return result;
+    }
+
+    @GetMapping("/chat-requests/customer/{customerUserId}/current")
+    public ChatRequestDTO getCurrentRequest(@PathVariable Integer customerUserId) {
+        return chatRequestService.getCurrentRequestForCustomer(customerUserId);
     }
 
     // =========================
@@ -123,12 +135,19 @@ public class ChatController {
         return chatRequestService.closeRequest(requestId);
     }
 
+    @PostMapping("/chat-requests/{requestId}/cancel")
+    public ChatRequestDTO cancelChatRequest(
+            @PathVariable Integer requestId,
+            @RequestParam Integer customerUserId
+    ) {
+        return chatRequestService.cancelRequest(requestId, customerUserId);
+    }
+
     // =========================
     // GET MESSAGES
     // =========================
     @GetMapping("/{conversationId}/messages")
     public List<Map<String, Object>> getMessages(@PathVariable int conversationId) {
-
         List<ChatMessage> msgs =
                 messageRepo.findByConversationIdOrderBySentAtAsc(conversationId);
 
@@ -197,6 +216,8 @@ public class ChatController {
         if (!"CLOSED".equalsIgnoreCase(conversation.getStatus())) {
             conversation.setStatus("CLOSED");
             conversationRepo.save(conversation);
+
+            chatRequestService.closeRequestByConversationId(conversationId);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -217,5 +238,73 @@ public class ChatController {
 
         System.out.println("[CHAT API] Marked messages as read for convo="
                 + conversationId + ", viewer=" + viewerUserId);
+    }
+
+    // =========================
+    // HELPERS
+    // =========================
+    private List<ConversationSummaryDTO> buildConversationSummaryList(
+            List<Conversation> list,
+            Integer perspectiveUserId
+    ) {
+        List<ConversationSummaryDTO> result = new ArrayList<>();
+
+        for (Conversation c : list) {
+            Integer otherUserId =
+                    c.getUserHighId().equals(perspectiveUserId)
+                            ? c.getUserLowId()
+                            : c.getUserHighId();
+
+            Customer customer = resolveCustomer(otherUserId);
+
+            ConversationSummaryDTO dto = new ConversationSummaryDTO();
+            dto.setConversationId(c.getConversationId());
+            dto.setOtherUserId(otherUserId);
+
+            dto.setCustomerUserId(otherUserId);
+            dto.setCustomerId(customer != null ? customer.getCustomerId() : null);
+            dto.setCustomerName(buildCustomerName(otherUserId, customer));
+
+            dto.setCreatedAt(format(c.getCreatedAt()));
+            dto.setLastMessageAt(format(c.getLastMessageAt()));
+            dto.setStatus(c.getStatus());
+            dto.setReason(c.getReason());
+
+            result.add(dto);
+        }
+
+        return result;
+    }
+
+    private Customer resolveCustomer(Integer customerUserId) {
+        if (customerUserId == null) {
+            return null;
+        }
+
+        UserAccount ua = userAccountRepository.findById(customerUserId).orElse(null);
+        if (ua == null || ua.getCustomerId() == null) {
+            return null;
+        }
+
+        return customerRepository.findById(ua.getCustomerId()).orElse(null);
+    }
+
+    private String buildCustomerName(Integer customerUserId, Customer customer) {
+        if (customer == null) {
+            return customerUserId == null ? "Customer" : "Customer #" + customerUserId;
+        }
+
+        String fullName = ((customer.getFirstName() != null ? customer.getFirstName() : "") + " "
+                + (customer.getLastName() != null ? customer.getLastName() : "")).trim();
+
+        if (!fullName.isBlank()) {
+            return fullName;
+        }
+
+        return "Customer #" + customerUserId;
+    }
+
+    private String format(LocalDateTime value) {
+        return value == null ? "" : value.format(CHAT_TIME_FMT);
     }
 }
