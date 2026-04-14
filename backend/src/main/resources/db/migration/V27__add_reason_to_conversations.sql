@@ -1,5 +1,5 @@
 -- =========================================================
--- V24__add_reason_to_conversations.sql
+-- V27__add_reason_to_conversations.sql
 -- Add Reason column to conversations
 -- =========================================================
 
