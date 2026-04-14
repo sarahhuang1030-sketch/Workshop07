@@ -1,6 +1,6 @@
 package org.example.dto;
 
-
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class SubscriptionAddOnDTO {
@@ -10,6 +10,7 @@ public class SubscriptionAddOnDTO {
     private LocalDate startDate;
     private LocalDate endDate;
     private String status;
+    private BigDecimal price;
 
     public Integer getSubscriptionAddOnId() {
         return subscriptionAddOnId;
@@ -59,5 +60,11 @@ public class SubscriptionAddOnDTO {
         this.status = status;
     }
 
+    public BigDecimal getPrice() {
+        return price;
+    }
 
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
 }

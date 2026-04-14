@@ -99,7 +99,8 @@ public class AuthService {
                     customer.getLastName(),
                     ua.getUsername(),
                     ua.getRole() != null ? ua.getRole().getRoleName() : null,
-                    ua.getMustChangePassword()
+                    ua.getMustChangePassword(),
+                    null
             );
         }
 
@@ -116,7 +117,8 @@ public class AuthService {
                     emp.getLastName(),
                     ua.getUsername(),
                     ua.getRole() != null ? ua.getRole().getRoleName() : null,
-                    ua.getMustChangePassword()
+                    ua.getMustChangePassword(),
+                    emp.getActive() != null && emp.getActive() == 1
             );
         }
 

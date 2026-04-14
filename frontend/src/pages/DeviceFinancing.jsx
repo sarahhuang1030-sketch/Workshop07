@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";   // ✅ ADD
  * Now connected to Shopping Cart
  */
 
-const devices = [
+const DEVICE_LIST = [
     {
         id: 1,
         name: "iPhone 15 Pro",
@@ -52,7 +52,7 @@ const devices = [
 export default function DeviceFinancing() {
     const [months, setMonths] = useState(24);
 
-    const { addPlan } = useCart();
+    const { addDevice } = useCart();
     const navigate = useNavigate();
 
     /**
@@ -68,18 +68,23 @@ export default function DeviceFinancing() {
      * → Go to cart page
      */
     const handleSelect = (device) => {
-        const planPayload = {
-            name: device.name,
-            serviceType: "Device",
-            monthlyPrice: calcMonthly(device.price),
-            totalPrice: calcMonthly(device.price),
-            devicePrice: device.price,
-            months,
+        const deviceToAdd = {
+            cartDeviceId: `device-${device.id}-${Date.now()}`,
+            phoneId: device.id,
+            brand: device.name.split(" ")[0],
+            model: device.name,
+            storage: "",
+            color: "",
+            imageUrl: device.image,
+            pricingType: "monthly",
+            monthlyPrice: Number(calcMonthly(device.price)),
+            fullPrice: device.price,
+            totalPrice: Number(calcMonthly(device.price)),
+            assignedLine: null,
+            assignedSubscriberName: "Device only purchase",
         };
 
-        addPlan(planPayload);
-
-        // go to cart
+        addDevice(deviceToAdd);
         navigate("/cart");
     };
 
@@ -141,7 +146,7 @@ export default function DeviceFinancing() {
             {/* PRODUCT GRID */}
             <Container>
                 <Row className="g-4">
-                    {devices.map((device) => (
+                    {DEVICE_LIST.map((device) => (
                         <Col md={3} key={device.id}>
                             <Card className="h-100 shadow-sm border-0">
 

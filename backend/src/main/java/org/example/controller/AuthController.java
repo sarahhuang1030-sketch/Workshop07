@@ -110,23 +110,6 @@ public class AuthController {
 
         LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
 
-        UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(req.getUsername()).orElse(null);
-
-        if (ua != null && ua.getEmployeeId() != null) {
-            Employee emp = employeeRepository.findById(ua.getEmployeeId()).orElse(null);
-
-            if (emp != null && (emp.getActive() == null || emp.getActive() == 0)) {
-                String firstName = emp.getFirstName() != null ? emp.getFirstName() : "there";
-
-                return ResponseEntity.status(403).body(
-                        Map.of(
-                                "message",
-                                "Hello " + firstName + ", your profile is inactive now so you can't access your dashboard."
-                        )
-                );
-            }
-        }
-
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);
 
@@ -138,7 +121,8 @@ public class AuthController {
                 user.getLastName(),
                 user.getUsername(),
                 user.getRole(),
-                user.getMustChangePassword()
+                user.getMustChangePassword(),
+                user.getEmployeeActive()
         );
 
         String username = user.getUsername();

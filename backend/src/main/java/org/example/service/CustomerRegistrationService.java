@@ -136,7 +136,8 @@ public class CustomerRegistrationService {
                 saved.getLastName(),
                 ua.getUsername(),       // username
                 "Customer",              // role
-                false
+                false,
+                null
         );
     }
 }

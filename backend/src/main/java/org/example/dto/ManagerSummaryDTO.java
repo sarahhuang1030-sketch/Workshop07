@@ -14,6 +14,9 @@ public class ManagerSummaryDTO {
     private long serviceRequests;
     private long serviceAppointments;
 
+
+
+
     public long getServiceRequests() {
         return serviceRequests;
     }
@@ -50,6 +53,7 @@ public class ManagerSummaryDTO {
             long location,
             long serviceRequests,
             long serviceAppointments
+
 
     ) {
         this.customers = customers;

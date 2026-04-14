@@ -317,7 +317,7 @@ export default function PhonesPage() {
                                                         fontSize: "0.95rem",
                                                     }}
                                                 >
-                                                    Flexible financing available with eligible TeleConnect
+                                                    Flexible financing available with eligible SJY Telecom
                                                     plans.
                                                 </div>
 

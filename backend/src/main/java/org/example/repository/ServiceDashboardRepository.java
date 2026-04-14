@@ -17,19 +17,21 @@ public class ServiceDashboardRepository {
         Integer userId = findUserIdByUsername(username);
 
         if (userId == null) {
-            return new ServiceDashboardSummaryDTO(0, 0, 0, 0);
+            return new ServiceDashboardSummaryDTO(0, 0, 0, 0, 0);
         }
 
         long assignedRequests = countAssignedRequests(userId);
         long openRequests = countOpenRequests(userId);
         long todayAppointments = countTodayAppointments(userId);
         long completedRequests = countCompletedRequests(userId);
+        long assignedAppointments = countAssignedAppointments(userId);
 
         return new ServiceDashboardSummaryDTO(
                 assignedRequests,
                 openRequests,
                 todayAppointments,
-                completedRequests
+                completedRequests,
+                assignedAppointments
         );
     }
 
@@ -95,6 +97,20 @@ public class ServiceDashboardRepository {
                 FROM servicerequests
                 WHERE AssignedTechnicianUserId = ?
                   AND Status = 'Completed'
+                """,
+                Long.class,
+                userId
+        );
+        return value != null ? value : 0L;
+    }
+
+    private long countAssignedAppointments(int userId) {
+        Long value = jdbc.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM serviceappointments
+                WHERE TechnicianUserId = ?
+                  AND Status IN ('Scheduled', 'Pending')
                 """,
                 Long.class,
                 userId

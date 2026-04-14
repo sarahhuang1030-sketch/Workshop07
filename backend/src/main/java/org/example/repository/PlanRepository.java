@@ -16,9 +16,7 @@ public class PlanRepository {
         this.jdbc = jdbc;
     }
 
-    // =========================
     // PLAN ROW MODEL
-    // =========================
     public record PlanRow(
             int planId,
             String planName,
@@ -27,9 +25,7 @@ public class PlanRepository {
             String serviceType
     ) {}
 
-    // =========================
     // PLAN FEATURE ROW MODEL
-    // =========================
     public record PlanFeatureRow(
             int planId,
             String featureName,
@@ -39,17 +35,13 @@ public class PlanRepository {
             int featureId
     ) {}
 
-    // =========================
     // PLAN ADDON ROW MODEL
-    // =========================
     public record PlanAddOnRow(
             int planId,
             AddOnDTO addOn
     ) {}
 
-    // =========================
     // FIND PLANS BY SERVICE TYPE
-    // =========================
     public List<PlanRow> findPlansByServiceTypeName(String typeName) {
         return jdbc.query("""
                 SELECT p.PlanId,
@@ -74,9 +66,7 @@ public class PlanRepository {
         );
     }
 
-    // =========================
     // FIND ALL ACTIVE PLANS
-    // =========================
     public List<PlanRow> findAllPlans() {
         return jdbc.query("""
                 SELECT p.PlanId,
@@ -99,9 +89,7 @@ public class PlanRepository {
         );
     }
 
-    // =========================
     // FIND PLAN BY ID
-    // =========================
     public PlanRow findPlanById(Integer planId) {
         List<PlanRow> results = jdbc.query("""
             SELECT p.PlanId,
@@ -127,9 +115,7 @@ public class PlanRepository {
     }
 
 
-    // =========================
     // BULK PLAN FEATURES
-    // =========================
     public Map<Integer, List<PlanFeatureRow>> findPlanFeaturesByPlanIds(List<Integer> planIds) {
 
         if (planIds == null || planIds.isEmpty()) {
@@ -166,9 +152,7 @@ public class PlanRepository {
         return map;
     }
 
-    // =========================
     // BULK ADDONS BY PLAN IDS
-    // =========================
     public Map<Integer, List<AddOnDTO>> findAddOnsByPlanIds(List<Integer> planIds) {
 
         if (planIds == null || planIds.isEmpty()) {

@@ -115,6 +115,19 @@ export default function CustomerQuotes() {
         }
     };
 
+    const handleDecline = async (quoteId) => {
+        if (!window.confirm("Are you sure you want to decline this quote?")) return;
+        try {
+            const res = await apiFetch(`/api/quotes/${quoteId}/decline`, {
+                method: "PATCH",
+            });
+            if (!res.ok) throw new Error("Failed to decline quote");
+            loadQuotes();
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
     /* =========================
        VIEW DETAILS
     ========================= */
@@ -184,7 +197,8 @@ export default function CustomerQuotes() {
                                         q.status === "INVOICED" ? "success" :
                                             q.status === "APPROVED" ? "primary" :
                                                 q.status === "PAID" ? "success" :
-                                                    "secondary"
+                                                    q.status === "DECLINED"  ? "danger"   :
+                                                        "secondary"
                                 }>
                                     {q.status}
                                 </Badge>
@@ -201,13 +215,24 @@ export default function CustomerQuotes() {
                                 </Button>
 
                                 {q.status === "PENDING" && (
-                                    <Button
-                                        variant="success"
-                                        size="sm"
-                                        onClick={() => handleApprove(q.id)}
-                                    >
-                                        Approve & Pay
-                                    </Button>
+                                    <>
+                                        <Button
+                                            variant="success"
+                                            size="sm"
+                                            className="me-2"
+                                            onClick={() => handleApprove(q.id)}
+                                        >
+                                            Approve & Pay
+                                        </Button>
+
+                                        <Button
+                                            variant="outline-danger"
+                                            size="sm"
+                                            onClick={() => handleDecline(q.id)}
+                                        >
+                                            Decline
+                                        </Button>
+                                    </>
                                 )}
 
                                 {q.status === "APPROVED" && (
@@ -299,16 +324,27 @@ export default function CustomerQuotes() {
                     </Button>
 
                     {selectedQuote?.status === "PENDING" && (
+                        <>
                         <Button
-                            variant="success"
-                            onClick={() => {
-                                setShowDetails(false);
-                                handleApprove(selectedQuote.id);
-                            }}
-                        >
-                            Approve & Pay
-                        </Button>
-                    )}
+                        variant="success"
+                        onClick={() => {
+                        setShowDetails(false);
+                        handleApprove(selectedQuote.id);
+                    }}
+                >
+                    Approve & Pay
+                </Button>
+                <Button
+                    variant="outline-danger"
+                    onClick={() => {
+                        setShowDetails(false);
+                        handleDecline(selectedQuote.id);
+                    }}
+                >
+                    Decline
+                </Button>
+            </>
+            )}
                 </Modal.Footer>
             </Modal>
         </Container>

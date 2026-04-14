@@ -84,17 +84,13 @@ public class CustomerController {
     @Transactional
     public ResponseEntity<?> createCustomer(@RequestBody CreateCustomerRequest req) {
 
-        // =========================
-        // 1. Validate duplicate email
-        // =========================
-        if (customerRepo.existsByEmail(req.email)) {
+            // 1. Validate duplicate email
+            if (customerRepo.existsByEmail(req.email)) {
             return ResponseEntity.badRequest().body("Email already exists");
         }
 
-        // =========================
-        // 2. Normalize + validate postal code
-        // =========================
-        String normalizedPostalCode = req.postalCode != null
+            // 2. Normalize + validate postal code
+            String normalizedPostalCode = req.postalCode != null
                 ? req.postalCode.trim().toUpperCase()
                 : null;
 
@@ -113,10 +109,8 @@ public class CustomerController {
             }
         }
 
-        // =========================
-        // 3. Create Customer entity
-        // =========================
-        Customer c = new Customer();
+            // 3. Create Customer entity
+            Customer c = new Customer();
         c.setFirstName(req.firstName);
         c.setLastName(req.lastName);
         c.setBusinessName(req.businessName);
@@ -132,16 +126,12 @@ public class CustomerController {
 
         Customer saved = customerRepo.save(c);
 
-        // =========================
-        // 4. Get CUSTOMER role
-        // =========================
-        Role role = roleRepo.findByRoleName("Customer")
+            // 4. Get CUSTOMER role
+            Role role = roleRepo.findByRoleName("Customer")
                 .orElseThrow(() -> new RuntimeException("Role 'Customer' not found"));
 
-        // =========================
-        // 5. Generate username
-        // =========================
-        String baseUsername;
+            // 5. Generate username
+            String baseUsername;
 
         if ("Business".equalsIgnoreCase(req.customerType)) {
             // business → use business name
@@ -178,15 +168,11 @@ public class CustomerController {
             }
         }
 
-        // =========================
-        // 6. Generate temp password
-        // =========================
-        String tempPassword = PasswordGenerator.generateTempPassword(10);
+            // 6. Generate temp password
+            String tempPassword = PasswordGenerator.generateTempPassword(10);
 
-        // =========================
-        // 7. Create UserAccount
-        // =========================
-        UserAccount ua = new UserAccount();
+            // 7. Create UserAccount
+            UserAccount ua = new UserAccount();
         ua.setCustomerId(saved.getCustomerId());
         ua.setUsername(username);
         ua.setRole(role);
@@ -198,10 +184,8 @@ public class CustomerController {
 
         userAccountRepo.save(ua);
 
-        // =========================
-        // 8. Create Billing Address
-        // =========================
-        CustomerAddress addr = new CustomerAddress();
+            // 8. Create Billing Address
+            CustomerAddress addr = new CustomerAddress();
         addr.setCustomerId(saved.getCustomerId());
         addr.setAddressType("Billing");
         addr.setIsPrimary(1);
@@ -215,10 +199,8 @@ public class CustomerController {
 
         addressRepo.save(addr);
 
-        // =========================
-        // 9. Build response (for UI)
-        // =========================
-        CreateCustomerResponseDTO dto = new CreateCustomerResponseDTO();
+            // 9. Build response (for UI)
+            CreateCustomerResponseDTO dto = new CreateCustomerResponseDTO();
         dto.setCustomerId(saved.getCustomerId());
         dto.setFirstName(saved.getFirstName());
         dto.setLastName(saved.getLastName());
@@ -235,18 +217,14 @@ public class CustomerController {
     public ResponseEntity<?> updateCustomer(@PathVariable Integer id,
                                             @RequestBody CreateCustomerRequest req) {
 
-        // =========================
-        // 1. Find existing customer
-        // =========================
-        Customer c = customerRepo.findById(id).orElse(null);
+            // 1. Find existing customer
+            Customer c = customerRepo.findById(id).orElse(null);
         if (c == null) {
             return ResponseEntity.notFound().build();
         }
 
-        // =========================
-        // 2. Normalize + validate postal code
-        // =========================
-        String normalizedPostalCode = req.postalCode != null
+            // 2. Normalize + validate postal code
+            String normalizedPostalCode = req.postalCode != null
                 ? req.postalCode.trim().toUpperCase()
                 : null;
 
@@ -264,10 +242,8 @@ public class CustomerController {
             }
         }
 
-        // =========================
-        // 3. Update customer fields
-        // =========================
-        c.setFirstName(req.firstName);
+            // 3. Update customer fields
+            c.setFirstName(req.firstName);
         c.setLastName(req.lastName);
         c.setBusinessName(req.businessName);
         c.setEmail(req.email);
@@ -281,10 +257,8 @@ public class CustomerController {
 
         customerRepo.save(c);
 
-        // =========================
-        // 4. Update or create billing address
-        // =========================
-        CustomerAddress billing = addressRepo
+            // 4. Update or create billing address
+            CustomerAddress billing = addressRepo
                 .findByCustomerIdAndAddressType(id, "Billing")
                 .orElse(new CustomerAddress());
 
@@ -301,10 +275,8 @@ public class CustomerController {
 
         addressRepo.save(billing);
 
-        // =========================
-        // 5. Audit log
-        // =========================
-        auditService.log("Customer", "Update", "Customer " + id, "system");
+            // 5. Audit log
+            auditService.log("Customer", "Update", "Customer " + id, "system");
 
         return ResponseEntity.ok(c);
     }

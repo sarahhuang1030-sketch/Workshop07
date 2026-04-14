@@ -5,10 +5,11 @@ body {
     margin: 0;
 }
 
-/* Backgrounds */
+/* ============================================================
+   BACKGROUNDS
+   ============================================================ */
 .tc-bg-light,
 .tc-bg-dark {
-    /*min-height: 100vh;*/
     min-height: auto;
     background-repeat: no-repeat !important;
     background-attachment: fixed;
@@ -16,143 +17,563 @@ body {
 
 .tc-bg-light {
     background: linear-gradient(135deg, #f5f3ff, #fce7f3, #dbeafe) !important;
-    /*min-height: 100vh;*/
 }
 
 .tc-bg-dark {
     background: linear-gradient(135deg, #0b1220, #2a0a4a, #0b1220) !important;
-    /*min-height:100vh;*/
 }
 
 
-/* Header glass */
+/* ============================================================
+   HEADER GLASS
+   ============================================================ */
 .tc-header-light {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 .tc-header-dark {
     background: rgba(17, 24, 39, 0.8);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Rounded helpers */
+
+/* ============================================================
+   ROUNDED HELPERS
+   ============================================================ */
 .tc-rounded-2xl { border-radius: 1.25rem; }
 .tc-rounded-3xl { border-radius: 1.75rem; }
 
-/* Hero gradient */
+
+/* ============================================================
+   HERO GRADIENTS
+   ============================================================ */
 .tc-hero-light {
-    background: linear-gradient(135deg, #7c3aed, #ec4899, #f97316);
+    background: linear-gradient(135deg, #3b82f6, #7c3aed);
+    color: white;
+    padding: 80px 0;
 }
 .tc-hero-dark {
-    background: linear-gradient(135deg, #4c1d95, #be185d, #c2410c);
+    background: linear-gradient(135deg, #1d4ed8, #4c1d95);
+    color: white;
+    padding: 80px 0;
 }
 
-/* Plan gradients */
-.tc-grad-cyan { background: linear-gradient(135deg, #22d3ee, #3b82f6); }
+
+/* ============================================================
+   PLAN CARD GRADIENTS
+   ============================================================ */
+.tc-grad-cyan   { background: linear-gradient(135deg, #22d3ee, #3b82f6); }
 .tc-grad-purple { background: linear-gradient(135deg, #a78bfa, #ec4899); }
 .tc-grad-orange { background: linear-gradient(135deg, #fb923c, #ef4444); }
 
-/* Badge gradient */
+
+/* ============================================================
+   BADGE
+   ============================================================ */
 .tc-badge-hot {
     background: linear-gradient(90deg, #facc15, #fb923c);
     color: #3b2f00;
 }
 
-/* Cards */
+
+/* ============================================================
+   CARD HOVER
+   Unified rule — lift + scale + shadow
+   ============================================================ */
 .tc-card-hover {
-    transition: transform .15s ease, box-shadow .15s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    border-radius: 20px;
+    will-change: transform;
 }
 .tc-card-hover:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 1rem 2rem rgba(0,0,0,0.12);
+    transform: translateY(-6px) scale(1.025);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
 }
 
-/* Footer */
+
+/* ============================================================
+   STATS CARD — subtle hover lift
+   ============================================================ */
+.tc-stats-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 1rem;
+}
+.tc-stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
 .tc-footer-light { background: #111827; color: #e5e7eb; }
-.tc-footer-dark { background: #000; color: #e5e7eb; }
-
-/* Text helpers */
-.tc-muted-light { color: rgba(0,0,0,0.55); }
-.tc-muted-dark { color: rgba(255,255,255,0.6); }
-.tc-card-dark { background: #111827; border: 1px solid rgba(255,255,255,0.10); color: #fff; }
+.tc-footer-dark  { background: #000;    color: #e5e7eb; }
 
 
-/*Scrollbar*/
+/* ============================================================
+   MUTED TEXT
+   ============================================================ */
+.tc-muted-light { color: #6b7280; }
+.tc-muted-dark  { color: #d1d5db; }
+
+.tc-card-dark {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: #fff;
+}
+
+
+/* ============================================================
+   SCROLLBAR (horizontal overflow containers)
+   ============================================================ */
 .d-flex.overflow-x-auto {
     scrollbar-width: thin;
     scrollbar-color: #888 transparent;
 }
+.d-flex.overflow-x-auto::-webkit-scrollbar       { height: 6px; }
+.d-flex.overflow-x-auto::-webkit-scrollbar-thumb  { background-color: #888; border-radius: 3px; }
+.d-flex.overflow-x-auto::-webkit-scrollbar-track  { background: transparent; }
 
-.d-flex.overflow-x-auto::-webkit-scrollbar {
-    height: 6px;
-}
 
-.d-flex.overflow-x-auto::-webkit-scrollbar-thumb {
-    background-color: #888;
-    border-radius: 3px;
-}
-
-.d-flex.overflow-x-auto::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-/*Clickable Images*/
+/* ============================================================
+   DOCK ITEMS (HomepageDock clickable images)
+   ============================================================ */
 .tc-dock-item {
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .tc-dock-item img {
     border-radius: 16px;
+    transition: box-shadow 0.2s ease;
 }
-
 .tc-dock-item:hover {
-    transform: translateY(-4px);
+    transform: translateY(-5px);
 }
-
 .tc-dock-item:hover img {
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
 }
 
-/* FLOAT ANIMATION */
+
+/* ============================================================
+   FLOAT ANIMATION (decorative elements)
+   ============================================================ */
 @keyframes float {
     0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-6px); }
+    50%       { transform: translateY(-6px); }
 }
 
-/* CARD HOVER */
-.tc-card-hover {
-    transition: all 0.3s ease;
-    border-radius: 20px;
-}
-.tc-card-hover:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+.tc-float {
+    animation: float 3.5s ease-in-out infinite;
 }
 
-/* GRADIENTS */
-.tc-grad-cyan { background: linear-gradient(135deg,#22d3ee,#3b82f6); }
-.tc-grad-purple { background: linear-gradient(135deg,#a78bfa,#ec4899); }
-.tc-grad-orange { background: linear-gradient(135deg,#fb923c,#ef4444); }
 
-/* HERO */
-.tc-hero-light { background: linear-gradient(135deg,#3b82f6,#7c3aed); color:white; padding:80px 0; }
-.tc-hero-dark { background: linear-gradient(135deg,#1d4ed8,#4c1d95); color:white; padding:80px 0; }
-
-/* MUTED TEXT */
-.tc-muted-light { color: #6b7280; }
-.tc-muted-dark { color: #d1d5db; }
-
-/* STATS GRADIENT TEXT */
+/* ============================================================
+   GRADIENT TEXT (stat values, highlights)
+   ============================================================ */
 .text-gradient {
-    background: linear-gradient(90deg,#7c3aed,#ec4899);
+    background: linear-gradient(90deg, #7c3aed, #ec4899);
     -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     color: transparent;
 }
 
-/* CTA GRADIENT */
+
+/* ============================================================
+   CTA / BUTTON GRADIENTS
+   ============================================================ */
 .bg-gradient-primary {
-    background: linear-gradient(90deg,#7c3aed,#ec4899);
+    background: linear-gradient(90deg, #7c3aed, #ec4899);
+}
+
+
+/* ============================================================
+   HERO SECTION ENHANCEMENTS
+   Frosted promo badge chip used in the new Hero
+   ============================================================ */
+.tc-hero-badge {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+
+/* ============================================================
+   AD SECTION — price inset block
+   ============================================================ */
+.tc-price-block {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    width: fit-content;
+    transition: background 0.2s ease;
+}
+.tc-price-block:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+
+/* ============================================================
+   SECTION LABEL CHIP (eyebrow / "Why Choose Us" etc.)
+   ============================================================ */
+.tc-section-chip {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-radius: 999px;
+}
+
+/* Light variant (used on white/light backgrounds) */
+.tc-section-chip-light {
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(79, 70, 229, 0.18);
+}
+
+/* Dark variant (used on dark CTA footer) */
+.tc-section-chip-dark {
+    color: #a5b4fc;
+    background: rgba(165, 180, 252, 0.10);
+    border: 1px solid rgba(165, 180, 252, 0.20);
+}
+
+
+/* ============================================================
+   PLAN TAB SEGMENTED CONTROL TRACK
+   ============================================================ */
+.tc-tab-track {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+}
+.tc-tab-track-light {
+    background: rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.tc-tab-track-dark {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+
+/* ============================================================
+   FLOATING CHAT BUTTON — hover glow pulse
+   ============================================================ */
+@keyframes chat-pulse {
+    0%   { box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45); }
+    50%  { box-shadow: 0 8px 36px rgba(79, 70, 229, 0.65); }
+    100% { box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45); }
+}
+
+.tc-chat-btn {
+    animation: chat-pulse 3s ease-in-out infinite;
+    transition: transform 0.18s ease;
+}
+.tc-chat-btn:hover {
+    transform: scale(1.1) !important;
+    animation-play-state: paused;
+}
+
+
+/* ============================================================
+   CTA FOOTER — top accent line
+   ============================================================ */
+.tc-cta-accent {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+    border-radius: 999px;
+}
+
+
+/* ============================================================
+   IMAGE CARDS — smooth zoom on hover
+   ============================================================ */
+.tc-img-zoom img {
+    transition: transform 0.4s ease;
+}
+.tc-img-zoom:hover img {
+    transform: scale(1.04);
+}
+
+
+/* ============================================================
+   RESPONSIVE UTILITIES
+   ============================================================ */
+
+/* Fluid section padding on small screens */
+@media (max-width: 768px) {
+    .tc-hero-light,
+    .tc-hero-dark {
+        padding: 56px 0;
+    }
+
+    /* Stack ad section image below text naturally via Bootstrap,
+       reduce the outer section margin */
+    .tc-ad-section {
+        margin-left: 0.75rem !important;
+        margin-right: 0.75rem !important;
+        border-radius: 1rem !important;
+    }
+
+    /* Stats row: 2-column grid on mobile */
+    .tc-stats-row .col-md-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+@media (max-width: 480px) {
+    .tc-stats-row .col-md-3 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+
+/* ============================================================
+   CHECKOUT PAGE
+   ============================================================ */
+
+/* Billing cycle option card — hover brightens border */
+.tc-cycle-option {
+    cursor: pointer;
+    border-radius: 0.75rem;
+    border: 2px solid #e5e7eb;
+    padding: 0.85rem 1rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    background: #fff;
+}
+.tc-cycle-option:hover {
+    border-color: #a5b4fc;
+    background: rgba(79, 70, 229, 0.03);
+}
+.tc-cycle-option.active {
+    border-color: #4f46e5;
+    background: rgba(79, 70, 229, 0.05);
+}
+
+/* Total highlight block */
+.tc-total-block {
+    background: linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.07));
+    border: 1px solid rgba(79, 70, 229, 0.12);
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+}
+
+/* Discount row — green tinted */
+.tc-discount-row {
+    background: rgba(22, 163, 74, 0.07);
+    border: 1px solid rgba(22, 163, 74, 0.2);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    color: #15803d;
+    font-size: 0.88rem;
+}
+
+/* Address confirmed pill */
+.tc-address-confirmed {
+    background: rgba(79, 70, 229, 0.06);
+    border: 1px solid rgba(79, 70, 229, 0.18);
+    border-radius: 0.6rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+    color: #4f46e5;
+}
+
+/* Section icon badge */
+.tc-section-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+/* Pay button gradient */
+.tc-pay-btn {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    border: none !important;
+    box-shadow: 0 6px 28px rgba(79, 70, 229, 0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-size: 1.05rem;
+    padding: 0.85rem !important;
+    letter-spacing: 0.3px;
+}
+.tc-pay-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 36px rgba(79, 70, 229, 0.52) !important;
+}
+.tc-pay-btn:active {
+    transform: translateY(0);
+}
+
+/* Success screen icon circle */
+.tc-success-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.35);
+    font-size: 2rem;
+    color: #fff;
+}
+
+
+/* ============================================================
+   PROFILE PAGE
+   ============================================================ */
+
+/* Setup item card inside the incomplete-billing banner */
+.tc-setup-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 0.85rem;
+    flex: 1 1 220px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.tc-setup-item:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(251, 191, 36, 0.55);
+}
+
+/* Incomplete billing notice banner */
+.tc-billing-notice {
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+}
+
+/* Employee registration notice */
+.tc-employee-notice {
+    background: rgba(59, 130, 246, 0.07);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+}
+
+/* Rewards progress bar track */
+.tc-rewards-track {
+    height: 7px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    overflow: hidden;
+}
+.tc-rewards-track-dark {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Rewards progress fill */
+.tc-rewards-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+.tc-rewards-fill-bronze {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+.tc-rewards-fill-default {
+    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+}
+
+/* Bronze badge pill */
+.tc-bronze-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #d97706;
+    background: rgba(245, 158, 11, 0.12);
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* Points gradient text */
+.tc-points-value {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Profile action buttons */
+.tc-profile-action-btn {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border: none;
+}
+.tc-profile-action-btn-neutral {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: #374151;
+}
+.tc-profile-action-btn-neutral:hover {
+    background: rgba(0, 0, 0, 0.09);
+}
+.tc-profile-action-btn-danger {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.22);
+    color: #ef4444;
+}
+.tc-profile-action-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* Dark mode overrides for profile */
+.tc-setup-item-dark {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+.tc-profile-action-btn-neutral-dark {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e5e7eb;
+}
+.tc-profile-action-btn-neutral-dark:hover {
+    background: rgba(255, 255, 255, 0.14);
 }

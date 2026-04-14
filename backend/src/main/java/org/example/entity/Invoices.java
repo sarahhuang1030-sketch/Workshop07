@@ -32,7 +32,8 @@ public class Invoices {
      * SaaS lifecycle status:
      * PENDING -> APPROVED -> PAID
      */
-    @Column(name = "lifecycle_stage")
+//    @Column(name = "lifecycle_stage")
+    @Column(name = "Status")
     private String status;
 
     /**

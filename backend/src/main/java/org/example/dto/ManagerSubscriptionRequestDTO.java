@@ -1,11 +1,9 @@
 package org.example.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-public class ManagerSubscriptionDTO {
-    private Integer subscriptionId;
+public class ManagerSubscriptionRequestDTO {
     private Integer customerId;
     private Integer planId;
     private LocalDate startDate;
@@ -13,35 +11,7 @@ public class ManagerSubscriptionDTO {
     private String status;
     private Integer billingCycleDay;
     private String notes;
-    private List<SubscriptionAddOnDTO> addons;
-
-    private String customerName;
-    private String planName;
-    private BigDecimal monthlyPrice;
-
-    public String getCustomerName() {
-        return customerName;
-    }
-
-    public void setCustomerName(String customerName) {
-        this.customerName = customerName;
-    }
-
-    public String getPlanName() {
-        return planName;
-    }
-
-    public void setPlanName(String planName) {
-        this.planName = planName;
-    }
-
-    public Integer getSubscriptionId() {
-        return subscriptionId;
-    }
-
-    public void setSubscriptionId(Integer subscriptionId) {
-        this.subscriptionId = subscriptionId;
-    }
+    private List<Integer> addOnIds;
 
     public Integer getCustomerId() {
         return customerId;
@@ -99,19 +69,11 @@ public class ManagerSubscriptionDTO {
         this.notes = notes;
     }
 
-    public List<SubscriptionAddOnDTO> getAddons() {
-        return addons;
+    public List<Integer> getAddOnIds() {
+        return addOnIds;
     }
 
-    public void setAddons(List<SubscriptionAddOnDTO> addons) {
-        this.addons = addons;
-    }
-
-    public BigDecimal getMonthlyPrice() {
-        return monthlyPrice;
-    }
-
-    public void setMonthlyPrice(BigDecimal monthlyPrice) {
-        this.monthlyPrice = monthlyPrice;
+    public void setAddOnIds(List<Integer> addOnIds) {
+        this.addOnIds = addOnIds;
     }
 }
