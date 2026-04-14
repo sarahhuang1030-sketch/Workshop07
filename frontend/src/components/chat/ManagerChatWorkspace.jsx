@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Container, Row, Col, Card, Badge, Button, Spinner } from "react-bootstrap";
+import { Container, Row, Col, Card, Badge, Button, Spinner, Form } from "react-bootstrap";
 import { apiFetch } from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import { useChat } from "../../context/ChatContext";
-
-import EmployeeChatRequestList from "./EmployeeChatRequestList";
 import EmployeeCustomerInfoPanel from "./EmployeeCustomerInfoPanel";
 
 function formatDateTime(value) {
@@ -60,7 +58,7 @@ function normalizeConversation(c) {
     };
 }
 
-export default function EmployeeChatWorkspace({ role = "agent" }) {
+export default function ManagerChatWorkspace() {
     const [requests, setRequests] = useState([]);
     const [requestsLoading, setRequestsLoading] = useState(false);
 
@@ -79,126 +77,63 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
     const [customerLoading, setCustomerLoading] = useState(false);
 
+    const [requestSearch, setRequestSearch] = useState("");
+    const [requestFilter, setRequestFilter] = useState("all");
+
     const navigate = useNavigate();
     const { openConversationTab, lastEvent } = useChat();
 
-    const [requestSearch, setRequestSearch] = useState("");
-    const [requestFilter, setRequestFilter] = useState(
-        role === "manager" ? "all" : "pending"
-    );
-
     const storedUser = JSON.parse(localStorage.getItem("tc_user") || "{}");
     const currentUserId = storedUser?.userId ?? storedUser?.raw?.userId ?? null;
-    const isManager = role === "manager";
 
     useEffect(() => {
         if (!currentUserId) return;
-
         loadRequests();
         loadConversations();
     }, [currentUserId]);
 
-    useEffect(() => {
-        if (!requests.length && !conversations.length) return;
-        if (selectedRequest || selectedConversation) return;
-
-        const activeRequest = requests.find(
-            (r) => String(r.status || "").toUpperCase() === "ACTIVE"
-        );
-
-        if (activeRequest) {
-            setSelectedRequest(activeRequest);
-
-            const matchingConversation =
-                conversations.find(
-                    (c) =>
-                        Number(c.conversationId) === Number(activeRequest.conversationId)
-                ) || {
-                    conversationId: activeRequest.conversationId,
-                    status: activeRequest.status,
-                    customerUserId: activeRequest.customerUserId,
-                    customerId: activeRequest.customerId,
-                    otherUserId: activeRequest.customerUserId,
-                    reason: activeRequest.reason,
-                    requestId: activeRequest.requestId,
-                    customerName:
-                        activeRequest.customerName ||
-                        `Customer #${activeRequest.customerId || activeRequest.customerUserId}`
-                };
-
-            setSelectedConversation(matchingConversation);
-            loadMessages(matchingConversation.conversationId);
-            loadCustomer(activeRequest);
-            loadCustomerConversationHistory(activeRequest.customerUserId);
-            openConversationInChat(matchingConversation);
-            return;
-        }
-
-        const activeConversation = conversations.find(
-            (c) => String(c.status || "").toUpperCase() === "ACTIVE"
-        );
-
-        if (activeConversation) {
-            openConversationOnPage(activeConversation);
-            openConversationInChat(activeConversation);
-        }
-    }, [requests, conversations]);
-
-    useEffect(() => {
-        if (!requests.length && !conversations.length) return;
-
-        // do NOT override manual selection
-        if (selectedRequest || selectedConversation) return;
-
-        // 👉 Step 1: try to find ACTIVE request (agent case)
-        const activeRequest = requests.find(
-            (r) => String(r.status || "").toUpperCase() === "ACTIVE"
-        );
-
-        if (activeRequest) {
-            console.log("[AUTO RESTORE] Active request found", activeRequest);
-
-            setSelectedRequest(activeRequest);
-
-            if (activeRequest.conversationId) {
-                const matchingConversation =
-                    conversations.find(
-                        (c) =>
-                            Number(c.conversationId) === Number(activeRequest.conversationId)
-                    ) || {
-                        conversationId: activeRequest.conversationId,
-                        status: activeRequest.status,
-                        customerUserId: activeRequest.customerUserId,
-                        customerId: activeRequest.customerId,
-                        otherUserId: activeRequest.customerUserId,
-                        reason: activeRequest.reason,
-                        requestId: activeRequest.requestId,
-                        customerName:
-                            activeRequest.customerName ||
-                            `Customer #${activeRequest.customerId || activeRequest.customerUserId}`
-                    };
-
-                setSelectedConversation(matchingConversation);
-                loadMessages(matchingConversation.conversationId);
-            }
-
-            loadCustomer(activeRequest);
-            loadCustomerConversationHistory(activeRequest.customerUserId);
-
-            return;
-        }
-
-        // 👉 Step 2: fallback → active conversation
-        const activeConversation = conversations.find(
-            (c) => String(c.status || "").toUpperCase() === "ACTIVE"
-        );
-
-        if (activeConversation) {
-            console.log("[AUTO RESTORE] Active conversation found", activeConversation);
-
-            openConversationOnPage(activeConversation);
-        }
-    }, [requests, conversations]);
+    // useEffect(() => {
+    //     if (!requests.length && !conversations.length) return;
+    //     if (selectedRequest || selectedConversation) return;
+    //
+    //     const activeRequest = requests.find(
+    //         (r) => String(r.status || "").toUpperCase() === "ACTIVE"
+    //     );
+    //
+    //     if (activeRequest) {
+    //         setSelectedRequest(activeRequest);
+    //
+    //         const matchingConversation =
+    //             conversations.find(
+    //                 (c) => Number(c.conversationId) === Number(activeRequest.conversationId)
+    //             ) || {
+    //                 conversationId: activeRequest.conversationId,
+    //                 status: activeRequest.status,
+    //                 customerUserId: activeRequest.customerUserId,
+    //                 customerId: activeRequest.customerId,
+    //                 otherUserId: activeRequest.customerUserId,
+    //                 reason: activeRequest.reason,
+    //                 requestId: activeRequest.requestId,
+    //                 customerName:
+    //                     activeRequest.customerName ||
+    //                     `Customer #${activeRequest.customerId || activeRequest.customerUserId}`
+    //             };
+    //
+    //         setSelectedConversation(matchingConversation);
+    //         loadMessages(matchingConversation.conversationId);
+    //         loadCustomer(activeRequest);
+    //         loadCustomerConversationHistory(activeRequest.customerUserId);
+    //         return;
+    //     }
+    //
+    //     const activeConversation = conversations.find(
+    //         (c) => String(c.status || "").toUpperCase() === "ACTIVE"
+    //     );
+    //
+    //     if (activeConversation) {
+    //         openConversationOnPage(activeConversation);
+    //     }
+    // }, [requests, conversations]);
 
     useEffect(() => {
         const userId =
@@ -207,41 +142,44 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
             selectedRequest?.customerUserId ||
             null;
 
-        if (!userId) return;
-
-        console.log("[FORCE HISTORY LOAD]", userId);
+        if (!userId) {
+            setCustomerConversationHistory([]);
+            return;
+        }
 
         loadCustomerConversationHistory(userId);
-
-    }, [selectedConversation, selectedRequest]);
+    }, [
+        selectedConversation?.conversationId,
+        selectedConversation?.customerUserId,
+        selectedConversation?.otherUserId,
+        selectedRequest?.requestId,
+        selectedRequest?.customerUserId
+    ]);
 
     useEffect(() => {
-        if (!conversations.length) return;
+        if (!conversations.length || !selectedConversation?.conversationId) return;
 
-        if (selectedConversation?.conversationId) {
-            const latestSelected = conversations.find(
-                (c) =>
-                    Number(c.conversationId) === Number(selectedConversation.conversationId)
-            );
+        const latestSelected = conversations.find(
+            (c) => Number(c.conversationId) === Number(selectedConversation.conversationId)
+        );
 
-            if (latestSelected) {
-                setSelectedConversation((prev) => {
-                    if (!prev) return prev;
+        if (latestSelected) {
+            setSelectedConversation((prev) => {
+                if (!prev) return prev;
 
-                    const prevStatus = String(prev.status || "").toUpperCase();
-                    const nextStatus = String(latestSelected.status || "").toUpperCase();
+                const prevStatus = String(prev.status || "").toUpperCase();
+                const nextStatus = String(latestSelected.status || "").toUpperCase();
 
-                    if (
-                        prevStatus !== nextStatus ||
-                        prev.customerName !== latestSelected.customerName ||
-                        prev.lastMessageAt !== latestSelected.lastMessageAt
-                    ) {
-                        return { ...prev, ...latestSelected };
-                    }
+                if (
+                    prevStatus !== nextStatus ||
+                    prev.customerName !== latestSelected.customerName ||
+                    prev.lastMessageAt !== latestSelected.lastMessageAt
+                ) {
+                    return { ...prev, ...latestSelected };
+                }
 
-                    return prev;
-                });
-            }
+                return prev;
+            });
         }
     }, [conversations, selectedConversation]);
 
@@ -249,8 +187,6 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
         if (!lastEvent) return;
 
         const { type, payload } = lastEvent;
-
-        console.log("[WORKSPACE REFRESH]", type);
 
         if (
             type === "CHAT_REQUEST_CREATED" ||
@@ -331,13 +267,13 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                 };
             });
         }
-    }, [lastEvent, selectedConversation]);
+    }, [lastEvent, selectedConversation, selectedRequest]);
 
     const loadRequests = async () => {
         setRequestsLoading(true);
         try {
             const res = await apiFetch(
-                `/api/chat/chat-requests?manager=${isManager}&employeeUserId=${currentUserId}`
+                `/api/chat/chat-requests?manager=true&employeeUserId=${currentUserId}`
             );
 
             if (!res.ok) {
@@ -357,7 +293,26 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                 );
 
                 if (updatedRequest) {
-                    setSelectedRequest(updatedRequest);
+                    setSelectedRequest((prev) => {
+                        if (!prev) return updatedRequest;
+
+                        const prevStatus = String(prev.status || "").toUpperCase();
+                        const nextStatus = String(updatedRequest.status || "").toUpperCase();
+
+                        if (
+                            prevStatus === nextStatus &&
+                            prev.comment === updatedRequest.comment &&
+                            prev.reason === updatedRequest.reason &&
+                            Number(prev.conversationId || 0) === Number(updatedRequest.conversationId || 0) &&
+                            Number(prev.assignedEmployeeUserId || 0) === Number(updatedRequest.assignedEmployeeUserId || 0) &&
+                            prev.acceptedAt === updatedRequest.acceptedAt &&
+                            prev.closedAt === updatedRequest.closedAt
+                        ) {
+                            return prev;
+                        }
+
+                        return updatedRequest;
+                    });
                 }
             }
         } catch (err) {
@@ -443,10 +398,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
     };
 
     const loadCustomer = async (source) => {
-        const customerId =
-            source?.customerId ??
-            selectedRequest?.customerId ??
-            null;
+        const customerId = source?.customerId ?? selectedRequest?.customerId ?? null;
 
         if (!customerId) {
             setSelectedCustomer(null);
@@ -463,8 +415,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
                 setSelectedCustomer({
                     customerId,
-                    customerUserId:
-                        source?.customerUserId ?? source?.otherUserId ?? null,
+                    customerUserId: source?.customerUserId ?? source?.otherUserId ?? null,
                     fullName: source?.customerName || `Customer #${customerId}`,
                     email: "—",
                     phone: "—",
@@ -498,9 +449,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                             matchingSubscription.currentPlan ||
                             "—";
 
-                        subscriptionStatus =
-                            matchingSubscription.status ||
-                            "—";
+                        subscriptionStatus = matchingSubscription.status || "—";
                     }
                 }
             } catch (subErr) {
@@ -514,8 +463,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
             setSelectedCustomer({
                 customerId: data.customerId ?? customerId,
-                customerUserId:
-                    source?.customerUserId ?? source?.otherUserId ?? null,
+                customerUserId: source?.customerUserId ?? source?.otherUserId ?? null,
                 firstName: data.firstName || "",
                 lastName: data.lastName || "",
                 fullName,
@@ -540,8 +488,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
             setSelectedCustomer({
                 customerId,
-                customerUserId:
-                    source?.customerUserId ?? source?.otherUserId ?? null,
+                customerUserId: source?.customerUserId ?? source?.otherUserId ?? null,
                 fullName: source?.customerName || `Customer #${customerId}`,
                 email: "—",
                 phone: "—",
@@ -566,12 +513,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
         if (!customerId) return;
 
-        if (role === "manager") {
-            navigate("/manager/users");
-            return;
-        }
-
-        navigate("/sales/customers");
+        navigate("/manager/users");
     };
 
     const clearPageSelection = () => {
@@ -597,12 +539,10 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
         const fullConversation =
             conversations.find(
-                (c) =>
-                    Number(c.conversationId) === Number(conversation.conversationId)
+                (c) => Number(c.conversationId) === Number(conversation.conversationId)
             ) ||
             customerConversationHistory.find(
-                (c) =>
-                    Number(c.conversationId) === Number(conversation.conversationId)
+                (c) => Number(c.conversationId) === Number(conversation.conversationId)
             ) ||
             conversation;
 
@@ -719,9 +659,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
             const dto = await res.json();
 
-            setSelectedRequest((prev) =>
-                prev ? { ...prev, ...dto } : prev
-            );
+            setSelectedRequest((prev) => (prev ? { ...prev, ...dto } : prev));
 
             loadRequests();
             loadConversations();
@@ -731,9 +669,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
     };
 
     const handleCloseRequest = async (req) => {
-        const conversationId =
-            req?.conversationId || selectedConversation?.conversationId;
-
+        const conversationId = req?.conversationId || selectedConversation?.conversationId;
         if (!conversationId) return;
 
         try {
@@ -780,6 +716,50 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
             console.error("Close request failed", err);
         }
     };
+
+    const filteredRequests = useMemo(() => {
+        const normalizedSearch = String(requestSearch || "").trim().toLowerCase();
+        const normalizedFilter = String(requestFilter || "all").toLowerCase();
+
+        return requests.filter((req) => {
+            const status = String(req.status || "").toLowerCase();
+
+            if (normalizedFilter !== "all" && status !== normalizedFilter) {
+                return false;
+            }
+
+            if (!normalizedSearch) return true;
+
+            const haystack = [
+                req.customerName,
+                req.reason,
+                req.comment,
+                req.requestId ? `#${req.requestId}` : "",
+                req.customerId ? `customer #${req.customerId}` : "",
+                req.customerUserId ? `user #${req.customerUserId}` : ""
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+            return haystack.includes(normalizedSearch);
+        });
+    }, [requests, requestSearch, requestFilter]);
+
+    const requestStats = useMemo(() => {
+        return requests.reduce(
+            (acc, req) => {
+                const status = String(req.status || "").toUpperCase();
+                acc.total += 1;
+                if (status === "PENDING") acc.pending += 1;
+                if (status === "ACTIVE") acc.active += 1;
+                if (status === "CLOSED") acc.closed += 1;
+                if (status === "CANCELLED") acc.cancelled += 1;
+                return acc;
+            },
+            { total: 0, pending: 0, active: 0, closed: 0, cancelled: 0 }
+        );
+    }, [requests]);
 
     const customerContacts = useMemo(() => {
         const map = new Map();
@@ -882,82 +862,231 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
     const selectedRequestStatus = String(selectedRequest?.status || "").toUpperCase();
     const canAccept = selectedRequestStatus === "PENDING";
     const canCancel = selectedRequestStatus === "PENDING";
-    const canOpenChat = !!selectedRequest?.conversationId;
+    const canOpenChat =
+        !!selectedRequest?.conversationId &&
+        Number(selectedRequest?.assignedEmployeeUserId) === Number(currentUserId);
     const canClose = selectedRequestStatus === "ACTIVE" && !!selectedRequest?.conversationId;
 
     return (
         <Container fluid className="py-3">
+            <Row className="g-3 mb-1">
+                <Col md={6} xl={3}>
+                    <Card
+                        className="border-0"
+                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                    >
+                        <Card.Body className="p-3">
+                            <div className="text-muted small mb-1">Total Requests</div>
+                            <div className="fw-bold" style={{ fontSize: "1.6rem" }}>
+                                {requestStats.total}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col md={6} xl={3}>
+                    <Card
+                        className="border-0"
+                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                    >
+                        <Card.Body className="p-3">
+                            <div className="text-muted small mb-1">Pending</div>
+                            <div className="fw-bold text-warning" style={{ fontSize: "1.6rem" }}>
+                                {requestStats.pending}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col md={6} xl={3}>
+                    <Card
+                        className="border-0"
+                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                    >
+                        <Card.Body className="p-3">
+                            <div className="text-muted small mb-1">Active</div>
+                            <div className="fw-bold text-success" style={{ fontSize: "1.6rem" }}>
+                                {requestStats.active}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+
+                <Col md={6} xl={3}>
+                    <Card
+                        className="border-0"
+                        style={{ borderRadius: 18, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" }}
+                    >
+                        <Card.Body className="p-3">
+                            <div className="text-muted small mb-1">Closed / Cancelled</div>
+                            <div className="fw-bold" style={{ fontSize: "1.6rem" }}>
+                                {requestStats.closed + requestStats.cancelled}
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+
             <Row className="g-3">
                 <Col lg={6}>
-                    <div style={{ height: "100%" }}>
-                        <EmployeeChatRequestList
-                            role={role}
-                            requests={requests}
-                            loading={requestsLoading}
-                            searchValue={requestSearch}
-                            filterValue={requestFilter}
-                            onSearchChange={setRequestSearch}
-                            onFilterChange={setRequestFilter}
-                            onSelectRequest={(req) => {
-                                setSelectedCustomer(null);
-                                setSelectedRequest(req);
+                    <Card
+                        className="border-0"
+                        style={{
+                            borderRadius: 20,
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "640px"
+                        }}
+                    >
+                        <Card.Body className="p-4 d-flex flex-column" style={{ minHeight: 0 }}>
+                            <div className="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 className="fw-bold mb-1">Chat Requests</h5>
+                                    <div className="text-muted small">
+                                        Review all chat requests across every status
+                                    </div>
+                                </div>
 
-                                if (req?.conversationId) {
-                                    const matchingConversation =
-                                        customerConversationHistory.find(
-                                            (c) =>
-                                                Number(c.conversationId) === Number(req.conversationId)
-                                        ) ||
-                                        conversations.find(
-                                            (c) =>
-                                                Number(c.conversationId) === Number(req.conversationId)
-                                        ) || {
-                                            conversationId: req.conversationId,
-                                            status: req.status,
-                                            customerUserId: req.customerUserId,
-                                            customerId: req.customerId,
-                                            otherUserId: req.customerUserId,
-                                            reason: req.reason,
-                                            comment: req.comment,
-                                            requestId: req.requestId,
-                                            assignedEmployeeUserId: req.assignedEmployeeUserId,
-                                            requestedAt: req.requestedAt,
-                                            acceptedAt: req.acceptedAt,
-                                            closedAt: req.closedAt,
-                                            customerName:
-                                                req.customerName || `Customer #${req.customerId || req.customerUserId}`
-                                        };
+                                <Badge bg="secondary">{filteredRequests.length}</Badge>
+                            </div>
 
-                                    setSelectedConversation(matchingConversation);
-                                    loadMessages(matchingConversation.conversationId);
-                                } else {
-                                    setSelectedConversation(null);
-                                    setSelectedMessages([]);
-                                }
+                            <div className="mb-3">
+                                <Form.Control
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={requestSearch}
+                                    onChange={(e) => setRequestSearch(e.target.value)}
+                                    style={{ borderRadius: 12 }}
+                                />
+                            </div>
 
-                                loadCustomer({
-                                    customerId: req.customerId,
-                                    customerUserId: req.customerUserId,
-                                    otherUserId: req.customerUserId,
-                                    customerName:
-                                        req.customerName || `Customer #${req.customerId || req.customerUserId}`
-                                });
+                            <div className="mb-3">
+                                <Form.Select
+                                    value={requestFilter}
+                                    onChange={(e) => setRequestFilter(e.target.value)}
+                                    style={{ borderRadius: 12 }}
+                                >
+                                    <option value="all">All</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="active">Active</option>
+                                    <option value="closed">Closed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </Form.Select>
+                            </div>
 
-                                loadCustomerConversationHistory(req.customerUserId);
-                            }}
-                        />
-                    </div>
+                            <div className="flex-grow-1 pe-1" style={{ minHeight: 0, overflowY: "auto" }}>
+                                {requestsLoading ? (
+                                    <div className="text-center py-4">
+                                        <Spinner animation="border" />
+                                    </div>
+                                ) : filteredRequests.length === 0 ? (
+                                    <div className="text-muted text-center py-4">
+                                        No chat requests found.
+                                    </div>
+                                ) : (
+                                    filteredRequests.map((req) => {
+                                        const isSelected =
+                                            Number(req.requestId) === Number(selectedRequest?.requestId);
+
+                                        return (
+                                            <div
+                                                key={req.requestId}
+                                                className="mb-2 p-3"
+                                                style={{
+                                                    borderRadius: 14,
+                                                    cursor: "pointer",
+                                                    border: isSelected
+                                                        ? "2px solid #2563eb"
+                                                        : "1px solid #e5e7eb",
+                                                    background: isSelected ? "#eff6ff" : "#f8fafc"
+                                                }}
+                                                onClick={() => {
+                                                    setSelectedCustomer(null);
+                                                    setSelectedRequest(req);
+
+                                                    if (req?.conversationId) {
+                                                        const matchingConversation =
+                                                            customerConversationHistory.find(
+                                                                (c) =>
+                                                                    Number(c.conversationId) === Number(req.conversationId)
+                                                            ) ||
+                                                            conversations.find(
+                                                                (c) =>
+                                                                    Number(c.conversationId) === Number(req.conversationId)
+                                                            ) || {
+                                                                conversationId: req.conversationId,
+                                                                status: req.status,
+                                                                customerUserId: req.customerUserId,
+                                                                customerId: req.customerId,
+                                                                otherUserId: req.customerUserId,
+                                                                reason: req.reason,
+                                                                comment: req.comment,
+                                                                requestId: req.requestId,
+                                                                assignedEmployeeUserId: req.assignedEmployeeUserId,
+                                                                requestedAt: req.requestedAt,
+                                                                acceptedAt: req.acceptedAt,
+                                                                closedAt: req.closedAt,
+                                                                customerName:
+                                                                    req.customerName ||
+                                                                    `Customer #${req.customerId || req.customerUserId}`
+                                                            };
+
+                                                        setSelectedConversation(matchingConversation);
+                                                        loadMessages(matchingConversation.conversationId);
+                                                    } else {
+                                                        setSelectedConversation(null);
+                                                        setSelectedMessages([]);
+                                                    }
+
+                                                    loadCustomer({
+                                                        customerId: req.customerId,
+                                                        customerUserId: req.customerUserId,
+                                                        otherUserId: req.customerUserId,
+                                                        customerName:
+                                                            req.customerName ||
+                                                            `Customer #${req.customerId || req.customerUserId}`
+                                                    });
+                                                }}
+                                            >
+                                                <div className="d-flex justify-content-between align-items-start gap-2">
+                                                    <div>
+                                                        <div className="fw-semibold">
+                                                            {req.customerName || `Customer #${req.customerId || req.customerUserId}`}
+                                                        </div>
+                                                        <div className="text-muted small">
+                                                            Customer ID: #{req.customerId || req.customerUserId}
+                                                        </div>
+                                                        <div className="small mt-1">
+                                                            {req.reason || "No reason provided"}
+                                                        </div>
+                                                    </div>
+
+                                                    <Badge bg={getStatusBadge(req.status)}>
+                                                        {req.status || "—"}
+                                                    </Badge>
+                                                </div>
+
+                                                <div className="text-muted small mt-2">
+                                                    {formatDateTime(req.requestedAt)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </Card.Body>
+                    </Card>
                 </Col>
 
                 <Col lg={6}>
                     <Card
-                        className="border-0 h-100"
+                        className="border-0"
                         style={{
                             borderRadius: 20,
-                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)"
+                            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                            height: "640px"
                         }}
                     >
-                        <Card.Body className="p-4">
+                        <Card.Body className="p-4 d-flex flex-column" style={{ minHeight: 0 }}>
                             <div className="d-flex justify-content-between align-items-start mb-3">
                                 <div>
                                     <h5 className="fw-bold mb-1">Request Detail</h5>
@@ -979,95 +1108,84 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <div className="small text-muted mb-1">Customer</div>
-                                            <div className="fw-semibold">{requestCustomerName}</div>
-                                        </div>
-
-                                        <div className="col-md-6">
-                                            <div className="small text-muted mb-1">Customer ID</div>
-                                            <div className="fw-semibold">
-                                                #{selectedRequest.customerId}
+                                    <div className="flex-grow-1" style={{ minHeight: 0, overflowY: "auto" }}>
+                                        <div className="row g-3">
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Customer</div>
+                                                <div className="fw-semibold">{requestCustomerName}</div>
                                             </div>
-                                        </div>
 
-                                        <div className="col-md-6">
-                                            <div className="small text-muted mb-1">Requested At</div>
-                                            <div className="fw-semibold">
-                                                {formatDateTime(selectedRequest.requestedAt)}
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Customer ID</div>
+                                                <div className="fw-semibold">
+                                                    #{selectedRequest.customerId}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {isManager && (
-                                            <>
-                                                <div className="col-md-6">
-                                                    <div className="small text-muted mb-1">Request ID</div>
-                                                    <div className="fw-semibold">
-                                                        #{selectedRequest.requestId}
-                                                    </div>
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Request ID</div>
+                                                <div className="fw-semibold">
+                                                    #{selectedRequest.requestId}
                                                 </div>
+                                            </div>
 
-                                                <div className="col-md-6">
-                                                    <div className="small text-muted mb-1">Accepted At</div>
-                                                    <div className="fw-semibold">
-                                                        {formatDateTime(selectedRequest.acceptedAt)}
-                                                    </div>
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Requested At</div>
+                                                <div className="fw-semibold">
+                                                    {formatDateTime(selectedRequest.requestedAt)}
                                                 </div>
+                                            </div>
 
-                                                <div className="col-md-6">
-                                                    <div className="small text-muted mb-1">Assigned Employee</div>
-                                                    <div className="fw-semibold">
-                                                        {selectedRequest.assignedEmployeeUserId
-                                                            ? `User #${selectedRequest.assignedEmployeeUserId}`
-                                                            : "—"}
-                                                    </div>
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Accepted At</div>
+                                                <div className="fw-semibold">
+                                                    {formatDateTime(selectedRequest.acceptedAt)}
                                                 </div>
+                                            </div>
 
-                                                <div className="col-md-6">
-                                                    <div className="small text-muted mb-1">Conversation</div>
-                                                    <div className="fw-semibold">
-                                                        {selectedRequest.conversationId
-                                                            ? `#${selectedRequest.conversationId}`
-                                                            : "Not created yet"}
-                                                    </div>
+                                            <div className="col-md-6">
+                                                <div className="small text-muted mb-1">Assigned Employee</div>
+                                                <div className="fw-semibold">
+                                                    {selectedRequest.assignedEmployeeUserId
+                                                        ? `User #${selectedRequest.assignedEmployeeUserId}`
+                                                        : "—"}
                                                 </div>
-                                            </>
-                                        )}
+                                            </div>
 
-                                        {!isManager && selectedRequest.conversationId && (
                                             <div className="col-md-6">
                                                 <div className="small text-muted mb-1">Conversation</div>
                                                 <div className="fw-semibold">
-                                                    #{selectedRequest.conversationId}
+                                                    {selectedRequest.conversationId
+                                                        ? `#${selectedRequest.conversationId}`
+                                                        : "Not created yet"}
                                                 </div>
                                             </div>
-                                        )}
 
-                                        <div className="col-12">
-                                            <div className="small text-muted mb-1">Reason</div>
-                                            <div className="fw-semibold">
-                                                {selectedRequest.reason || "—"}
+                                            <div className="col-12">
+                                                <div className="small text-muted mb-1">Reason</div>
+                                                <div className="fw-semibold">
+                                                    {selectedRequest.reason || "—"}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="col-12">
-                                            <div className="small text-muted mb-2">Comment</div>
-                                            <div
-                                                style={{
-                                                    minHeight: "90px",
-                                                    maxHeight: "180px",
-                                                    overflowY: "auto",
-                                                    padding: "12px 14px",
-                                                    borderRadius: 14,
-                                                    background: "#f8fafc",
-                                                    border: "1px solid #e5e7eb",
-                                                    whiteSpace: "pre-wrap",
-                                                    wordBreak: "break-word",
-                                                    lineHeight: 1.5
-                                                }}
-                                            >
-                                                {selectedRequest.comment || "—"}
+                                            <div className="col-12">
+                                                <div className="small text-muted mb-2">Comment</div>
+                                                <div
+                                                    style={{
+                                                        minHeight: "90px",
+                                                        maxHeight: "180px",
+                                                        overflowY: "auto",
+                                                        padding: "12px 14px",
+                                                        borderRadius: 14,
+                                                        background: "#f8fafc",
+                                                        border: "1px solid #e5e7eb",
+                                                        whiteSpace: "pre-wrap",
+                                                        wordBreak: "break-word",
+                                                        lineHeight: 1.5
+                                                    }}
+                                                >
+                                                    {selectedRequest.comment || "—"}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1093,10 +1211,12 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                                             </Button>
                                         )}
 
-                                        {canOpenChat && (
+                                        {selectedRequest?.conversationId && (
                                             <Button
-                                                variant="outline-primary"
-                                                onClick={() =>
+                                                variant={canOpenChat ? "outline-primary" : "outline-secondary"}
+                                                onClick={() => {
+                                                    if (!canOpenChat) return;
+
                                                     openConversationInChat({
                                                         conversationId: selectedRequest.conversationId,
                                                         status: selectedRequest.status,
@@ -1106,17 +1226,17 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                                                         reason: selectedRequest.reason,
                                                         comment: selectedRequest.comment,
                                                         requestId: selectedRequest.requestId,
-                                                        assignedEmployeeUserId:
-                                                        selectedRequest.assignedEmployeeUserId,
+                                                        assignedEmployeeUserId: selectedRequest.assignedEmployeeUserId,
                                                         requestedAt: selectedRequest.requestedAt,
                                                         acceptedAt: selectedRequest.acceptedAt,
                                                         closedAt: selectedRequest.closedAt,
                                                         customerName: requestCustomerName
-                                                    })
-                                                }
+                                                    });
+                                                }}
+                                                disabled={!canOpenChat}
                                                 style={{ borderRadius: 12 }}
                                             >
-                                                Open in Chat Drawer
+                                                {canOpenChat ? "Open in Chat Drawer" : "Drawer Locked"}
                                             </Button>
                                         )}
 
@@ -1216,9 +1336,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                                                             customerUserId: contact.customerUserId || null
                                                         });
 
-                                                        loadCustomerConversationHistory(
-                                                            contact.customerUserId || null
-                                                        );
+                                                        loadCustomerConversationHistory(contact.customerUserId || null);
                                                     }
                                                 }}
                                             >
@@ -1327,14 +1445,28 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
 
                                                         <Button
                                                             size="sm"
-                                                            variant="outline-primary"
+                                                            variant={
+                                                                Number(selectedRequest?.assignedEmployeeUserId) === Number(currentUserId)
+                                                                    ? "outline-primary"
+                                                                    : "outline-secondary"
+                                                            }
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+
+                                                                if (
+                                                                    Number(selectedRequest?.assignedEmployeeUserId) !== Number(currentUserId)
+                                                                ) {
+                                                                    return;
+                                                                }
+
                                                                 openConversationInChat(conversation);
                                                             }}
+                                                            disabled={Number(selectedRequest?.assignedEmployeeUserId) !== Number(currentUserId)}
                                                             style={{ borderRadius: 10 }}
                                                         >
-                                                            Open in Chat Drawer
+                                                            {Number(selectedRequest?.assignedEmployeeUserId) === Number(currentUserId)
+                                                                ? "Open in Chat Drawer"
+                                                                : "Drawer Locked"}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -1390,9 +1522,7 @@ export default function EmployeeChatWorkspace({ role = "agent" }) {
                                                 <div
                                                     key={msg.messageId || index}
                                                     className={`d-flex mb-3 ${
-                                                        mine
-                                                            ? "justify-content-end"
-                                                            : "justify-content-start"
+                                                        mine ? "justify-content-end" : "justify-content-start"
                                                     }`}
                                                 >
                                                     <div
