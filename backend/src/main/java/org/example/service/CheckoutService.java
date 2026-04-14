@@ -248,6 +248,9 @@ public class CheckoutService {
                 sub.setPlanId(dto.getId());
                 sub.setStartDate(LocalDate.now());
                 sub.setStatus("ACTIVE");
+                if (user.getEmployeeId() != null) {
+                    sub.setSoldByEmployeeId(user.getEmployeeId());
+                }
                 sub = subscriptionRepo.save(sub);
                 subscriptionId = sub.getSubscriptionId();
             }

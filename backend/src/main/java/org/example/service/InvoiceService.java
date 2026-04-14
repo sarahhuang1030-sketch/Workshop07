@@ -327,5 +327,26 @@ public class InvoiceService {
         return invoiceRepository.findByInvoiceNumber(invoiceNumber);
     }
 
-//
+    public List<Invoices> findByDateRange(LocalDate start, LocalDate end) {
+        return invoiceRepository.findByIssueDateBetween(start, end);
+    }
+
+    // find By Employee Id This Month
+    public List<Invoices> findByEmployeeIdThisMonth(Integer employeeId) {
+        if (employeeId == null) return List.of();
+
+        LocalDate start = LocalDate.now().withDayOfMonth(1);
+        LocalDate end   = LocalDate.now().withDayOfMonth(
+                LocalDate.now().lengthOfMonth());
+
+        List<Integer> subIds = subscriptionRepository
+                .findByEmployeeIdAndDateRange(employeeId, start, end)
+                .stream()
+                .map(Subscription::getSubscriptionId)
+                .toList();
+
+        if (subIds.isEmpty()) return List.of();
+
+        return invoiceRepository.findBySubscriptionIdIn(subIds);
+    }
 }

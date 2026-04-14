@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -219,4 +220,12 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
         JOIN plans p ON p.PlanId = s.PlanId
     """, nativeQuery = true)
     List<Object[]> findAllWithRelationsRaw();
+
+    // employee-sales
+    @Query("SELECT s FROM Subscription s WHERE s.soldByEmployeeId = :employeeId AND s.startDate >= :start AND s.startDate <= :end")
+    List<Subscription> findByEmployeeIdAndDateRange(
+            @Param("employeeId") Integer employeeId,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end
+    );
 }

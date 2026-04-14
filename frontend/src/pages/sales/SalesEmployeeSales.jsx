@@ -18,7 +18,8 @@ export default function SalesEmployeeSales({ darkMode = false }) {
         try {
             setLoading(true);
             setError("");
-            const res = await apiFetch("/api/invoices/all");
+            // const res = await apiFetch("/api/invoices/all");
+            const res = await apiFetch("/api/invoices/my-sales");
             if (!res.ok) throw new Error("Failed to load invoices");
             const data = await res.json();
             setInvoices(Array.isArray(data) ? data : []);
