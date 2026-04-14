@@ -149,7 +149,8 @@ export default function ManagerDashboard({ darkMode = false }) {
         pendingQuotes: 0,
         location: 0,
         serviceRequests: 0,
-        serviceAppointments: 0
+        serviceAppointments: 0,
+        pendingChatRequests: 0
     });
 
     const [loading, setLoading] = useState(true);
@@ -213,6 +214,17 @@ export default function ManagerDashboard({ darkMode = false }) {
                     ? invoicesData
                     : invoicesData.invoices ?? [];
 
+                // Chat Requests
+                const chatReqRes = await apiFetch("/api/chat/chat-requests?manager=true");
+                if (!chatReqRes.ok) {
+                    throw new Error(`Failed to load chat requests: ${chatReqRes.status}`);
+                }
+                const chatReqData = await chatReqRes.json();
+
+                const chatRequests = Array.isArray(chatReqData)
+                    ? chatReqData
+                    : chatReqData?.data || chatReqData?.requests || [];
+
 
                 if (!ignore) {
                     setSummary({
@@ -229,6 +241,9 @@ export default function ManagerDashboard({ darkMode = false }) {
                         location: data.location ?? 0,
                         serviceRequests: data.serviceRequests ?? 0,
                         serviceAppointments: data.serviceAppointments ?? 0,
+                        pendingChatRequests: chatRequests.filter(
+                            (r) => String(r.status || "").toUpperCase() === "PENDING"
+                        ).length,
                     });
 
                 }
@@ -485,7 +500,21 @@ export default function ManagerDashboard({ darkMode = false }) {
 
                 </Col>
 
-
+                <Col xs={12} md={6} lg={3}>
+                    <ManageCard
+                        darkMode={darkMode}
+                        title="Chat Hub"
+                        desc="Monitor chat requests, active conversations"
+                        icon={UserCog}
+                        badge={
+                            summary.pendingChatRequests > 0
+                                ? `${summary.pendingChatRequests} Pending`
+                                : "Support"
+                        }
+                        to="/manager/chat"
+                        onGo={go}
+                    />
+                </Col>
 
                 <Col xs={12} md={6}>
                     <ManageCard

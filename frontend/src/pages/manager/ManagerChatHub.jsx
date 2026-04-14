@@ -1,6 +1,6 @@
 import React from "react";
 import { Container } from "react-bootstrap";
-import EmployeeChatWorkspace from "../../components/chat/EmployeeChatWorkspace";
+import ManagerChatWorkspace from "../../components/chat/ManagerChatWorkspace";
 
 export default function ManagerChatHub() {
     return (
@@ -12,7 +12,7 @@ export default function ManagerChatHub() {
                 </div>
             </div>
 
-            <EmployeeChatWorkspace role="manager" />
+            <ManagerChatWorkspace />
         </Container>
     );
 }

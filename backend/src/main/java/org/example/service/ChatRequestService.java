@@ -53,6 +53,41 @@ public class ChatRequestService {
         return result;
     }
 
+    public List<ChatRequestDTO> getRequestsForWorkspace(boolean manager, Integer employeeUserId) {
+        List<ChatRequest> allRequests = chatRequestRepository.findAll();
+
+        List<ChatRequestDTO> result = new ArrayList<>();
+
+        for (ChatRequest request : allRequests) {
+            String status = request.getStatus() != null
+                    ? request.getStatus().toUpperCase()
+                    : "";
+
+            if (manager) {
+                result.add(toDto(request));
+                continue;
+            }
+
+            boolean isPending = "PENDING".equals(status);
+            boolean isMyActive =
+                    "ACTIVE".equals(status) &&
+                            request.getAssignedEmployeeUserId() != null &&
+                            request.getAssignedEmployeeUserId().equals(employeeUserId);
+
+            if (isPending || isMyActive) {
+                result.add(toDto(request));
+            }
+        }
+
+        result.sort((a, b) -> {
+            String aTime = a.getRequestedAt() != null ? a.getRequestedAt() : "";
+            String bTime = b.getRequestedAt() != null ? b.getRequestedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+
+        return result;
+    }
+
     public ChatRequestDTO getCurrentRequestForCustomer(Integer customerUserId) {
         List<ChatRequest> requests =
                 chatRequestRepository.findByCustomerUserIdOrderByRequestedAtDesc(customerUserId);
@@ -185,6 +220,25 @@ public class ChatRequestService {
 
         ChatRequest saved = chatRequestRepository.save(request);
         return toDto(saved);
+    }
+
+    public ChatRequestDTO cancelRequestByEmployee(Integer requestId, Integer employeeUserId) {
+        ChatRequest request = chatRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Chat request not found"));
+
+        if (!"PENDING".equalsIgnoreCase(request.getStatus())) {
+            throw new RuntimeException("Only pending requests can be cancelled");
+        }
+
+        request.setStatus("CANCELLED");
+        request.setClosedAt(LocalDateTime.now());
+
+        ChatRequest saved = chatRequestRepository.save(request);
+        ChatRequestDTO dto = toDto(saved);
+
+        chatNotificationService.notifyChatRequestClosed(dto);
+
+        return dto;
     }
 
     private ChatRequestDTO toDto(ChatRequest request) {

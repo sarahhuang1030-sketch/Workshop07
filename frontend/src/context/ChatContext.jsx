@@ -147,7 +147,16 @@ export function ChatProvider({ children, currentUserId }) {
                 console.log("[GLOBAL CHAT] STOMP connected");
 
                 userSubscriptionRef.current?.unsubscribe?.();
-                chatRequestsSubscriptionRef.current?.unsubscribe?.();
+                chatRequestsSubscriptionRef.current = subscribeToChatRequests((event) => {
+                    const eventType = String(event?.eventType || "").toUpperCase();
+
+                    // 🔥 propagate event to entire app
+                    setLastEvent({
+                        type: eventType || "CHAT_REQUEST_CREATED",
+                        payload: event,
+                        timestamp: Date.now()
+                    });
+                });
 
                 userSubscriptionRef.current = subscribeToUserTopic(currentUserId, (event) => {
                     const eventType = String(event?.eventType || "").toUpperCase();
