@@ -109,8 +109,11 @@ public class ChatController {
     // NEW: CHAT REQUESTS
     // =========================
     @GetMapping("/chat-requests")
-    public List<ChatRequestDTO> getPendingChatRequests() {
-        return chatRequestService.getPendingRequests();
+    public List<ChatRequestDTO> getChatRequests(
+            @RequestParam(defaultValue = "false") boolean manager,
+            @RequestParam(required = false) Integer employeeUserId
+    ) {
+        return chatRequestService.getRequestsForWorkspace(manager, employeeUserId);
     }
 
     @PostMapping("/chat-requests")
@@ -224,6 +227,14 @@ public class ChatController {
         result.put("conversationId", conversation.getConversationId());
         result.put("status", conversation.getStatus());
         return result;
+    }
+
+    @PostMapping("/chat-requests/{requestId}/cancel-by-employee")
+    public ChatRequestDTO cancelChatRequestByEmployee(
+            @PathVariable Integer requestId,
+            @RequestParam Integer employeeUserId
+    ) {
+        return chatRequestService.cancelRequestByEmployee(requestId, employeeUserId);
     }
 
     // =========================
