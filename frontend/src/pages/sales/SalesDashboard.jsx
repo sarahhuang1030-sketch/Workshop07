@@ -182,7 +182,8 @@ export default function SalesDashboard({ darkMode = false }) {
         activeSubs: 0,
         addOns: 0,
         planFeatures: 0,
-        pastDue: 0
+        pastDue: 0,
+        pendingChatRequests: 0
     });
 
     const [loading, setLoading] = useState(true);
@@ -195,12 +196,13 @@ export default function SalesDashboard({ darkMode = false }) {
             try {
                 setLoading(true);
 
-                const [custRes, quoteRes, invRes, managerRes, serviceRes] = await Promise.all([
+                const [custRes, quoteRes, invRes, managerRes, serviceRes, chatReqRes] = await Promise.all([
                     apiFetch("/api/customers/all"),
                     apiFetch("/api/quotes"),
                     apiFetch("/api/invoices/all"),
                     apiFetch("/api/manager/summary"),
-                    apiFetch("/api/manager/service-requests")
+                    apiFetch("/api/manager/service-requests"),
+                    apiFetch("/api/chat/chat-requests?manager=false")
                 ]);
 
                 const customers = await custRes.json();
@@ -208,6 +210,7 @@ export default function SalesDashboard({ darkMode = false }) {
                 const invoices = await invRes.json();
                 const manager = await managerRes.json();
                 const serviceData = await serviceRes.json();
+                const chatReqData = await chatReqRes.json();
 
                 // ✅ FIX 1: safe unwrap (DO NOT change UI logic)
                 const c = Array.isArray(customers) ? customers : customers?.customers ?? [];
@@ -218,6 +221,10 @@ export default function SalesDashboard({ darkMode = false }) {
                 const requests = Array.isArray(serviceData)
                     ? serviceData
                     : serviceData?.data || serviceData?.requests || [];
+
+                const chatRequests = Array.isArray(chatReqData)
+                    ? chatReqData
+                    : chatReqData?.data || chatReqData?.requests || [];
 
                 // 🔥 FIX 3: correct id mapping
                 const apptPromises = requests.map(r =>
@@ -272,7 +279,11 @@ export default function SalesDashboard({ darkMode = false }) {
 
                     // FIXED VALUES
                     serviceRequests: requests.length,
-                    serviceAppointments: flatAppts.length
+                    serviceAppointments: flatAppts.length,
+
+                    pendingChatRequests: chatRequests.filter(
+                        (r) => String(r.status || "").toUpperCase() === "PENDING"
+                    ).length,
                 }));
 
             } catch (err) {
@@ -292,7 +303,8 @@ export default function SalesDashboard({ darkMode = false }) {
                     planFeatures: 0,
                     pastDue: 0,
                     serviceRequests: 0,
-                    serviceAppointments: 0
+                    serviceAppointments: 0,
+                    pendingChatRequests: 0
                 }));
 
             } finally {
@@ -402,6 +414,22 @@ export default function SalesDashboard({ darkMode = false }) {
 
                 <Col md={3}>
                     <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />
+                </Col>
+
+                <Col md={6}>
+                    <ManageCard
+                        title="Chat Hub"
+                        desc="Handle chat requests and manage active customer conversations."
+                        icon={Users}
+                        badge={
+                            summary.pendingChatRequests > 0
+                                ? `${summary.pendingChatRequests} Pending`
+                                : "Support"
+                        }
+                        to="/sales/chat"
+                        onGo={go}
+                        darkMode={darkMode}
+                    />
                 </Col>
 
             </Row>
