@@ -368,13 +368,13 @@ export default function SalesDashboard({ darkMode = false }) {
                     </Stat>
                 </Col>
 
-                <Col md={3}>
-                    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>
-                            Details
-                        </Button>
-                    </Stat>
-                </Col>
+                {/*<Col md={3}>*/}
+                {/*    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>*/}
+                {/*        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>*/}
+                {/*            Details*/}
+                {/*        </Button>*/}
+                {/*    </Stat>*/}
+                {/*</Col>*/}
 
                 <Col xs={12} md={6} lg={3}>
                     <Stat
@@ -400,9 +400,9 @@ export default function SalesDashboard({ darkMode = false }) {
                     </Stat>
                 </Col>
 
-                <Col md={3}>
-                    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />
-                </Col>
+                {/*<Col md={3}>*/}
+                {/*    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />*/}
+                {/*</Col>*/}
 
             </Row>
 

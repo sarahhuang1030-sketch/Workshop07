@@ -58,6 +58,7 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     });
 
     const [quotes,          setQuotes]          = useState([]);
+    const [currentPlan,     setCurrentPlan]     = useState(null); // loaded from /api/plans/my
     const [showBillingModal,  setShowBillingModal]  = useState(false);
     const [showDeleteModal,   setShowDeleteModal]   = useState(false);
     const [showPaymentModal,  setShowPaymentModal]  = useState(false);
@@ -98,6 +99,23 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
             const data = await res.json();
             setQuotes(Array.isArray(data) ? data : []);
         } catch (err) { console.error("Failed to load quotes", err); }
+    }, []);
+
+    const loadCurrentPlan = useCallback(async () => {
+        try {
+            // Fetch the current user's active subscription plan
+            const res = await apiFetch("/api/plans/my");
+            if (res.status === 404 || res.status === 204) { setCurrentPlan(null); return; }
+            if (!res.ok) return;
+            const data = await res.json();
+            // Support both single object and array response shapes
+            const plan = Array.isArray(data) ? data[0] : data;
+            setCurrentPlan(plan ?? null);
+        } catch (err) {
+            console.error("Failed to load current plan", err);
+            // Fallback: derive hasPlan from invoices (any invoice = had a plan)
+            setCurrentPlan("fallback");
+        }
     }, []);
 
     const loadAddress = useCallback(async () => {
@@ -162,9 +180,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         };
         setProfile(prev => ({ ...prev, ...baseProfile }));
         const customerId = userProp.customerId;
-        if (customerId) { loadAddress(); loadPaymentMethod(); loadInvoices(); loadQuotes(); }
+        if (customerId) { loadAddress(); loadPaymentMethod(); loadInvoices(); loadQuotes(); loadCurrentPlan(); }
         setLoading(false);
-    }, [userProp, loadAddress, loadPaymentMethod, loadInvoices, loadQuotes]);
+    }, [userProp, loadAddress, loadPaymentMethod, loadInvoices, loadQuotes, loadCurrentPlan]);
 
     useEffect(() => {
         const customerId = userProp?.customerId;
@@ -227,7 +245,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
     const billingAddress  = profile.billing?.address       || {};
     const paymentMethod   = profile.billing?.paymentMethod || {};
-    const hasPlan         = profile.billing?.invoices?.length > 0;
+    // hasPlan: true when we have a real plan object, OR as fallback when any invoice exists
+    const hasPlan = currentPlan != null
+        ? currentPlan !== null   // explicit plan loaded
+        : (profile.billing?.invoices?.length > 0); // fallback before plan API responds
 
     const hasBillingAddress =
         !isBlank(billingAddress.street1) && !isBlank(billingAddress.city) &&
@@ -515,6 +536,31 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                     </Card.Body>
                                 </Card>
                             )}
+                            {/* BillingAddressCard — only when hasBillingAddress, shown below rewards */}
+                            {hasBillingAddress && (
+                                <Card
+                                    className={`${cardBase} border-0 shadow-sm mt-4`}
+                                    style={{ borderRadius: "1rem", overflow: "hidden" }}
+                                >
+                                    <div style={{ height: 4, background: "linear-gradient(90deg, #4f46e5, #7c3aed)" }} />
+                                    <Card.Body className="p-4">
+                                        <div className="d-flex align-items-center gap-2 mb-3">
+                                            <div style={{ width: 32, height: 32, borderRadius: "0.5rem", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                <MapPin size={15} color="#fff" />
+                                            </div>
+                                            <span className="fw-bold" style={{ fontSize: "0.95rem", color: darkMode ? "#f9fafb" : "#111827" }}>
+                                                Billing Address
+                                            </span>
+                                        </div>
+                                        <BillingAddressCard
+                                            address={profile.billing.address}
+                                            darkMode={darkMode}
+                                            onEdit={() => setShowBillingModal(true)}
+                                        />
+                                    </Card.Body>
+                                </Card>
+                            )}
+
                         </Col>
 
                         {/* ── RIGHT: Subscription + Billing + Quotes ── */}
@@ -522,7 +568,12 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
 
                             {/* SubscriptionPage — only when hasPlan */}
                             {hasPlan && (
-                                <SubscriptionPage user={profile} darkMode={darkMode} />
+                                // Pass currentPlan so SubscriptionPage has real plan data
+                                <SubscriptionPage
+                                    user={profile}
+                                    plan={currentPlan !== "fallback" ? currentPlan : null}
+                                    darkMode={darkMode}
+                                />
                             )}
 
                             {/* BillingCard — only when hasPaymentMethod */}
@@ -535,17 +586,6 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
                                             if (section === "payment") setShowPaymentModal(true);
                                             else setShowBillingModal(true);
                                         }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* BillingAddressCard — only when hasBillingAddress */}
-                            {hasBillingAddress && (
-                                <div className="mt-4">
-                                    <BillingAddressCard
-                                        address={profile.billing.address}
-                                        darkMode={darkMode}
-                                        onEdit={() => setShowBillingModal(true)}
                                     />
                                 </div>
                             )}

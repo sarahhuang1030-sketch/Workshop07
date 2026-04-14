@@ -355,23 +355,12 @@ export default function SalesAddon({ darkMode = false }) {
 
                         <Form.Group className="mb-3">
                             <Form.Label>Add-on Name</Form.Label>
-                            <Form.Select
+                            <Form.Control
+                                placeholder="Enter add-on name..."
                                 name="addOnName"
                                 value={formData.addOnName}
                                 onChange={handleChange}
                                 required
-                            >
-                                <option value="">Select or Enter Add-on Name</option>
-                                {[...new Set(addons.map(a => a.addOnName))].map(name => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </Form.Select>
-                            <Form.Control
-                                className="mt-2"
-                                placeholder="Or enter new name..."
-                                name="addOnName"
-                                value={formData.addOnName}
-                                onChange={handleChange}
                             />
                         </Form.Group>
 
@@ -395,24 +384,6 @@ export default function SalesAddon({ darkMode = false }) {
                                 rows={3}
                                 name="description"
                                 value={formData.description}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Icon Key</Form.Label>
-                            <Form.Control
-                                name="iconKey"
-                                value={formData.iconKey}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Theme Key</Form.Label>
-                            <Form.Control
-                                name="themeKey"
-                                value={formData.themeKey}
                                 onChange={handleChange}
                             />
                         </Form.Group>

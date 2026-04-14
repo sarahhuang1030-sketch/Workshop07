@@ -421,16 +421,16 @@ export default function ManagerDashboard({ darkMode = false }) {
                         icon={Package}
                     />
                 </Col>
-                <Col xs={12} md={6} lg={3}>
-                    {/*look for status in subscriptions table, and past due is invoices and payment allocation*/}
-                    <Stat
-                        darkMode={darkMode}
-                        title="Past Due / Suspended"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.pastDue}
-                        hint="Needs follow-up"
-                        icon={ListChecks}
-                    />
-                </Col>
+                {/*<Col xs={12} md={6} lg={3}>*/}
+                {/*    /!*look for status in subscriptions table, and past due is invoices and payment allocation*!/*/}
+                {/*    <Stat*/}
+                {/*        darkMode={darkMode}*/}
+                {/*        title="Past Due / Suspended"*/}
+                {/*        value={loading ? <Spinner animation="border" size="sm" /> : summary.pastDue}*/}
+                {/*        hint="Needs follow-up"*/}
+                {/*        icon={ListChecks}*/}
+                {/*    />*/}
+                {/*</Col>*/}
 
 
             {/* Management Cards */}

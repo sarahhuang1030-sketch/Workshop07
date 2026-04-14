@@ -1111,22 +1111,6 @@ export default function PlansPage() {
                                                 entertainment perks, bundle savings, and limited-time offers.
                                             </p>
 
-                                            <Button
-                                                className="mt-auto align-self-start"
-                                                style={{
-                                                    borderRadius: "999px",
-                                                    padding: "0.75rem 1.25rem",
-                                                    fontWeight: 700,
-                                                }}
-                                                onClick={() =>
-                                                    window.open(
-                                                        import.meta.env.VITE_STREAMING_PERKS_URL || "https://www.rogers.com/streaming-apps?icid=R_WIR_25FF_C2DC7A",
-                                                        "_blank"
-                                                    )
-                                                }
-                                            >
-                                                View Details
-                                            </Button>
                                         </Card.Body>
                                     </Card>
                                 </Col>
