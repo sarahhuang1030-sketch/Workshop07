@@ -15,7 +15,7 @@ import { apiFetch } from "../../services/api";
 
 const API_BASE = "/api/manager/addons";
 
-export default function ManagerAddon({ darkMode = false }) {
+export default function SalesAddon({ darkMode = false }) {
     const [addons, setAddons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -24,6 +24,8 @@ export default function ManagerAddon({ darkMode = false }) {
 
     const [showModal, setShowModal] = useState(false);
     const [editingAddon, setEditingAddon] = useState(null);
+
+    const [serviceTypes, setServiceTypes] = useState([]);
 
     const navigate = useNavigate();
 
@@ -58,8 +60,21 @@ export default function ManagerAddon({ darkMode = false }) {
         }
     }
 
+    async function loadServiceTypes() {
+        try {
+            const res = await apiFetch("/api/service-types");
+            if (res.ok) {
+                const data = await res.json();
+                setServiceTypes(Array.isArray(data) ? data : []);
+            }
+        } catch (err) {
+            console.error("Failed to load service types", err);
+        }
+    }
+
     useEffect(() => {
         loadAddons();
+        loadServiceTypes();
     }, []);
 
     const filteredAddons = useMemo(() => {
@@ -323,17 +338,25 @@ export default function ManagerAddon({ darkMode = false }) {
                     <Modal.Body>
                         <Form.Group className="mb-3">
                             <Form.Label>Service Type</Form.Label>
-                            <Form.Control
-                                type="number"
+                            <Form.Select
                                 name="serviceTypeId"
                                 value={formData.serviceTypeId}
                                 onChange={handleChange}
-                            />
+                                required
+                            >
+                                <option value="">Select Service Type</option>
+                                {serviceTypes.map(st => (
+                                    <option key={st.serviceTypeId} value={st.serviceTypeId}>
+                                        {st.name}
+                                    </option>
+                                ))}
+                            </Form.Select>
                         </Form.Group>
 
                         <Form.Group className="mb-3">
                             <Form.Label>Add-on Name</Form.Label>
                             <Form.Control
+                                placeholder="Enter add-on name..."
                                 name="addOnName"
                                 value={formData.addOnName}
                                 onChange={handleChange}
@@ -361,24 +384,6 @@ export default function ManagerAddon({ darkMode = false }) {
                                 rows={3}
                                 name="description"
                                 value={formData.description}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Icon Key</Form.Label>
-                            <Form.Control
-                                name="iconKey"
-                                value={formData.iconKey}
-                                onChange={handleChange}
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Theme Key</Form.Label>
-                            <Form.Control
-                                name="themeKey"
-                                value={formData.themeKey}
                                 onChange={handleChange}
                             />
                         </Form.Group>

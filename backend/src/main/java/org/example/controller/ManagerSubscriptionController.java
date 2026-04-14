@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.example.dto.ManagerSubscriptionRequestDTO;
 
 @RestController
 @RequestMapping("/api/manager/subscriptions")
@@ -207,14 +208,28 @@ public class ManagerSubscriptionController {
 
     @PostMapping
     public Subscription create(
-            @RequestBody Subscription body,
+            @RequestBody ManagerSubscriptionRequestDTO body,
             Authentication authentication
     ) {
-
         Integer currentEmployeeId = getCurrentEmployeeId(authentication);
-        body.setSoldByEmployeeId(currentEmployeeId);
 
-        Subscription saved = subscriptionRepository.save(body);
+        Subscription subscription = new Subscription();
+        subscription.setCustomerId(body.getCustomerId());
+        subscription.setPlanId(body.getPlanId());
+        subscription.setStartDate(body.getStartDate());
+        subscription.setEndDate(body.getEndDate());
+        subscription.setStatus(body.getStatus());
+        subscription.setBillingCycleDay(body.getBillingCycleDay());
+        subscription.setNotes(body.getNotes());
+        subscription.setSoldByEmployeeId(currentEmployeeId);
+
+        Subscription saved = subscriptionRepository.save(subscription);
+
+        syncSubscriptionAddOns(
+                saved.getSubscriptionId(),
+                body.getAddOnIds(),
+                saved.getStartDate()
+        );
 
         String username = authentication.getName();
 
@@ -243,10 +258,9 @@ public class ManagerSubscriptionController {
     @PutMapping("/{id}")
     public Subscription update(
             @PathVariable Integer id,
-            @RequestBody Subscription body,
+            @RequestBody ManagerSubscriptionRequestDTO body,
             Authentication authentication
     ) {
-
         Subscription sub = subscriptionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subscription not found"));
 
@@ -259,6 +273,12 @@ public class ManagerSubscriptionController {
         sub.setNotes(body.getNotes());
 
         Subscription saved = subscriptionRepository.save(sub);
+
+        syncSubscriptionAddOns(
+                saved.getSubscriptionId(),
+                body.getAddOnIds(),
+                saved.getStartDate()
+        );
 
         String username = authentication.getName();
 
@@ -404,5 +424,41 @@ public class ManagerSubscriptionController {
     @GetMapping("/statuses")
     public List<SubscriptionStatus> getAllStatuses() {
         return subscriptionStatusRepository.findAll();
+    }
+
+    private void syncSubscriptionAddOns(
+            Integer subscriptionId,
+            List<Integer> addOnIds,
+            LocalDate startDate
+    ) {
+        List<SubscriptionAddOn> existing = subscriptionAddOnRepository.findBySubscriptionId(subscriptionId);
+
+        if (existing != null && !existing.isEmpty()) {
+            subscriptionAddOnRepository.deleteAll(existing);
+        }
+
+        if (addOnIds == null || addOnIds.isEmpty()) {
+            return;
+        }
+
+        List<Integer> validAddOnIds = addOnRepository.findAllActiveAddOns()
+                .stream()
+                .map(AddOnDTO::addOnId)
+                .toList();
+
+        for (Integer addOnId : addOnIds) {
+            if (addOnId == null || !validAddOnIds.contains(addOnId)) {
+                continue;
+            }
+
+            SubscriptionAddOn sa = new SubscriptionAddOn();
+            sa.setSubscriptionId(subscriptionId);
+            sa.setAddOnId(addOnId);
+            sa.setStartDate(startDate != null ? startDate : LocalDate.now());
+            sa.setEndDate(null);
+            sa.setStatus("Active");
+
+            subscriptionAddOnRepository.save(sa);
+        }
     }
 }

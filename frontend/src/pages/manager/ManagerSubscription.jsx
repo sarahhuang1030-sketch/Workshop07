@@ -19,6 +19,7 @@ const API_BASE = "/api/manager/subscriptions";
 const PLANS_API = "/api/manager/plans";
 const CUSTOMERS_API = "/api/manager/customers";
 const STATUSES_API = "/api/manager/subscriptions/statuses";
+const ADDONS_API = "/api/manager/addons";
 
 export default function ManagerSubscription({ darkMode = false }) {
     const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function ManagerSubscription({ darkMode = false }) {
     const [subscriptions, setSubscriptions] = useState([]);
     const [plans, setPlans] = useState([]);
     const [customers, setCustomers] = useState([]);
-
+    const [addons, setAddons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [loadingLookups, setLoadingLookups] = useState(false);
@@ -48,6 +49,7 @@ export default function ManagerSubscription({ darkMode = false }) {
         status: "Active",
         billingCycleDay: "",
         notes: "",
+        addOnIds: [],
     });
 
     const cardClass = darkMode ? "bg-dark text-light border-secondary" : "bg-white";
@@ -64,7 +66,13 @@ export default function ManagerSubscription({ darkMode = false }) {
     }, [statuses]);
 
 
+    async function loadAddons() {
+        const res = await apiFetch(ADDONS_API);
+        if (!res.ok) throw new Error("Failed to load add-ons");
 
+        const data = await res.json();
+        setAddons(Array.isArray(data) ? data : []);
+    }
     async function loadStatuses() {
         const res = await apiFetch(STATUSES_API);
         if (!res.ok) throw new Error("Failed to load statuses");
@@ -101,7 +109,13 @@ export default function ManagerSubscription({ darkMode = false }) {
         try {
             setLoading(true);
             setError("");
-            await Promise.all([loadSubscriptions(), loadPlans(), loadCustomers(), loadStatuses()]);
+            await Promise.all([
+                loadSubscriptions(),
+                loadPlans(),
+                loadCustomers(),
+                loadStatuses(),
+                loadAddons(),
+            ]);
         } catch (err) {
             setError(err.message || "Failed to load subscription data");
         } finally {
@@ -265,6 +279,7 @@ export default function ManagerSubscription({ darkMode = false }) {
             status: "Active",
             billingCycleDay: "",
             notes: "",
+            addOnIds: [],
         });
         setShowModal(true);
     }
@@ -279,8 +294,25 @@ export default function ManagerSubscription({ darkMode = false }) {
             status: sub.status ?? "Active",
             billingCycleDay: sub.billingCycleDay ?? "",
             notes: sub.notes ?? "",
+            addOnIds: Array.isArray(sub.addons)
+                ? sub.addons.map((a) => Number(a.addOnId))
+                : [],
         });
         setShowModal(true);
+    }
+
+    function handleAddonToggle(addOnId) {
+        setFormData((prev) => {
+            const id = Number(addOnId);
+            const exists = prev.addOnIds.includes(id);
+
+            return {
+                ...prev,
+                addOnIds: exists
+                    ? prev.addOnIds.filter((x) => x !== id)
+                    : [...prev.addOnIds, id],
+            };
+        });
     }
 
     function closeModal() {
@@ -333,6 +365,9 @@ export default function ManagerSubscription({ darkMode = false }) {
                     ? Number(formData.billingCycleDay)
                     : null,
                 notes: formData.notes || null,
+                addOnIds: Array.isArray(formData.addOnIds)
+                    ? formData.addOnIds.map(Number)
+                    : [],
             };
 
             const res = await apiFetch(url, {
@@ -398,6 +433,44 @@ export default function ManagerSubscription({ darkMode = false }) {
             [customerId]: !prev[customerId],
         }));
     }
+    const selectedPlan = useMemo(() => {
+        return plans.find((p) => String(p.planId) === String(formData.planId)) || null;
+    }, [plans, formData.planId]);
+
+    const selectedPlanPrice = useMemo(() => {
+        return selectedPlan ? getPlanPrice(selectedPlan) : 0;
+    }, [selectedPlan]);
+
+    const selectedAddons = useMemo(() => {
+        return addons.filter((a) => formData.addOnIds.includes(Number(a.addOnId)));
+    }, [addons, formData.addOnIds]);
+
+    const selectedAddonsTotal = useMemo(() => {
+        return selectedAddons.reduce((sum, addon) => sum + getAddonPrice(addon), 0);
+    }, [selectedAddons]);
+
+    const modalTotal = selectedPlanPrice + selectedAddonsTotal;
+
+
+    const availableAddons = useMemo(() => {
+        if (!selectedPlan) return [];
+
+        return addons.filter((addon) => {
+            const active = Number(addon.isActive) === 1 || addon.isActive === true;
+
+            if (!active) return false;
+
+            if (
+                selectedPlan.serviceTypeId != null &&
+                addon.serviceTypeId != null &&
+                String(addon.serviceTypeId) !== String(selectedPlan.serviceTypeId)
+            ) {
+                return false;
+            }
+
+            return true;
+        });
+    }, [addons, selectedPlan]);
 
     const filteredSubscriptions = useMemo(() => {
         return subscriptions.filter((sub) => {
@@ -461,9 +534,7 @@ export default function ManagerSubscription({ darkMode = false }) {
         );
     }, [filteredSubscriptions, customers]);
 
-    const selectedPlan = useMemo(() => {
-        return plans.find((p) => String(p.planId) === String(formData.planId)) || null;
-    }, [plans, formData.planId]);
+
 
     return (
         <Container className="py-4">
@@ -901,6 +972,69 @@ export default function ManagerSubscription({ darkMode = false }) {
                                 value={formData.notes}
                                 onChange={handleChange}
                             />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Add-ons</Form.Label>
+
+                            {!formData.planId ? (
+                                <Alert variant="light" className="border mb-0">
+                                    Select a plan first to view available add-ons.
+                                </Alert>
+                            ) : availableAddons.length === 0 ? (
+                                <Alert variant="light" className="border mb-0">
+                                    No add-ons available for this plan.
+                                </Alert>
+                            ) : (
+                                <div
+                                    className="border rounded p-3"
+                                    style={{ maxHeight: 240, overflowY: "auto" }}
+                                >
+                                    {availableAddons.map((addon) => {
+                                        const checked = formData.addOnIds.includes(Number(addon.addOnId));
+
+                                        return (
+                                            <Form.Check
+                                                key={addon.addOnId}
+                                                type="checkbox"
+                                                id={`addon-${addon.addOnId}`}
+                                                className="mb-2"
+                                                label={
+                                                    <div className="d-flex justify-content-between gap-3 w-100">
+                                                        <div>
+                                                            <div className="fw-semibold">
+                                                                {addon.addOnName}
+                                                            </div>
+                                                            <div className="text-muted small">
+                                                                {addon.description || "No description"}
+                                                            </div>
+                                                        </div>
+                                                        <div className="fw-bold text-nowrap">
+                                                            {formatCurrency(getAddonPrice(addon))}
+                                                        </div>
+                                                    </div>
+                                                }
+                                                checked={checked}
+                                                onChange={() => handleAddonToggle(addon.addOnId)}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {formData.planId && (
+                                <Alert variant="light" className="border">
+                                    <div>
+                                        <strong>Plan price:</strong> {formatCurrency(selectedPlanPrice)}
+                                    </div>
+                                    <div>
+                                        <strong>Add-ons total:</strong> {formatCurrency(selectedAddonsTotal)}
+                                    </div>
+                                    <div>
+                                        <strong>Total monthly amount:</strong> {formatCurrency(modalTotal)}
+                                    </div>
+                                </Alert>
+                            )}
                         </Form.Group>
                     </Modal.Body>
 
