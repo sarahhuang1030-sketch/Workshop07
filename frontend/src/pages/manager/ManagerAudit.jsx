@@ -189,7 +189,6 @@ export default function AuditPage({ darkMode = false }) {
                                     <tr>
                                         <th>Module</th>
                                         <th>Action</th>
-                                        {/* 小屏隐藏 Done By */}
                                         <th className="d-none d-sm-table-cell">Done By</th>
                                         <th>Date &amp; Time</th>
                                         <th style={{ width: 56 }}>View</th>
@@ -219,7 +218,7 @@ export default function AuditPage({ darkMode = false }) {
                                 </Table>
                             </div>
 
-                            {/* Pagination — 小屏用 size="sm" 并居中 flex-wrap */}
+                            {/* Pagination */}
                             {filteredLogs.length > PAGE_SIZE && (
                                 <div className="d-flex justify-content-center mt-4" style={{ overflowX: "auto" }}>
                                     <Pagination size="sm" className="mb-0 flex-wrap justify-content-center">

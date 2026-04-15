@@ -204,7 +204,6 @@ export default function SalesCustomers() {
                         <div className="text-muted" style={{ fontSize: "0.9rem" }}>Canada Customer Management</div>
                     </div>
 
-                    {/* 按钮组：小屏宽度撑满，大屏靠右 */}
                     <div className="d-flex flex-column flex-sm-row gap-2 w-100 w-sm-auto" style={{ maxWidth: 480 }}>
                         <Form.Control
                             placeholder="Search..."
@@ -228,14 +227,13 @@ export default function SalesCustomers() {
                     {loading ? (
                         <div className="text-center py-4"><Spinner animation="border" /></div>
                     ) : (
-                        /* table-responsive 防止横向溢出 */
+                        /* table-responsive*/
                         <div className="table-responsive">
                             <Table hover className="mb-0 align-middle">
                                 <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Name</th>
-                                    {/* 小屏隐藏次要列 */}
                                     <th className="d-none d-md-table-cell">Email</th>
                                     <th className="d-none d-lg-table-cell">Phone</th>
                                     <th className="d-none d-sm-table-cell">Type</th>
