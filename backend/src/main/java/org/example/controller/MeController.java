@@ -290,7 +290,30 @@ public class MeController {
                 return ResponseEntity.status(404).body("User account not found");
             }
 
-            // ---------------- CUSTOMER ----------------
+            // ---------------- EMPLOYEE FIRST ----------------
+            if (ua.getEmployeeId() != null) {
+                var emp = employeeRepo.findById(ua.getEmployeeId()).orElse(null);
+
+                if (emp == null) {
+                    return ResponseEntity.status(404).body("Employee not found");
+                }
+
+                emp.setFirstName(req.getFirstName());
+                emp.setLastName(req.getLastName());
+                emp.setEmail(req.getEmail());
+
+                if (req.getPhone() != null) {
+                    emp.setPhone(req.getPhone());
+                } else if (req.getHomePhone() != null) {
+                    emp.setPhone(req.getHomePhone());
+                }
+
+                employeeRepo.save(emp);
+
+                return ResponseEntity.ok("Employee profile updated successfully");
+            }
+
+            // ---------------- CUSTOMER SECOND ----------------
             if (ua.getCustomerId() != null) {
                 Customer c = customerRepo.findById(ua.getCustomerId()).orElse(null);
 
@@ -306,30 +329,6 @@ public class MeController {
                 customerRepo.save(c);
 
                 return ResponseEntity.ok("Customer profile updated successfully");
-            }
-
-            // ---------------- EMPLOYEE ----------------
-            if (ua.getEmployeeId() != null) {
-                var emp = employeeRepo.findById(ua.getEmployeeId()).orElse(null);
-
-                if (emp == null) {
-                    return ResponseEntity.status(404).body("Employee not found");
-                }
-
-                emp.setFirstName(req.getFirstName());
-                emp.setLastName(req.getLastName());
-                emp.setEmail(req.getEmail());
-
-                // Support both phone & homePhone
-                if (req.getPhone() != null) {
-                    emp.setPhone(req.getPhone());
-                } else if (req.getHomePhone() != null) {
-                    emp.setPhone(req.getHomePhone());
-                }
-
-                employeeRepo.save(emp);
-
-                return ResponseEntity.ok("Employee profile updated successfully");
             }
 
             return ResponseEntity.status(404).body("Profile owner not found");
