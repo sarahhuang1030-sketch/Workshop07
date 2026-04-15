@@ -11,6 +11,7 @@ public class ItemDTO {
     private Double price;
     private Integer quantity;
     private String serviceType;
+    private String billingCycle;
 
     // GETTERS & SETTERS
 
@@ -61,4 +62,8 @@ public class ItemDTO {
     public void setServiceType(String serviceType) {
         this.serviceType = serviceType;
     }
+
+    public String getBillingCycle() { return billingCycle; }
+    public void setBillingCycle(String billingCycle) { this.billingCycle = billingCycle; }
+
 }

@@ -99,7 +99,6 @@ public class InvoiceService {
 
         // items
         for (ItemDTO item : body.getItems()) {
-
             if (item == null) continue;
 
             InvoiceItems entity = new InvoiceItems();
@@ -110,14 +109,27 @@ public class InvoiceService {
             entity.setServiceType(item.getServiceType());
 
             if (item.getPrice() != null) {
-                entity.setUnitPrice(BigDecimal.valueOf(item.getPrice()));
-                entity.setLineTotal(
-                        BigDecimal.valueOf(item.getPrice())
-                                .multiply(BigDecimal.valueOf(entity.getQuantity()))
-                );
+                BigDecimal unitPrice = BigDecimal.valueOf(item.getPrice());
+                int qty = entity.getQuantity();
+
+
+                boolean isAnnual = "annual".equalsIgnoreCase(item.getBillingCycle())
+                        || "yearly".equalsIgnoreCase(item.getBillingCycle());
+
+                BigDecimal grossTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
+
+                BigDecimal discount = isAnnual
+                        ? grossTotal.multiply(BigDecimal.valueOf(0.10))
+                        .setScale(2, java.math.RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+                BigDecimal lineTotal = grossTotal.subtract(discount);
+
+                entity.setUnitPrice(unitPrice);
+                entity.setDiscountAmount(discount);
+                entity.setLineTotal(lineTotal);
             }
 
-            entity.setDiscountAmount(BigDecimal.ZERO);
             invoiceItemRepository.save(entity);
         }
 
