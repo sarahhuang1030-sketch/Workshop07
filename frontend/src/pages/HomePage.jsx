@@ -192,77 +192,94 @@ export default function HomePage() {
 
 
             {/* ======================================================
-                AD SECTION — iPhone + Apple Watch promo
-                CSS classes: tc-ad-section, tc-section-chip,
-                             tc-section-chip-dark, tc-price-block, tc-img-zoom
+                DEVICE PROMO BANNER — single ad, click to /device-financing
             ====================================================== */}
             <section
-                className="tc-ad-section"
                 style={{
-                    background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                    borderRadius: "1.25rem",
-                    margin: "2.5rem 1.25rem",
+                    background: darkMode
+                        ? "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)"
+                        : "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 40%, #fce7f3 100%)",
+                    padding: "3.5rem 0",
+                    position: "relative",
                     overflow: "hidden",
                 }}
             >
-                <Container style={{ padding: "4rem 1.5rem" }}>
-                    <Row className="align-items-center g-5">
-                        <Col md={7}>
-                            <div className="d-flex flex-column gap-3 text-white">
-                                {/* tc-section-chip + custom translucent overrides for dark bg */}
-                                <div
-                                    className="tc-section-chip"
-                                    style={{ color: "rgba(255,255,255,0.65)", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}
-                                >
-                                    Featured Offer
-                                </div>
+                {/* Soft glow accents */}
+                <div style={{ position: "absolute", bottom: "-60px", right: "-60px", width: "300px", height: "300px", borderRadius: "50%", background: "radial-gradient(circle, rgba(236,72,153,0.12), transparent 70%)", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", top: "-40px", left: "-40px", width: "240px", height: "240px", borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.14), transparent 70%)", pointerEvents: "none" }} />
 
-                                <h2 className="fw-bold" style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.5rem)", lineHeight: 1.2 }}>
-                                    Pair iPhone 16 with Apple Watch Series 11
-                                </h2>
+                <Container style={{ position: "relative" }}>
+                    <div
+                        onClick={() => navigate("/device-financing")}
+                        style={{
+                            cursor: "pointer",
+                            background: darkMode ? "rgba(255,255,255,0.05)" : "#fff",
+                            border: darkMode ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(79,70,229,0.15)",
+                            borderRadius: "1.25rem",
+                            overflow: "hidden",
+                            boxShadow: darkMode ? "0 8px 40px rgba(0,0,0,0.3)" : "0 8px 40px rgba(79,70,229,0.1)",
+                            transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = darkMode ? "0 14px 48px rgba(0,0,0,0.4)" : "0 14px 48px rgba(79,70,229,0.18)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)";    e.currentTarget.style.boxShadow = darkMode ? "0 8px 40px rgba(0,0,0,0.3)"  : "0 8px 40px rgba(79,70,229,0.1)"; }}
+                    >
+                        {/* Top accent bar */}
+                        <div style={{ height: 4, background: "linear-gradient(90deg, #4f46e5, #ec4899, #f97316)" }} />
 
-                                <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.7, maxWidth: "480px", margin: 0 }}>
-                                    For a limited time, finance the Apple Watch Series 11 and save $240 over 24 months
-                                    and get a smartwatch plan for $43/mo for 24 months. Plus, get Rogers Satellite at no extra cost.
-                                </p>
-
-                                {/* tc-price-block: translucent frosted price card from style.css */}
-                                <div className="tc-price-block">
-                                    <span style={{ fontSize: "2rem", fontWeight: 700, lineHeight: 1, color: "#fff" }}>$43</span>
-                                    <span style={{ fontSize: "1rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>/mo</span>
-                                    <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginLeft: "4px" }}>
-                                        after bill credit · 24-month financing*
-                                    </span>
-                                </div>
-
-                                <p style={{ margin: 0, fontSize: "0.85rem", color: "rgba(255,255,255,0.5)" }}>
-                                    Full price: $1,027.&nbsp;
-                                    <strong style={{ color: "rgba(255,255,255,0.75)" }}>iPhone offer ends February 2.</strong>
-                                </p>
-
-                                <div>
-                                    <Button
-                                        variant="light"
-                                        className="fw-bold px-5 py-2 rounded-pill"
-                                        style={{ color: "#4f46e5", boxShadow: "0 4px 20px rgba(0,0,0,0.2)", border: "none" }}
-                                        onClick={() => navigate("/device-financing")}
-                                    >
-                                        Get Offer
-                                    </Button>
-                                </div>
-                            </div>
-                        </Col>
-
-                        {/* tc-img-zoom: image scales smoothly on hover */}
-                        <Col md={5}>
-                            <div
-                                className="ratio ratio-16x9 rounded-4 overflow-hidden tc-img-zoom"
-                                style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.35)" }}
+                        <Row className="g-0 align-items-center">
+                            {/* Left: product images strip */}
+                            <Col md={5} className="d-none d-md-flex align-items-center justify-content-center gap-2"
+                                 style={{ padding: "2rem 1.5rem", background: darkMode ? "rgba(255,255,255,0.03)" : "rgba(79,70,229,0.03)" }}
                             >
-                                <img src="././Iphone.jpg" alt="iPhone + Apple Watch" className="img-fluid" style={{ objectFit: "cover" }} />
-                            </div>
-                        </Col>
-                    </Row>
+                                {["/phone15.png", "/Samsung.png", "/ipad.png", "/watch.png"].map((img, i) => (
+                                    <div key={i} style={{ width: "20%", maxWidth: 72, flexShrink: 0 }}>
+                                        <img src={img} alt="" style={{ width: "100%", objectFit: "contain", filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.15))" }} />
+                                    </div>
+                                ))}
+                            </Col>
+
+                            {/* Right: text + CTA */}
+                            <Col md={7}>
+                                <div style={{ padding: "2.25rem 2rem" }}>
+                                    {/* Eyebrow */}
+                                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.7rem", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "#c2410c", background: "rgba(251,146,60,0.12)", border: "1px solid rgba(251,146,60,0.3)", borderRadius: "999px", padding: "3px 12px", marginBottom: "0.85rem" }}>
+                                        🔥 Limited Time
+                                    </div>
+
+                                    <h2 className="fw-bold mb-2" style={{ fontSize: "clamp(1.4rem, 2.5vw, 1.9rem)", lineHeight: 1.2, color: darkMode ? "#f9fafb" : "#111827" }}>
+                                        Device Financing —{" "}
+                                        <span style={{ background: "linear-gradient(90deg,#f97316,#ef4444)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                                            10% Off All Devices
+                                        </span>
+                                    </h2>
+
+                                    <p style={{ fontSize: "0.92rem", color: darkMode ? "rgba(255,255,255,0.55)" : "#6b7280", lineHeight: 1.65, marginBottom: "1.5rem", maxWidth: "400px" }}>
+                                        Finance the latest smartphones, tablets and wearables with 0 down.
+                                        Limited-time 10% discount across all models — up to 36-month terms.
+                                    </p>
+
+                                    {/* Perks row */}
+                                    <div className="d-flex flex-wrap gap-2 mb-2">
+                                        {["0 Down Payment", "Up to 36 Months", "4 Devices On Sale"].map((f) => (
+                                            <span key={f} style={{ fontSize: "0.75rem", fontWeight: 600, background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(79,70,229,0.07)", color: darkMode ? "rgba(255,255,255,0.75)" : "#4f46e5", border: darkMode ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(79,70,229,0.18)", borderRadius: "999px", padding: "3px 11px" }}>
+                                                ✦ {f}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </Col>
+                        </Row>
+
+                        {/* Bottom CTA bar */}
+                        <div style={{ background: "linear-gradient(90deg,#4f46e5,#7c3aed)", padding: "0.85rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>
+                                iPhone 15 Pro · Samsung Galaxy S24 · iPad Air · Apple Watch Series 9
+                            </span>
+                            <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 4 }}>
+                                View All Deals →
+                            </span>
+                        </div>
+                    </div>
                 </Container>
             </section>
 
@@ -278,7 +295,7 @@ export default function HomePage() {
                     <div className={`tc-section-chip ${darkMode ? "tc-section-chip-dark" : "tc-section-chip-light"} mb-3`}>
                         Our Plans
                     </div>
-                    <h2 className="fw-bold mb-2" style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)" }}>
+                    <h2 className="fw-bold mb-2" style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", color: darkMode ? "#f9fafb" : "#111827" }}>
                         Plans for Every Lifestyle
                     </h2>
                     <p className={`mb-0 ${mutedClass}`} style={{ maxWidth: "420px", margin: "0 auto" }}>
@@ -288,16 +305,35 @@ export default function HomePage() {
 
                 <Row className="g-4">
                     {[
-                        { img: "././Personal-Use.jpg",   title: "Premium Plan",  text: "Get the best experience with unlimited data and priority support.", badge: "Most Popular", badgeColor: "#4f46e5" },
-                        { img: "././Home-Set.jpg",        title: "Family Plan",   text: "Share your plan with the whole family without compromise.",         badge: null },
-                        { img: "././Bussiness-Use.jpg",   title: "Business Plan", text: "Advanced features for teams and businesses of all sizes.",          badge: null },
+                        { img: "/phone-financing.jpg",   title: "Finance a Phone",  text: "Get a new phone with flexible monthly financing and save more when paired with eligible mobile plans.", badge: "Most Popular", badgeColor: "#4f46e5", link: "/phones" },
+                        { img: "/streaming-bundle.jpg",  title: "Streaming Perks & Bundles", text: "Enjoy extra value with select premium plans — entertainment perks, bundle savings, and limited-time offers including TV options.", badge: "New", badgeColor: "#ec4899", link: "/plans", wide: true },
                     ].map((card, idx) => (
-                        <Col md={4} key={idx}>
+                        <Col md={card.wide ? 8 : 4} key={idx}>
                             {/* tc-card-hover: translateY + scale lift defined in style.css */}
-                            <Card className="shadow-lg border-0 h-100 tc-card-hover" style={{ borderRadius: "1rem", overflow: "hidden" }}>
+                            <Card className="shadow-lg border-0 h-100 tc-card-hover" style={{ borderRadius: "1rem", overflow: "hidden", background: darkMode ? "#1f2937" : "#fff" }}>
                                 {/* tc-img-zoom: image zooms on card hover */}
-                                <div className="ratio ratio-16x9 overflow-hidden tc-img-zoom" style={{ borderRadius: "1rem 1rem 0 0" }}>
-                                    <img src={card.img} className="img-fluid" alt={card.title} style={{ objectFit: "cover" }} />
+                                <div
+                                    className="tc-img-zoom"
+                                    style={{
+                                        borderRadius: "1rem 1rem 0 0",
+                                        height: "220px",
+                                        overflow: "hidden",
+                                        background: darkMode ? "#1f2937" : "#f8f4ff",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <img
+                                        src={card.img}
+                                        alt={card.title}
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "contain",
+                                            padding: "0.75rem",
+                                        }}
+                                    />
                                 </div>
                                 <Card.Body className="d-flex flex-column p-4">
                                     {card.badge && (
@@ -312,12 +348,18 @@ export default function HomePage() {
                                             {card.badge}
                                         </div>
                                     )}
-                                    <h5 className="card-title fw-bold mb-2" style={{ fontSize: "1.1rem" }}>{card.title}</h5>
+                                    <h5 className="card-title fw-bold mb-2" style={{ fontSize: "1.1rem", color: darkMode ? "#f9fafb" : "#111827" }}>{card.title}</h5>
                                     <p className={`card-text flex-grow-1 mb-3 ${mutedClass}`} style={{ fontSize: "0.9rem", lineHeight: 1.6 }}>
                                         {card.text}
                                     </p>
-                                    <Button variant="primary" className="w-100 fw-bold mt-auto rounded-pill">
-                                        View Details
+                                    <Button
+                                        variant="primary"
+                                        className="w-100 fw-bold mt-auto rounded-pill"
+                                        onClick={() => card.link && navigate(card.link)}
+                                    >
+                                        {card.link === "/phones" ? "Browse Phones"
+                                            : card.link === "/plans" ? "Explore Plans"
+                                                : "Learn More"}
                                     </Button>
                                 </Card.Body>
                             </Card>
@@ -329,43 +371,6 @@ export default function HomePage() {
 
             {/* HomepageDock — unchanged component */}
             <HomepageDock onSelect={setSelectedTab} />
-
-
-            {/* ======================================================
-                PLAN TAB TOGGLE
-                CSS classes: tc-tab-track, tc-tab-track-light/dark
-            ====================================================== */}
-            <section className="py-4 text-center">
-                <Container>
-                    {/* tc-tab-track: segmented control background pill from style.css */}
-                    <div className={`tc-tab-track ${darkMode ? "tc-tab-track-dark" : "tc-tab-track-light"}`}>
-                        <Button
-                            className="rounded-pill px-4 py-2 fw-semibold"
-                            variant={selectedTab === "mobile" ? "primary" : "link"}
-                            style={{
-                                fontSize: "0.9rem", textDecoration: "none", border: "none",
-                                color: selectedTab === "mobile" ? undefined : (darkMode ? "rgba(255,255,255,0.6)" : "#555"),
-                                boxShadow: selectedTab === "mobile" ? "0 2px 8px rgba(79,70,229,0.3)" : "none",
-                            }}
-                            onClick={() => { setSelectedTab("mobile"); setPlanPage(0); }}
-                        >
-                            📱 Mobile
-                        </Button>
-                        <Button
-                            className="rounded-pill px-4 py-2 fw-semibold"
-                            variant={selectedTab === "home" ? "primary" : "link"}
-                            style={{
-                                fontSize: "0.9rem", textDecoration: "none", border: "none",
-                                color: selectedTab === "home" ? undefined : (darkMode ? "rgba(255,255,255,0.6)" : "#555"),
-                                boxShadow: selectedTab === "home" ? "0 2px 8px rgba(79,70,229,0.3)" : "none",
-                            }}
-                            onClick={() => { setSelectedTab("home"); setPlanPage(0); }}
-                        >
-                            🏠 Home
-                        </Button>
-                    </div>
-                </Container>
-            </section>
 
 
             {/* CustomerReviewsSection — unchanged component */}
@@ -384,7 +389,7 @@ export default function HomePage() {
                         <div className={`tc-section-chip ${darkMode ? "tc-section-chip-dark" : "tc-section-chip-light"} mb-3`}>
                             By the Numbers
                         </div>
-                        <h2 className="fw-bold mb-2" style={{ fontSize: "clamp(1.4rem, 2.5vw, 1.9rem)" }}>
+                        <h2 className="fw-bold mb-2" style={{ fontSize: "clamp(1.4rem, 2.5vw, 1.9rem)", color: darkMode ? "#f9fafb" : "#111827" }}>
                             Trusted by Millions
                         </h2>
                         <p className={`mb-0 ${mutedClass}`} style={{ fontSize: "0.95rem" }}>
@@ -395,21 +400,33 @@ export default function HomePage() {
                     {/* tc-stats-row: used by responsive media query in style.css */}
                     <Row className="g-4 text-center tc-stats-row">
                         {[
-                            { value: "10M+",  label: "Happy Customers", icon: "😊" },
-                            { value: "99.9%", label: "Network Uptime",  icon: "📡" },
-                            { value: "#1",    label: "5G Coverage",     icon: "🏆" },
-                            { value: "24/7",  label: "Support",         icon: "🎧" },
+                            { value: "10M+",  label: "Happy Customers", icon: "😊", link: null },
+                            { value: "99.9%", label: "Network Uptime",  icon: "📡", link: null },
+                            { value: "#1",    label: "5G Coverage",     icon: "🏆", link: null },
+                            { value: "24/7",  label: "Support",         icon: "🎧", link: "/customer/support" },
                         ].map(s => (
                             <Col md={3} sm={6} key={s.label}>
-                                {/* tc-stats-card: hover lift from style.css */}
-                                <Card className="shadow border-0 rounded-4 h-100 tc-stats-card">
+                                {/* tc-stats-card: hover lift from style.css — clickable when link present */}
+                                <Card
+                                    className="shadow border-0 rounded-4 h-100 tc-stats-card"
+                                    style={{
+                                        background: darkMode ? "#1f2937" : "#fff",
+                                        border: darkMode ? "1px solid rgba(255,255,255,0.08)" : undefined,
+                                        cursor: s.link ? "pointer" : "default",
+                                    }}
+                                    onClick={() => s.link && navigate(s.link)}
+                                >
                                     <Card.Body className="p-4">
                                         <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem", lineHeight: 1 }}>{s.icon}</div>
-                                        {/* text-gradient: purple→pink gradient from style.css */}
                                         <div className="fw-bold text-gradient" style={{ fontSize: "clamp(1.8rem, 3vw, 2.2rem)", lineHeight: 1.1, marginBottom: "0.4rem" }}>
                                             {s.value}
                                         </div>
-                                        <div className={mutedClass} style={{ fontSize: "0.9rem" }}>{s.label}</div>
+                                        <div className={mutedClass} style={{ fontSize: "0.9rem" }}>
+                                            {s.label}
+                                            {s.link && (
+                                                <span style={{ marginLeft: 4, fontSize: "0.7rem", opacity: 0.6 }}>→</span>
+                                            )}
+                                        </div>
                                     </Card.Body>
                                 </Card>
                             </Col>
