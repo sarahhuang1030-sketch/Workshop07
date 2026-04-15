@@ -128,7 +128,8 @@ public class SecurityConfig {
                                 "/uploads/**",
                                 "/login/**",
                                 "/api/chat/**",
-                                "/api/ai/**"
+                                "/api/ai/**",
+                                "/api/reviews/validate"
                         ).permitAll()
 
                         // Billing requires login

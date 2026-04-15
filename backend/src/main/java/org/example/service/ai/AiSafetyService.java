@@ -11,7 +11,8 @@ public class AiSafetyService {
             "badword1",
             "badword2",
             "shit",
-            "fuck"
+            "fuck",
+            "hate"
     );
 
     public String sanitizeInput(String input) {

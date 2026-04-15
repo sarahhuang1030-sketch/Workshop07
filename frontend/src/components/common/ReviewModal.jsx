@@ -46,24 +46,19 @@ export default function ReviewModal({
     };
 
     const validateReviewWithAI = async (reviewText) => {
-        try {
-            const response = await fetch("/api/reviews/validate", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ text: reviewText }),
-            });
+        const response = await fetch("/api/reviews/validate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text: reviewText }),
+        });
 
-            const data = await response.json();
-
-            console.log("VALIDATION RESPONSE:", data); // 👈 add this
-
-            return data;
-        } catch (err) {
-            console.error("VALIDATION ERROR:", err); // 👈 add this
-            throw err;
+        if (!response.ok) {
+            throw new Error("Failed to validate review.");
         }
+
+        return await response.json();
     };
 
     const handleSubmit = async () => {
