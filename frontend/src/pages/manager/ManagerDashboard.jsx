@@ -22,15 +22,13 @@ function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
     const cardBase = darkMode ? "bg-dark border-secondary text-light" : "bg-white text-dark";
     const muted = darkMode ? "text-light-50" : "text-muted";
 
-
-
     return (
         <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
             <Card.Body className="p-4">
                 <div className="d-flex justify-content-between align-items-start">
 
                     {/* LEFT SIDE */}
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                         <div className={`${muted} fw-semibold`} style={{ fontSize: ".95rem" }}>
                             {title}
                         </div>
@@ -47,7 +45,7 @@ function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
                     </div>
 
                     {/* RIGHT SIDE (ICON + BUTTON) */}
-                    <div className="d-flex flex-column align-items-end gap-2">
+                    <div className="d-flex flex-column align-items-end gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
                         <div
                             style={{
                                 width: 50,
@@ -78,35 +76,44 @@ function ManageCard({ title, desc, icon: Icon, badge, to, darkMode, onGo }) {
     return (
         <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
             <Card.Body className="p-4 d-flex flex-column">
-                <div className="d-flex justify-content-between align-items-start">
-                    <div className="d-flex gap-3">
-                        <div
-                            style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 16,
-                                background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                            }}
-                            className="d-flex align-items-center justify-content-center"
-                        >
-                            <Icon size={24} />
-                        </div>
-
-                        <div>
-                            <div className="fw-bold" style={{ fontSize: "1.1rem" }}>
-                                {title}
-                            </div>
-                            <div className={muted} style={{ fontSize: ".92rem" }}>
-                                {desc}
-                            </div>
-                        </div>
+                {/* TOP ROW: icon + title/desc block (no badge here) */}
+                <div className="d-flex gap-3 align-items-start">
+                    <div
+                        style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 16,
+                            background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                            flexShrink: 0,
+                        }}
+                        className="d-flex align-items-center justify-content-center"
+                    >
+                        <Icon size={24} />
                     </div>
 
-                    {badge && (
-                        <Badge bg={darkMode ? "secondary" : "light"} text={darkMode ? "light" : "dark"}>
-                            {badge}
-                        </Badge>
-                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        {/* Title + Badge on same line, wrapping if needed */}
+                        <div
+                            className="d-flex align-items-center gap-2"
+                            style={{ flexWrap: "wrap" }}
+                        >
+                            <span className="fw-bold" style={{ fontSize: "1.1rem" }}>
+                                {title}
+                            </span>
+                            {badge && (
+                                <Badge
+                                    bg={darkMode ? "secondary" : "light"}
+                                    text={darkMode ? "light" : "dark"}
+                                    style={{ fontSize: ".78rem", whiteSpace: "normal", wordBreak: "break-word" }}
+                                >
+                                    {badge}
+                                </Badge>
+                            )}
+                        </div>
+                        <div className={muted} style={{ fontSize: ".92rem" }}>
+                            {desc}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mt-auto pt-3">
@@ -159,21 +166,6 @@ export default function ManagerDashboard({ darkMode = false }) {
     useEffect(() => {
         let ignore = false;
 
-        // const monthlyRevenue = invoicesArray
-        //     .filter(inv => {
-        //         const invDate = new Date(inv.date); // Assuming `date` field exists
-        //         return inv.status === "PAID" && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear;
-        //     })
-        //     .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-        //
-        // // --- Update state ---
-        // setSummary({
-        //     customers: customersArray.length,
-        //     invoices: invoicesArray.length,
-        //     pendingQuotes: quotesArray.filter(q => q.status === "PENDING").length,
-        //     monthlyRevenue,
-        // });
-
         async function loadSummary() {
             try {
                 setLoading(true);
@@ -181,12 +173,8 @@ export default function ManagerDashboard({ darkMode = false }) {
 
                 const response = await apiFetch("/api/manager/summary", {
                     method: "GET",
-                    headers: {
-                        Accept: "application/json",
-                    },
+                    headers: { Accept: "application/json" },
                 });
-
-
 
                 if (!response.ok) {
                     throw new Error(`Failed to load summary: ${response.status}`);
@@ -194,43 +182,28 @@ export default function ManagerDashboard({ darkMode = false }) {
 
                 const data = await response.json();
 
-                // Quotes
                 const quotesRes = await apiFetch("/api/quotes");
-                if (!quotesRes.ok) {
-                    throw new Error(`Failed to load quotes: ${quotesRes.status}`);
-                }
+                if (!quotesRes.ok) throw new Error(`Failed to load quotes: ${quotesRes.status}`);
                 const quotesData = await quotesRes.json();
-                const quotesArray = Array.isArray(quotesData)
-                    ? quotesData
-                    : quotesData.quotes ?? [];
+                const quotesArray = Array.isArray(quotesData) ? quotesData : quotesData.quotes ?? [];
 
-                // Invoices
                 const invoicesRes = await apiFetch("/api/invoices/all");
-                if (!invoicesRes.ok) {
-                    throw new Error(`Failed to load invoices: ${invoicesRes.status}`);
-                }
+                if (!invoicesRes.ok) throw new Error(`Failed to load invoices: ${invoicesRes.status}`);
                 const invoicesData = await invoicesRes.json();
-                const invoicesArray = Array.isArray(invoicesData)
-                    ? invoicesData
-                    : invoicesData.invoices ?? [];
+                const invoicesArray = Array.isArray(invoicesData) ? invoicesData : invoicesData.invoices ?? [];
 
-                // Chat Requests
                 const chatReqRes = await apiFetch("/api/chat/chat-requests?manager=true");
-                if (!chatReqRes.ok) {
-                    throw new Error(`Failed to load chat requests: ${chatReqRes.status}`);
-                }
+                if (!chatReqRes.ok) throw new Error(`Failed to load chat requests: ${chatReqRes.status}`);
                 const chatReqData = await chatReqRes.json();
-
                 const chatRequests = Array.isArray(chatReqData)
                     ? chatReqData
                     : chatReqData?.data || chatReqData?.requests || [];
-
 
                 if (!ignore) {
                     setSummary({
                         customers: data.customers ?? 0,
                         activeSubs: data.activeSubs ?? 0,
-                        monthlyRevenue: data.monthlyRevenue ?? 0, // keep yours
+                        monthlyRevenue: data.monthlyRevenue ?? 0,
                         pastDue: data.pastDue ?? 0,
                         addOns: data.addOns ?? 0,
                         planFeatures: data.planFeatures ?? 0,
@@ -245,25 +218,17 @@ export default function ManagerDashboard({ darkMode = false }) {
                             (r) => String(r.status || "").toUpperCase() === "PENDING"
                         ).length,
                     });
-
                 }
             } catch (err) {
                 console.error("Error loading manager summary:", err);
-                if (!ignore) {
-                    setError("Unable to load dashboard summary.");
-                }
+                if (!ignore) setError("Unable to load dashboard summary.");
             } finally {
-                if (!ignore) {
-                    setLoading(false);
-                }
+                if (!ignore) setLoading(false);
             }
         }
 
         loadSummary();
-
-        return () => {
-            ignore = true;
-        };
+        return () => { ignore = true; };
     }, []);
 
     return (
@@ -282,7 +247,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                     </div>
                 </div>
 
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 flex-wrap">
                     <Button
                         variant={darkMode ? "outline-light" : "outline-primary"}
                         style={{ borderRadius: 14 }}
@@ -313,191 +278,62 @@ export default function ManagerDashboard({ darkMode = false }) {
                 </Alert>
             )}
 
-            {/* Stats */}
+            {/* Stats + Cards */}
             <Row className="g-3">
                 <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Total Customers"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.customers}
-                        hint="All accounts"
-                        icon={Users}
-                    />
+                    <Stat darkMode={darkMode} title="Total Customers" value={loading ? <Spinner animation="border" size="sm" /> : summary.customers} hint="All accounts" icon={Users} />
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Locations"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.location}
-                        hint="All active locations"
-                        icon={FileText}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/manager/location")}
-                        >
-                            Details
-                        </Button>
+                    <Stat darkMode={darkMode} title="Locations" value={loading ? <Spinner animation="border" size="sm" /> : summary.location} hint="All active locations" icon={FileText}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/manager/location")}>Details</Button>
                     </Stat>
-
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
                     <Stat
                         darkMode={darkMode}
                         title="Service"
-                        value={
-                            loading ? (
-                                <Spinner animation="border" size="sm" />
-                            ) : (
-                                `${summary.serviceRequests} / ${summary.serviceAppointments}`
-                            )
-                        }
+                        value={loading ? <Spinner animation="border" size="sm" /> : `${summary.serviceRequests} / ${summary.serviceAppointments}`}
                         hint="Requests / Appointments"
                         icon={Briefcase}
                     >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/manager/services")}
-                        >
-                            Details
-                        </Button>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/manager/services")}>Details</Button>
                     </Stat>
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Invoices"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.invoices}
-                        hint="All billing invoices"
-                        icon={FileText}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/sales/history")}
-                        >
-                            Details
-                        </Button>
+                    <Stat darkMode={darkMode} title="Invoices" value={loading ? <Spinner animation="border" size="sm" /> : summary.invoices} hint="All billing invoices" icon={FileText}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/sales/history")}>Details</Button>
                     </Stat>
-
-                </Col>
-                <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Pending Quotes"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.pendingQuotes}
-                        hint="Awaiting approval"
-                        icon={Clock}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/sales/quotes")}
-                        >
-                            Details
-                        </Button>
-                    </Stat>
-
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Active Subscriptions"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs}
-                        hint="Currently active"
-                        icon={Repeat}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/manager/subscriptions")}
-                        >
-                            Details
-                        </Button>
+                    <Stat darkMode={darkMode} title="Pending Quotes" value={loading ? <Spinner animation="border" size="sm" /> : summary.pendingQuotes} hint="Awaiting approval" icon={Clock}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/sales/quotes")}>Details</Button>
                     </Stat>
-
-                </Col>
-                <Col xs={12} md={6} lg={3}>
-
-                    {/*monthly revenue*/}
-                    {/*= sum of active subscription plan prices*/}
-                    {/*+ sum of active add-on prices attached to active subscriptions*/}
-                    <Stat
-                        darkMode={darkMode}
-                        title="Monthly Revenue"
-                        value={loading ? <Spinner animation="border" size="sm" /> : formatMoney(summary.monthlyRevenue)}
-                        hint="Estimated"
-                        icon={Package}
-                    />
-                </Col>
-                {/*<Col xs={12} md={6} lg={3}>*/}
-                {/*    /!*look for status in subscriptions table, and past due is invoices and payment allocation*!/*/}
-                {/*    <Stat*/}
-                {/*        darkMode={darkMode}*/}
-                {/*        title="Past Due / Suspended"*/}
-                {/*        value={loading ? <Spinner animation="border" size="sm" /> : summary.pastDue}*/}
-                {/*        hint="Needs follow-up"*/}
-                {/*        icon={ListChecks}*/}
-                {/*    />*/}
-                {/*</Col>*/}
-
-
-            {/* Management Cards */}
-
-                {/*<Col xs={12} md={6} lg={4}>*/}
-                {/*    <ManageCard*/}
-                {/*        darkMode={darkMode}*/}
-                {/*        title="Manage Subscriptions"*/}
-                {/*        desc="Change plan, add/remove add-ons, suspend/cancel/reactivate."*/}
-                {/*        icon={Repeat}*/}
-                {/*        badge="Lifecycle"*/}
-                {/*        to="/manager/subscriptions"*/}
-                {/*        onGo={go}*/}
-                {/*    />*/}
-                {/*</Col>*/}
-
-                <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Total Add-ons"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.addOns}
-                        hint="Currently active"
-                        icon={Repeat}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/manager/addons")}
-                        >
-                            Details
-                        </Button>
-                    </Stat>
-
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
-                    <Stat
-                        darkMode={darkMode}
-                        title="Total Plan Features"
-                        value={loading ? <Spinner animation="border" size="sm" /> : summary.planFeatures}
-                        hint="Currently active"
-                        icon={Repeat}
-                    >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/manager/planfeatures")}
-                        >
-                            Details
-                        </Button>
+                    <Stat darkMode={darkMode} title="Active Subscriptions" value={loading ? <Spinner animation="border" size="sm" /> : summary.activeSubs} hint="Currently active" icon={Repeat}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/manager/subscriptions")}>Details</Button>
                     </Stat>
+                </Col>
 
+                <Col xs={12} md={6} lg={3}>
+                    <Stat darkMode={darkMode} title="Monthly Revenue" value={loading ? <Spinner animation="border" size="sm" /> : formatMoney(summary.monthlyRevenue)} hint="Estimated" icon={Package} />
+                </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat darkMode={darkMode} title="Total Add-ons" value={loading ? <Spinner animation="border" size="sm" /> : summary.addOns} hint="Currently active" icon={Repeat}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/manager/addons")}>Details</Button>
+                    </Stat>
+                </Col>
+
+                <Col xs={12} md={6} lg={3}>
+                    <Stat darkMode={darkMode} title="Total Plan Features" value={loading ? <Spinner animation="border" size="sm" /> : summary.planFeatures} hint="Currently active" icon={Repeat}>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/manager/planfeatures")}>Details</Button>
+                    </Stat>
                 </Col>
 
                 <Col xs={12} md={6} lg={3}>
@@ -506,11 +342,7 @@ export default function ManagerDashboard({ darkMode = false }) {
                         title="Chat Hub"
                         desc="Monitor chat requests, active conversations"
                         icon={UserCog}
-                        badge={
-                            summary.pendingChatRequests > 0
-                                ? `${summary.pendingChatRequests} Pending`
-                                : "Support"
-                        }
+                        badge={summary.pendingChatRequests > 0 ? `${summary.pendingChatRequests} Pending` : "Support"}
                         to="/manager/chat"
                         onGo={go}
                     />
@@ -551,12 +383,6 @@ export default function ManagerDashboard({ darkMode = false }) {
                         darkMode={darkMode}
                     />
                 </Col>
-
-
-
-
-
-
             </Row>
         </Container>
     );

@@ -1,15 +1,3 @@
-/**
- * SalesDashboard (FINAL VERSION)
- * ----------------------------------------
- * Features:
- * - Fully aligned with ManagerDashboard design system
- * - Dark mode support
- * - Unified Stat + ManageCard components
- * - Consistent button styles
- * - Safe API handling
- * - Clean ESLint (no warnings)
- */
-
 import React, { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Button, Spinner, Badge } from "react-bootstrap";
 import {
@@ -20,15 +8,13 @@ import {
     Repeat,
     ListChecks,
     TrendingUp,
-    ArrowRight, Briefcase
+    ArrowRight,
+    Briefcase
 } from "lucide-react";
 import { Box } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
 
-/* =========================
-   FORMAT MONEY (SAFE)
-========================= */
 function formatMoney(value) {
     const num = Number(value);
     if (!isFinite(num)) return "$0";
@@ -39,15 +25,8 @@ function formatMoney(value) {
     });
 }
 
-/* =========================
-   STAT CARD (MATCH MANAGER)
-========================= */
 function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
-
-    const cardBase = darkMode
-        ? "bg-dark border-secondary text-light"
-        : "bg-white text-dark";
-
+    const cardBase = darkMode ? "bg-dark border-secondary text-light" : "bg-white text-dark";
     const muted = darkMode ? "text-light-50" : "text-muted";
 
     return (
@@ -56,15 +35,13 @@ function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
                 <div className="d-flex justify-content-between align-items-start">
 
                     {/* LEFT */}
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                         <div className={`${muted} fw-semibold`} style={{ fontSize: ".95rem" }}>
                             {title}
                         </div>
-
                         <div className="fw-bold" style={{ fontSize: "1.7rem" }}>
                             {value}
                         </div>
-
                         {hint && (
                             <div className={muted} style={{ fontSize: ".9rem" }}>
                                 {hint}
@@ -73,80 +50,73 @@ function Stat({ title, value, hint, icon: Icon, darkMode, children }) {
                     </div>
 
                     {/* RIGHT */}
-                    <div className="d-flex flex-column align-items-end gap-2">
-
+                    <div className="d-flex flex-column align-items-end gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
                         <div
                             style={{
                                 width: 50,
                                 height: 50,
                                 borderRadius: 16,
-                                background: darkMode
-                                    ? "rgba(255,255,255,0.06)"
-                                    : "rgba(0,0,0,0.05)",
+                                background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
                             }}
                             className="d-flex align-items-center justify-content-center"
                         >
                             <Icon size={24} />
                         </div>
-
                         {children}
-
                     </div>
+
                 </div>
             </Card.Body>
         </Card>
     );
 }
 
-/* =========================
-   MANAGE CARD (MATCH MANAGER)
-========================= */
 function ManageCard({ title, desc, icon: Icon, badge, to, darkMode, onGo }) {
-
-    const cardBase = darkMode
-        ? "bg-dark border-secondary text-light"
-        : "bg-white text-dark";
-
+    const cardBase = darkMode ? "bg-dark border-secondary text-light" : "bg-white text-dark";
     const muted = darkMode ? "text-light-50" : "text-muted";
 
     return (
         <Card className={`${cardBase} shadow-sm h-100`} style={{ borderRadius: 18 }}>
             <Card.Body className="p-4 d-flex flex-column">
 
-                <div className="d-flex justify-content-between align-items-start">
-
-                    {/* LEFT */}
-                    <div className="d-flex gap-3">
-
-                        <div
-                            style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 16,
-                                background: darkMode
-                                    ? "rgba(255,255,255,0.06)"
-                                    : "rgba(0,0,0,0.05)",
-                            }}
-                            className="d-flex align-items-center justify-content-center"
-                        >
-                            <Icon size={24} />
-                        </div>
-
-                        <div>
-                            <div className="fw-bold" style={{ fontSize: "1.1rem" }}>
-                                {title}
-                            </div>
-                            <div className={muted} style={{ fontSize: ".92rem" }}>
-                                {desc}
-                            </div>
-                        </div>
+                {/* TOP ROW: icon + title/badge/desc (no floating badge) */}
+                <div className="d-flex gap-3 align-items-start">
+                    <div
+                        style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 16,
+                            background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                            flexShrink: 0,
+                        }}
+                        className="d-flex align-items-center justify-content-center"
+                    >
+                        <Icon size={24} />
                     </div>
 
-                    {badge && (
-                        <Badge bg={darkMode ? "secondary" : "light"} text={darkMode ? "light" : "dark"}>
-                            {badge}
-                        </Badge>
-                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        {/* Title + Badge inline, wraps on small screens */}
+                        <div
+                            className="d-flex align-items-center gap-2"
+                            style={{ flexWrap: "wrap" }}
+                        >
+                            <span className="fw-bold" style={{ fontSize: "1.1rem" }}>
+                                {title}
+                            </span>
+                            {badge && (
+                                <Badge
+                                    bg={darkMode ? "secondary" : "light"}
+                                    text={darkMode ? "light" : "dark"}
+                                    style={{ fontSize: ".78rem", whiteSpace: "normal", wordBreak: "break-word" }}
+                                >
+                                    {badge}
+                                </Badge>
+                            )}
+                        </div>
+                        <div className={muted} style={{ fontSize: ".92rem" }}>
+                            {desc}
+                        </div>
+                    </div>
                 </div>
 
                 {/* BUTTON */}
@@ -166,11 +136,7 @@ function ManageCard({ title, desc, icon: Icon, badge, to, darkMode, onGo }) {
     );
 }
 
-/* =========================
-   MAIN DASHBOARD
-========================= */
 export default function SalesDashboard({ darkMode = false }) {
-
     const nav = useNavigate();
     const go = (to) => nav(to);
 
@@ -183,13 +149,14 @@ export default function SalesDashboard({ darkMode = false }) {
         addOns: 0,
         planFeatures: 0,
         pastDue: 0,
-        pendingChatRequests: 0
+        pendingChatRequests: 0,
+        serviceRequests: 0,
+        serviceAppointments: 0,
     });
 
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-
         let isMounted = true;
 
         async function load() {
@@ -212,12 +179,10 @@ export default function SalesDashboard({ darkMode = false }) {
                 const serviceData = await serviceRes.json();
                 const chatReqData = await chatReqRes.json();
 
-                // ✅ FIX 1: safe unwrap (DO NOT change UI logic)
                 const c = Array.isArray(customers) ? customers : customers?.customers ?? [];
                 const q = Array.isArray(quotes) ? quotes : quotes?.quotes ?? [];
                 const i = Array.isArray(invoices) ? invoices : [];
 
-                // 🔥 FIX 2: service requests safe parse (IMPORTANT BUG FIX)
                 const requests = Array.isArray(serviceData)
                     ? serviceData
                     : serviceData?.data || serviceData?.requests || [];
@@ -226,13 +191,8 @@ export default function SalesDashboard({ darkMode = false }) {
                     ? chatReqData
                     : chatReqData?.data || chatReqData?.requests || [];
 
-                // 🔥 FIX 3: correct id mapping
                 const apptPromises = requests.map(r =>
-                    apiFetch(
-                        `/api/manager/service-requests/${
-                            r.requestId || r.id || r.serviceRequestId
-                        }/appointments`
-                    )
+                    apiFetch(`/api/manager/service-requests/${r.requestId || r.id || r.serviceRequestId}/appointments`)
                         .then(res => res.ok ? res.json() : [])
                         .catch(() => [])
                 );
@@ -250,13 +210,8 @@ export default function SalesDashboard({ darkMode = false }) {
                 i.forEach(inv => {
                     const amount = Number(inv?.total ?? 0);
                     if (!isFinite(amount)) return;
-
                     totalRevenue += amount;
-
-                    const [year, month] = (inv?.issueDate || "")
-                        .split("-")
-                        .map(Number);
-
+                    const [year, month] = (inv?.issueDate || "").split("-").map(Number);
                     if (year === currentYear && (month - 1) === currentMonth) {
                         monthlyRevenue += amount;
                     }
@@ -264,7 +219,6 @@ export default function SalesDashboard({ darkMode = false }) {
 
                 if (!isMounted) return;
 
-                // ONLY use existing state fields
                 setSummary(prev => ({
                     ...prev,
                     customers: c.length,
@@ -276,11 +230,8 @@ export default function SalesDashboard({ darkMode = false }) {
                     addOns: manager?.addOns ?? 0,
                     planFeatures: manager?.planFeatures ?? 0,
                     pastDue: manager?.pastDue ?? 0,
-
-                    // FIXED VALUES
                     serviceRequests: requests.length,
                     serviceAppointments: flatAppts.length,
-
                     pendingChatRequests: chatRequests.filter(
                         (r) => String(r.status || "").toUpperCase() === "PENDING"
                     ).length,
@@ -288,36 +239,21 @@ export default function SalesDashboard({ darkMode = false }) {
 
             } catch (err) {
                 console.error("Dashboard load failed:", err);
-
                 if (!isMounted) return;
-
                 setSummary(prev => ({
                     ...prev,
-                    customers: 0,
-                    invoices: 0,
-                    pendingQuotes: 0,
-                    monthlyRevenue: 0,
-                    revenue: 0,
-                    activeSubs: 0,
-                    addOns: 0,
-                    planFeatures: 0,
-                    pastDue: 0,
-                    serviceRequests: 0,
-                    serviceAppointments: 0,
-                    pendingChatRequests: 0
+                    customers: 0, invoices: 0, pendingQuotes: 0,
+                    monthlyRevenue: 0, revenue: 0, activeSubs: 0,
+                    addOns: 0, planFeatures: 0, pastDue: 0,
+                    serviceRequests: 0, serviceAppointments: 0, pendingChatRequests: 0
                 }));
-
             } finally {
                 if (isMounted) setLoading(false);
             }
         }
 
         load();
-
-        return () => {
-            isMounted = false;
-        };
-
+        return () => { isMounted = false; };
     }, []);
 
     if (loading) {
@@ -330,33 +266,24 @@ export default function SalesDashboard({ darkMode = false }) {
 
     return (
         <Container className="py-4">
-
             <h2 className="fw-bold mb-3">Sales Dashboard</h2>
 
-            {/* ================= STATS ================= */}
             <Row className="g-3">
-
                 <Col md={3}>
                     <Stat title="Total Customers" value={summary.customers} hint="All accounts" icon={Users} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/customers")}>
-                            Details
-                        </Button>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/customers")}>Details</Button>
                     </Stat>
                 </Col>
 
                 <Col md={3}>
                     <Stat title="Invoices" value={summary.invoices} hint="All billing invoices" icon={FileText} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/history")}>
-                            Details
-                        </Button>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/history")}>Details</Button>
                     </Stat>
                 </Col>
 
                 <Col md={3}>
                     <Stat title="Pending Quotes" value={summary.pendingQuotes} hint="Awaiting approval" icon={Clock} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/quotes")}>
-                            Details
-                        </Button>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/quotes")}>Details</Button>
                     </Stat>
                 </Col>
 
@@ -366,89 +293,42 @@ export default function SalesDashboard({ darkMode = false }) {
 
                 <Col md={3}>
                     <Stat title="Active Subscriptions" value={summary.activeSubs} hint="Currently active" icon={Repeat} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/subscriptions")}>
-                            Details
-                        </Button>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/subscriptions")}>Details</Button>
                     </Stat>
                 </Col>
 
                 <Col md={3}>
                     <Stat title="Total Add-ons" value={summary.addOns} hint="Currently active" icon={Package} darkMode={darkMode}>
-                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/addons")}>
-                            Details
-                        </Button>
+                        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/addons")}>Details</Button>
                     </Stat>
                 </Col>
-
-                {/*<Col md={3}>*/}
-                {/*    <Stat title="Plan Features" value={summary.planFeatures} hint="Currently active" icon={ListChecks} darkMode={darkMode}>*/}
-                {/*        <Button size="sm" variant={darkMode ? "outline-light" : "outline-primary"} onClick={() => nav("/sales/planfeatures")}>*/}
-                {/*            Details*/}
-                {/*        </Button>*/}
-                {/*    </Stat>*/}
-                {/*</Col>*/}
 
                 <Col xs={12} md={6} lg={3}>
                     <Stat
                         darkMode={darkMode}
                         title="Service"
-                        value={
-                            loading ? (
-                                <Spinner animation="border" size="sm" />
-                            ) : (
-                                `${summary.serviceRequests} / ${summary.serviceAppointments}`
-                            )
-                        }
+                        value={`${summary.serviceRequests} / ${summary.serviceAppointments}`}
                         hint="Requests / Appointments"
                         icon={Briefcase}
                     >
-                        <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => nav("/sales/services")}
-                        >
-                            Details
-                        </Button>
+                        <Button size="sm" variant="outline-primary" onClick={() => nav("/sales/services")}>Details</Button>
                     </Stat>
                 </Col>
-
-                {/*<Col md={3}>*/}
-                {/*    <Stat title="Past Due" value={summary.pastDue} hint="Needs follow-up" icon={Clock} darkMode={darkMode} />*/}
-                {/*</Col>*/}
 
                 <Col md={6}>
                     <ManageCard
                         title="Chat Hub"
                         desc="Handle chat requests and manage active customer conversations."
                         icon={Users}
-                        badge={
-                            summary.pendingChatRequests > 0
-                                ? `${summary.pendingChatRequests} Pending`
-                                : "Support"
-                        }
+                        badge={summary.pendingChatRequests > 0 ? `${summary.pendingChatRequests} Pending` : "Support"}
                         to="/sales/chat"
                         onGo={go}
                         darkMode={darkMode}
                     />
                 </Col>
-
             </Row>
 
-            {/* ================= MANAGEMENT ================= */}
             <Row className="mt-4 g-3">
-
-                {/*<Col md={6}>*/}
-                {/*    <ManageCard*/}
-                {/*        title="Audit Log"*/}
-                {/*        desc="Track system changes"*/}
-                {/*        icon={ListChecks}*/}
-                {/*        badge="Security"*/}
-                {/*        to="/sales/audit"*/}
-                {/*        onGo={go}*/}
-                {/*        darkMode={darkMode}*/}
-                {/*    />*/}
-                {/*</Col>*/}
-
                 <Col md={6}>
                     <ManageCard
                         title="Custom Bundle"
@@ -472,9 +352,7 @@ export default function SalesDashboard({ darkMode = false }) {
                         darkMode={darkMode}
                     />
                 </Col>
-
             </Row>
-
         </Container>
     );
 }
