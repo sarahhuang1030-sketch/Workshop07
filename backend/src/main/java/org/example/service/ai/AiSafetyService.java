@@ -13,7 +13,8 @@ public class AiSafetyService {
             "shit",
             "fuck",
             "hate",
-            "suck"
+            "suck",
+            "kill"
     );
 
     public String sanitizeInput(String input) {
