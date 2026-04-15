@@ -7,6 +7,7 @@ import org.example.model.UserAccount;
 import org.example.repository.CustomerRepository;
 import org.example.repository.EmployeeRepository;
 import org.example.repository.UserAccountRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.example.dto.FirstLoginPasswordChangeRequestDTO;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -56,22 +58,15 @@ public class AuthService {
         UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
 
-
-        //hash password
-//        if (!passwordEncoder.matches(passwordRaw, ua.getPasswordHash())) {
-//            throw new IllegalArgumentException("Invalid username or password");
-//        }
-
-        //raw password
         if (!passwordRaw.equals(ua.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid username or password");
         }
 
-//        if (Boolean.FALSE.equals(ua.getActive())) {
-//            throw new IllegalArgumentException("Account is inactive");
-//        }
         if (!Boolean.TRUE.equals(ua.getIsActive())) {
-            throw new IllegalArgumentException("Account is inactive");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your account is inactive. Please contact manager."
+            );
         }
 
         if (ua.getIsLocked() != null && ua.getIsLocked() == 1) {
@@ -84,9 +79,32 @@ public class AuthService {
             throw new IllegalArgumentException("Temporary password has expired");
         }
 
+        // Employee login FIRST
+        if (ua.getEmployeeId() != null) {
+            Employee emp = employeeRepository.findById(ua.getEmployeeId())
+                    .orElseThrow(() -> new IllegalArgumentException("Employee record not found"));
 
+            if (emp.getActive() == null || emp.getActive() == 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account is inactive. Please contact manager."
+                );
+            }
 
-        // Customer login
+            return new LoginResponseDTO(
+                    null,
+                    null,
+                    emp.getEmployeeId(),
+                    emp.getFirstName(),
+                    emp.getLastName(),
+                    ua.getUsername(),
+                    ua.getRole() != null ? ua.getRole().getRoleName() : null,
+                    ua.getMustChangePassword(),
+                    true
+            );
+        }
+
+// Customer login SECOND
         if (ua.getCustomerId() != null) {
             Customer customer = customerRepository.findById(ua.getCustomerId())
                     .orElseThrow(() -> new IllegalArgumentException("Customer record not found"));
@@ -104,25 +122,6 @@ public class AuthService {
             );
         }
 
-        // Employee login
-        if (ua.getEmployeeId() != null) {
-            Employee emp = employeeRepository.findById(ua.getEmployeeId())
-                    .orElseThrow(() -> new IllegalArgumentException("Employee record not found"));
-
-            return new LoginResponseDTO(
-                    null,
-                    null,
-                    emp.getEmployeeId(), // adjust if already Long
-                    emp.getFirstName(),
-                    emp.getLastName(),
-                    ua.getUsername(),
-                    ua.getRole() != null ? ua.getRole().getRoleName() : null,
-                    ua.getMustChangePassword(),
-                    emp.getActive() != null && emp.getActive() == 1
-            );
-        }
-
-        // If neither linked (should not happen)
         throw new IllegalStateException("User account is not linked to a customer or employee");
     }
 

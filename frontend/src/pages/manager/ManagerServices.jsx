@@ -554,7 +554,7 @@ export default function ManagerService({ darkMode = false }) {
                 </div>
             </div>
 
-            {error && <Alert variant="danger">{error}</Alert>}
+
 
             <Card className={cardBase} style={{ borderRadius: 18 }}>
                 <Card.Body>
@@ -877,9 +877,11 @@ export default function ManagerService({ darkMode = false }) {
                     </Modal.Title>
                 </Modal.Header>
 
-                <Form onSubmit={handleSaveAppointment}>
-                    <Modal.Body>
-                        <Row className="g-3">
+            <Form onSubmit={handleSaveAppointment}>
+                <Modal.Body>
+                    {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+
+                    <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Assigned Technician</Form.Label>

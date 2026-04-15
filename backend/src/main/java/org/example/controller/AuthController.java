@@ -101,14 +101,14 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDTO req) {
 
+        LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
+
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         req.getUsername(),
                         req.getPassword()
                 )
         );
-
-        LoginResponseDTO user = authService.login(req.getUsername(), req.getPassword());
 
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);

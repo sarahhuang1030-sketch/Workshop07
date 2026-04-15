@@ -208,6 +208,7 @@ export default function SalesService({ darkMode = false }) {
     }
 
     function openCreateAppointmentModal() {
+        setError("");
         setEditingAppointment(null);
         setAppointmentForm({
             technicianUserId: "",
@@ -223,6 +224,7 @@ export default function SalesService({ darkMode = false }) {
     }
 
     function openEditAppointmentModal(appt) {
+        setError("");
         setEditingAppointment(appt);
         setAppointmentForm({
             technicianUserId: appt.technicianUserId?.toString() ?? "",
@@ -274,10 +276,10 @@ export default function SalesService({ darkMode = false }) {
             closeAppointmentModal();
             await reloadAppointmentsForSelectedRequest();
 
-        } catch (err) {
-            console.error(err);
-            alert("Error saving appointment");
-        }
+       } catch (err) {
+           console.error(err);
+           setError(err.message || "Error saving appointment");
+       }
     }
 
     async function handleDeleteAppointment(appt) {
@@ -309,6 +311,7 @@ export default function SalesService({ darkMode = false }) {
     function closeAppointmentModal() {
         setShowAppointmentModal(false);
         setEditingAppointment(null);
+        setError("");
     }
 
     function openCreateModal() {
@@ -499,7 +502,7 @@ export default function SalesService({ darkMode = false }) {
                 </div>
             </div>
 
-            {error && <Alert variant="danger">{error}</Alert>}
+
 
             <Card className={cardBase} style={{ borderRadius: 18 }}>
                 <Card.Body>
@@ -843,6 +846,7 @@ export default function SalesService({ darkMode = false }) {
 
                 <Form onSubmit={handleSaveAppointment}>
                     <Modal.Body>
+                        {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
                         <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group>
