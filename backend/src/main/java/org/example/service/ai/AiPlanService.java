@@ -1,9 +1,14 @@
 package org.example.service.ai;
 
+import org.example.service.ai.PromptModerationService;
+import org.example.service.ai.PromptModerationResult;
+import org.example.service.ai.UnsafePromptException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.dto.ai.PlanAdvisorRequestDTO;
 import org.example.dto.ai.PlanAdvisorResponseDTO;
+import org.example.entity.ai.AiPlanCache;
+import org.example.repository.ai.AiPlanCacheRepository;
 import org.example.repository.PlanRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +17,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,10 +25,13 @@ import java.util.stream.Collectors;
 public class AiPlanService {
 
     private static final Logger logger = LoggerFactory.getLogger(AiPlanService.class);
+    private static final int CACHE_TTL_DAYS = 7;
 
     private final PlanRepository repo;
+    private final AiPlanCacheRepository cacheRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final PromptModerationService moderationService;
 
     @Value("${ai.api.key:}")
     private String apiKey;
@@ -33,8 +42,14 @@ public class AiPlanService {
     @Value("${ai.model:gemini-2.5-flash}")
     private String model;
 
-    public AiPlanService(PlanRepository repo) {
+    public AiPlanService(
+            PlanRepository repo,
+            AiPlanCacheRepository cacheRepository,
+            PromptModerationService moderationService
+    ) {
         this.repo = repo;
+        this.cacheRepository = cacheRepository;
+        this.moderationService = moderationService;
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
     }
@@ -45,6 +60,23 @@ public class AiPlanService {
         }
 
         request.normalize();
+        PromptModerationResult result = moderationService.moderate(request.getUserPrompt());
+
+        if (!result.isAllowed()) {
+            throw new UnsafePromptException(
+                    result.getMessage(),
+                    result.getCategory()
+            );
+        }
+
+        String cacheKey = buildCacheKey(request);
+        PlanAdvisorResponseDTO cached = tryGetCachedResponse(cacheKey);
+        if (cached != null) {
+            logger.info("Returning cached AI plan recommendation for key={}", cacheKey);
+            cached.setRecommendationMode("AI_CACHED");
+            cached.setDisclaimer("Recommendation served from cache to avoid an extra AI API call.");
+            return cached;
+        }
 
         List<PlanRepository.PlanRow> allPlans = repo.findAllPlans();
         if (allPlans == null || allPlans.isEmpty()) {
@@ -82,7 +114,9 @@ public class AiPlanService {
 
         if (isAiConfigured()) {
             try {
-                return getAiRecommendation(request, topAiCandidates, scoredPlans);
+                PlanAdvisorResponseDTO aiResponse = getAiRecommendation(request, topAiCandidates, scoredPlans);
+                saveCache(cacheKey, aiResponse);
+                return aiResponse;
             } catch (Exception e) {
                 logger.error("AI recommendation failed, using fallback. {}", e.getMessage(), e);
             }
@@ -91,6 +125,84 @@ public class AiPlanService {
         }
 
         return buildFallbackResponse(request, scoredPlans);
+    }
+
+    private PlanAdvisorResponseDTO tryGetCachedResponse(String cacheKey) {
+        try {
+            cacheRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+
+            Optional<AiPlanCache> cacheOpt = cacheRepository.findByCacheKey(cacheKey);
+            if (cacheOpt.isEmpty()) {
+                return null;
+            }
+
+            AiPlanCache cache = cacheOpt.get();
+
+            if (cache.getExpiresAt() != null && cache.getExpiresAt().isBefore(LocalDateTime.now())) {
+                cacheRepository.delete(cache);
+                return null;
+            }
+
+            return objectMapper.readValue(cache.getResponseJson(), PlanAdvisorResponseDTO.class);
+        } catch (Exception e) {
+            logger.warn("Failed to read cached response for key={}: {}", cacheKey, e.getMessage());
+            return null;
+        }
+    }
+
+    private void saveCache(String cacheKey, PlanAdvisorResponseDTO response) {
+        try {
+            if (response == null) {
+                return;
+            }
+
+            if (!"AI".equalsIgnoreCase(response.getRecommendationMode())) {
+                return;
+            }
+
+            AiPlanCache cache = cacheRepository.findByCacheKey(cacheKey)
+                    .orElseGet(AiPlanCache::new);
+
+            cache.setCacheKey(cacheKey);
+            cache.setResponseJson(objectMapper.writeValueAsString(response));
+            cache.setRecommendationMode(response.getRecommendationMode());
+            cache.setCreatedAt(LocalDateTime.now());
+            cache.setExpiresAt(LocalDateTime.now().plusDays(CACHE_TTL_DAYS));
+
+            cacheRepository.save(cache);
+        } catch (Exception e) {
+            logger.warn("Failed to save AI plan cache for key={}: {}", cacheKey, e.getMessage());
+        }
+    }
+
+    private String buildCacheKey(PlanAdvisorRequestDTO request) {
+        return String.join("|",
+                normalizeText(request.getServiceType()),
+                normalizeNumber(request.getMonthlyBudget()),
+                normalizeNumber(request.getNumberOfLines()),
+                normalizeNumber(request.getEstimatedDataGb()),
+                normalizeNumber(request.getEstimatedInternetSpeedMbps()),
+                normalizeNumber(request.getHouseholdSize()),
+                normalizeNumber(request.getConnectedDevices()),
+                normalizeBoolean(request.getNeedsInternationalCalling()),
+                normalizeBoolean(request.getNeedsHotspot()),
+                normalizeBoolean(request.getHeavyStreaming()),
+                normalizeText(request.getPriority()),
+                normalizeText(request.getInputMode()),
+                normalizeText(request.getUserPrompt())
+        );
+    }
+
+    private String normalizeText(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeNumber(Integer value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private String normalizeBoolean(Boolean value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private boolean isAiConfigured() {

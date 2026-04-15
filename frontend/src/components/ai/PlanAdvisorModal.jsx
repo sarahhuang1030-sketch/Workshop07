@@ -168,6 +168,21 @@ export default function PlanAdvisorModal({
         priority: formData.priority,
         userPrompt: formData.userPrompt?.trim() || null,
     });
+const containsObviousAbuse = (text) => {
+    if (!text) return false;
+
+    const normalized = text.toLowerCase();
+
+   const patterns = [
+       /\bkill all\b/,
+       /\bhate all\b/,
+       /\bdestroy all\b/,
+       /\ball (people|them) should (die|suffer)\b/,
+       /\b(kill|attack|hurt) (people|them)\b/
+   ];
+
+    return patterns.some((p) => p.test(normalized));
+};
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -183,6 +198,11 @@ export default function PlanAdvisorModal({
             setLoading(false);
             return;
         }
+    if (formData.inputMode === "PROMPT" && containsObviousAbuse(formData.userPrompt)) {
+        setError("Please keep your request respectful and appropriate.");
+        setLoading(false);
+        return;
+    }
 
         try {
             const payload = buildPayload();
@@ -193,7 +213,7 @@ export default function PlanAdvisorModal({
                 return;
             }
 
-            setLastPayload(payload);
+
 
             const res = await apiFetch("/api/ai/plan-advice", {
                 method: "POST",
