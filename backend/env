@@ -24,4 +24,6 @@ OPENWEATHER_API_KEY=972ccfb782f656e700ab5139fc71a53d
 
 stripe.secret.key=sk_test_51T6jBuLr4XDHMXI1xtzGW4JIHZ3c7EcKxuHH8q8ziGOwaXWFqcl6GL0qSKqEBseKfQ6narH0VoYjQFuYC83b9wTm00d55JZG0y
 
-AI_API_KEY=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
+ai.model=gemini-2.5-flash
+ai.api.url=https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent
+ai.api.key=AIzaSyCsKQ5cGW2kGgmyUi5YoS6BRwCbt5nEVjc

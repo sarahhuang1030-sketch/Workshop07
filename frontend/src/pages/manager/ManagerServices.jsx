@@ -11,6 +11,7 @@ import {
     Alert,
     Modal,
     Row,
+
     Col,
 } from "react-bootstrap";
 import { apiFetch } from "../../services/api";
@@ -671,14 +672,14 @@ export default function ManagerService({ darkMode = false }) {
                             </Col>
 
                             <Col md={6}>
-                                    <Form.Group>
-                                        <Form.Label>Assigned By</Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            value={currentUserName}
-                                            readOnly
-                                        />
-                                    </Form.Group>
+                                <Form.Group>
+                                    <Form.Label>Assigned By</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        value={currentUserName}
+                                        readOnly
+                                    />
+                                </Form.Group>
                             </Col>
 
                             <Col md={6}>
