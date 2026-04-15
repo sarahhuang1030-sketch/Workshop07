@@ -53,25 +53,52 @@ export default function SubscriptionPage({ darkMode = false }) {
                 const invoiceRes = await apiFetch("/api/invoices/latest");
                 if (invoiceRes.ok) {
                     const data = await invoiceRes.json();
-                    if (alive) setLatestInvoice(data);
+
+                    // 1. status must be PAID
+                    const isPaid = String(data?.status || "").toUpperCase() === "PAID";
+
+                    // 2. end date
+                    const endDateVal =
+                        data?.endDate ||
+                        addMonthsToDate(
+                            data?.startDate || data?.invoiceDate,
+                            null
+                        );
+                    const isNotExpired =
+                        endDateVal && endDateVal !== "—"
+                            ? new Date(endDateVal) > new Date()
+                            : false;
+
+                    if (alive && isPaid && isNotExpired) {
+                        setLatestInvoice(data);
+                    }
                 }
 
-                // /api/me/plans — may not exist; ignore errors gracefully
+                // /api/me/plans
                 try {
                     const plansRes = await apiFetch("/api/me/plans");
                     if (plansRes.ok) {
                         const plansData = await plansRes.json();
-                        let activePlan = null;
-                        if (Array.isArray(plansData)) {
-                            activePlan =
-                                plansData.find(p =>
-                                    p.isActive === true ||
-                                    p.active   === true ||
-                                    String(p.status || "").toLowerCase() === "active"
-                                ) || plansData[0] || null;
-                        } else if (plansData && typeof plansData === "object") {
-                            activePlan = plansData;
-                        }
+                        const list = Array.isArray(plansData) ? plansData : [plansData].filter(Boolean);
+
+                        const now = new Date();
+                        const activePlan =
+                            list.find(p => {
+                                const planStatus = String(p.status || "").toUpperCase();
+                                const isPlanPaid = planStatus === "PAID";
+
+                                const planEnd = p.endDate || addMonthsToDate(
+                                    p.startDate,
+                                    p.contractTermMonths || p.plan?.contractTermMonths
+                                );
+                                const planNotExpired =
+                                    planEnd && planEnd !== "—"
+                                        ? new Date(planEnd) > now
+                                        : false;
+
+                                return isPlanPaid && planNotExpired;
+                            }) || null;
+
                         if (alive) setCurrentPlan(activePlan);
                     }
                 } catch (_) { /* /api/me/plans is optional */ }

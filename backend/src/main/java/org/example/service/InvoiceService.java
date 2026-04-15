@@ -15,6 +15,7 @@ import org.example.entity.InvoiceItems;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -52,15 +53,20 @@ public class InvoiceService {
     }
 
     // STATUS
-    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_PENDING  = "PENDING";
     public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_PAID = "PAID";
+    public static final String STATUS_PAID     = "PAID";
+
+    // Yearly discount rate — 10%
+    private static final BigDecimal YEARLY_DISCOUNT_RATE = new BigDecimal("0.10");
 
     private String generateInvoiceNumber() {
         return "INV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
+    // ─────────────────────────────────────────────
     // CREATE INVOICE
+    // ─────────────────────────────────────────────
     @Transactional
     public Invoices createInvoice(InvoiceRequestDTO body) {
 
@@ -86,7 +92,7 @@ public class InvoiceService {
 
         Invoices savedInvoice = invoiceRepository.save(invoice);
 
-        // plan required
+        // plan is required
         Integer planId = body.getItems().stream()
                 .filter(i -> i != null && "plan".equalsIgnoreCase(i.getType()))
                 .map(ItemDTO::getId)
@@ -97,8 +103,16 @@ public class InvoiceService {
             throw new IllegalArgumentException("Plan is required in invoice items");
         }
 
-        // items
+        // ── Determine whether this is an annual billing cycle ──
+        // "yearly" or "annual" (case-insensitive) triggers the 10% discount.
+        // Devices (itemType = "device") are never discounted.
+        String invoiceBillingCycle = body.getBillingCycle();
+        boolean isYearlyInvoice = "yearly".equalsIgnoreCase(invoiceBillingCycle)
+                || "annual".equalsIgnoreCase(invoiceBillingCycle);
+
+        // ── Persist items ──
         for (ItemDTO item : body.getItems()) {
+
             if (item == null) continue;
 
             InvoiceItems entity = new InvoiceItems();
@@ -112,28 +126,31 @@ public class InvoiceService {
                 BigDecimal unitPrice = BigDecimal.valueOf(item.getPrice());
                 int qty = entity.getQuantity();
 
-
-                boolean isAnnual = "annual".equalsIgnoreCase(item.getBillingCycle())
-                        || "yearly".equalsIgnoreCase(item.getBillingCycle());
-
                 BigDecimal grossTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
 
-                BigDecimal discount = isAnnual
-                        ? grossTotal.multiply(BigDecimal.valueOf(0.10))
-                        .setScale(2, java.math.RoundingMode.HALF_UP)
+                // Devices are excluded from the yearly discount
+                boolean isDevice = "device".equalsIgnoreCase(item.getType());
+                boolean applyDiscount = isYearlyInvoice && !isDevice;
+
+                BigDecimal discount = applyDiscount
+                        ? grossTotal.multiply(YEARLY_DISCOUNT_RATE)
+                        .setScale(2, RoundingMode.HALF_UP)
                         : BigDecimal.ZERO;
 
-                BigDecimal lineTotal = grossTotal.subtract(discount);
+                BigDecimal lineTotal = grossTotal.subtract(discount)
+                        .setScale(2, RoundingMode.HALF_UP);
 
                 entity.setUnitPrice(unitPrice);
-                entity.setDiscountAmount(discount);
-                entity.setLineTotal(lineTotal);
+                entity.setDiscountAmount(discount);   // correctly stored — no longer always ZERO
+                entity.setLineTotal(lineTotal);        // after-discount total
+            } else {
+                entity.setDiscountAmount(BigDecimal.ZERO);
             }
 
             invoiceItemRepository.save(entity);
         }
 
-        // subscription
+        // ── Subscription ──
         Subscription subscription = new Subscription();
         subscription.setCustomerId(body.getCustomerId());
         subscription.setPlanId(planId);
@@ -142,7 +159,7 @@ public class InvoiceService {
 
         Subscription savedSubscription = subscriptionRepository.save(subscription);
 
-        // addons
+        // ── Add-ons ──
         body.getItems().stream()
                 .filter(i -> i != null && "addon".equalsIgnoreCase(i.getType()))
                 .forEach(item -> {
@@ -154,7 +171,7 @@ public class InvoiceService {
                     subscriptionAddOnRepository.save(addon);
                 });
 
-        // payment account
+        // ── Payment account ──
         if (body.getPaymentAccountId() != null) {
             paymentAccountRepository.findById(body.getPaymentAccountId())
                     .ifPresent(account -> {
@@ -166,7 +183,9 @@ public class InvoiceService {
         return savedInvoice;
     }
 
+    // ─────────────────────────────────────────────
     // CREATE FROM QUOTE
+    // ─────────────────────────────────────────────
     @Transactional
     public Invoices createFromQuote(Quote q) {
 
@@ -184,12 +203,12 @@ public class InvoiceService {
             inv.setQuoteId(q.getId());
         } catch (Exception ignored) {}
 
-        Invoices saved = invoiceRepository.save(inv);
-
-        return saved;
+        return invoiceRepository.save(inv);
     }
 
+    // ─────────────────────────────────────────────
     // UPDATE
+    // ─────────────────────────────────────────────
     @Transactional
     public Invoices updateInvoice(String invoiceNumber, InvoiceRequestDTO body) {
 
@@ -207,7 +226,9 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
+    // ─────────────────────────────────────────────
     // DELETE
+    // ─────────────────────────────────────────────
     @Transactional
     public boolean deleteInvoice(String invoiceNumber) {
 
@@ -222,7 +243,9 @@ public class InvoiceService {
         return true;
     }
 
+    // ─────────────────────────────────────────────
     // APPROVE
+    // ─────────────────────────────────────────────
     public Invoices approveInvoice(String invoiceNumber) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -236,7 +259,9 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
+    // ─────────────────────────────────────────────
     // MARK PAID
+    // ─────────────────────────────────────────────
     public Invoices markAsPaid(String invoiceNumber, Integer paymentAccountId) {
 
         Invoices inv = invoiceRepository.findByInvoiceNumber(invoiceNumber);
@@ -255,27 +280,29 @@ public class InvoiceService {
         return invoiceRepository.save(inv);
     }
 
+    // ─────────────────────────────────────────────
     // DTO
+    // ─────────────────────────────────────────────
     public InvoiceDTO convertToDTO(Invoices invoice) {
 
         InvoiceDTO dto = new InvoiceDTO();
 
         dto.invoiceNumber = invoice.getInvoiceNumber();
-        dto.status = invoice.getStatus();
+        dto.status        = invoice.getStatus();
 
         dto.issueDate = invoice.getIssueDate() != null ? invoice.getIssueDate().toString() : null;
-        dto.dueDate = invoice.getDueDate() != null ? invoice.getDueDate().toString() : null;
+        dto.dueDate   = invoice.getDueDate()   != null ? invoice.getDueDate().toString()   : null;
 
         if (invoice.getSubscriptionId() != null) {
             subscriptionRepository.findById(invoice.getSubscriptionId()).ifPresent(sub -> {
                 dto.startDate = sub.getStartDate() != null ? sub.getStartDate().toString() : null;
-                dto.endDate = sub.getEndDate() != null ? sub.getEndDate().toString() : null;
+                dto.endDate   = sub.getEndDate()   != null ? sub.getEndDate().toString()   : null;
             });
         }
 
         dto.subtotal = BigDecimal.valueOf(invoice.getSubtotal() == null ? 0.0 : invoice.getSubtotal());
         dto.taxTotal = BigDecimal.valueOf(invoice.getTaxTotal() == null ? 0.0 : invoice.getTaxTotal());
-        dto.total = BigDecimal.valueOf(invoice.getTotal() == null ? 0.0 : invoice.getTotal());
+        dto.total    = BigDecimal.valueOf(invoice.getTotal()    == null ? 0.0 : invoice.getTotal());
 
         Customer customer = invoice.getCustomerId() != null
                 ? customerRepository.findById(invoice.getCustomerId()).orElse(null)
@@ -291,19 +318,18 @@ public class InvoiceService {
                 .stream()
                 .map(i -> {
                     InvoiceDTO.InvoiceItemDTO itemDTO = new InvoiceDTO.InvoiceItemDTO();
-                    itemDTO.description = i.getDescription();
-                    itemDTO.quantity = i.getQuantity();
-                    itemDTO.unitPrice = i.getUnitPrice();
+                    itemDTO.description    = i.getDescription();
+                    itemDTO.quantity       = i.getQuantity();
+                    itemDTO.unitPrice      = i.getUnitPrice();
                     itemDTO.discountAmount = i.getDiscountAmount();
-                    itemDTO.lineTotal = i.getLineTotal();
-                    itemDTO.itemType = i.getItemType();
-                    itemDTO.serviceType = i.getServiceType();
+                    itemDTO.lineTotal      = i.getLineTotal();
+                    itemDTO.itemType       = i.getItemType();
+                    itemDTO.serviceType    = i.getServiceType();
                     return itemDTO;
                 })
                 .toList();
 
         PaymentAccounts account = invoice.getPaidByAccount();
-
         InvoiceDTO.PaymentAccountDTO paid = new InvoiceDTO.PaymentAccountDTO();
         if (account != null) {
             paid.setMethod(account.getMethod());
@@ -312,13 +338,14 @@ public class InvoiceService {
         } else {
             paid.setMethod("Online Payment");
         }
-
         dto.paidByAccount = paid;
 
         return dto;
     }
 
+    // ─────────────────────────────────────────────
     // FINDERS
+    // ─────────────────────────────────────────────
     public List<Invoices> findAllInvoices() {
         return invoiceRepository.findAll();
     }
@@ -331,10 +358,6 @@ public class InvoiceService {
         return invoiceRepository.findTopByCustomerIdOrderByIssueDateDescInvoiceIdDesc(customerId);
     }
 
-//    public Invoices findLatestByCustomerId(Integer customerId) {
-//        return invoiceRepository.findTopByCustomerIdOrderByIssueDateDesc(customerId);
-//    }
-
     public Invoices findByInvoiceNumber(String invoiceNumber) {
         return invoiceRepository.findByInvoiceNumber(invoiceNumber);
     }
@@ -343,13 +366,11 @@ public class InvoiceService {
         return invoiceRepository.findByIssueDateBetween(start, end);
     }
 
-    // find By Employee Id This Month
     public List<Invoices> findByEmployeeIdThisMonth(Integer employeeId) {
         if (employeeId == null) return List.of();
 
         LocalDate start = LocalDate.now().withDayOfMonth(1);
-        LocalDate end   = LocalDate.now().withDayOfMonth(
-                LocalDate.now().lengthOfMonth());
+        LocalDate end   = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
 
         List<Integer> subIds = subscriptionRepository
                 .findByEmployeeIdAndDateRange(employeeId, start, end)
