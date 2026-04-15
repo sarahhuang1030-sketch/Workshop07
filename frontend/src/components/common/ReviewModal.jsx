@@ -1,4 +1,4 @@
-import { Modal, Button, Form, Row, Col } from "react-bootstrap";
+import { Modal, Button, Form, Row, Col, Alert, Spinner } from "react-bootstrap";
 import { useEffect, useState } from "react";
 
 export default function ReviewModal({
@@ -15,6 +15,9 @@ export default function ReviewModal({
         rating: 5,
     });
 
+    const [error, setError] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+
     useEffect(() => {
         if (!show) return;
 
@@ -29,6 +32,9 @@ export default function ReviewModal({
             review: "",
             rating: 5,
         });
+
+        setError("");
+        setSubmitting(false);
     }, [show, user, customerPlans]);
 
     const handleChange = (e) => {
@@ -39,41 +45,84 @@ export default function ReviewModal({
         }));
     };
 
-    const handleSubmit = () => {
-        if (!formData.name || !formData.review || !formData.selectedTarget) return;
+    const validateReviewWithAI = async (reviewText) => {
+        try {
+            const response = await fetch("/api/reviews/validate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text: reviewText }),
+            });
 
-        const selectedPlan =
-            formData.selectedTarget === "company"
-                ? null
-                : customerPlans.find(
-                    (plan) =>
-                        String(plan.planId ?? plan.id) === String(formData.selectedTarget)
-                );
+            const data = await response.json();
 
-        onSubmit({
-            id: Date.now(),
-            name: formData.name,
-            role:
-                selectedPlan?.planName ||
-                selectedPlan?.name ||
-                "SJY Telecom Customer",
-            review: formData.review,
-            rating: formData.rating,
-            targetType: selectedPlan ? "plan" : "company",
-            targetId: selectedPlan ? String(selectedPlan.planId ?? selectedPlan.id) : null,
-            targetLabel: selectedPlan
-                ? selectedPlan.planName || selectedPlan.name
-                : "SJY Telecom",
-        });
+            console.log("VALIDATION RESPONSE:", data); // 👈 add this
 
-        setFormData({
-            name: "",
-            selectedTarget: "company",
-            review: "",
-            rating: 5,
-        });
+            return data;
+        } catch (err) {
+            console.error("VALIDATION ERROR:", err); // 👈 add this
+            throw err;
+        }
+    };
 
-        onClose();
+    const handleSubmit = async () => {
+        if (!formData.name || !formData.review.trim() || !formData.selectedTarget) {
+            setError("Please fill in all required fields.");
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            setError("");
+
+            const validation = await validateReviewWithAI(formData.review);
+
+            if (!validation.safe) {
+                setError(validation.message || "Your review contains inappropriate content.");
+                setSubmitting(false);
+                return;
+            }
+
+            const cleanedReview = validation.sanitizedText || formData.review;
+
+            const selectedPlan =
+                formData.selectedTarget === "company"
+                    ? null
+                    : customerPlans.find(
+                        (plan) =>
+                            String(plan.planId ?? plan.id) === String(formData.selectedTarget)
+                    );
+
+            onSubmit({
+                id: Date.now(),
+                name: formData.name,
+                role:
+                    selectedPlan?.planName ||
+                    selectedPlan?.name ||
+                    "SJY Telecom Customer",
+                review: cleanedReview,
+                rating: formData.rating,
+                targetType: selectedPlan ? "plan" : "company",
+                targetId: selectedPlan ? String(selectedPlan.planId ?? selectedPlan.id) : null,
+                targetLabel: selectedPlan
+                    ? selectedPlan.planName || selectedPlan.name
+                    : "SJY Telecom",
+            });
+
+            setFormData({
+                name: "",
+                selectedTarget: "company",
+                review: "",
+                rating: 5,
+            });
+
+            onClose();
+        } catch (err) {
+            setError(err.message || "Something went wrong while validating the review.");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -138,18 +187,34 @@ export default function ReviewModal({
                                 placeholder="Write your review..."
                                 value={formData.review}
                                 onChange={handleChange}
+                                maxLength={1000}
                             />
                         </Col>
+
+                        {error && (
+                            <Col xs={12}>
+                                <Alert variant="danger" className="mb-0">
+                                    {error}
+                                </Alert>
+                            </Col>
+                        )}
                     </Row>
                 </Form>
             </Modal.Body>
 
             <Modal.Footer>
-                <Button variant="secondary" onClick={onClose}>
+                <Button variant="secondary" onClick={onClose} disabled={submitting}>
                     Cancel
                 </Button>
-                <Button onClick={handleSubmit}>
-                    Submit
+                <Button onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? (
+                        <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            Validating...
+                        </>
+                    ) : (
+                        "Submit"
+                    )}
                 </Button>
             </Modal.Footer>
         </Modal>
