@@ -49,26 +49,22 @@ export default function CheckoutPage() {
     });
     const [addressLoaded, setAddressLoaded]     = useState(false);
     const [postalCodeError, setPostalCodeError] = useState("");
-    const [postalCodeTouched, setPostalCodeTouched] = useState(false); // true only after user edits the field
+    const [postalCodeTouched, setPostalCodeTouched] = useState(false);
 
     /* =========================
        POSTAL CODE HELPERS
-       Canadian format: A1A 1A1
     ========================= */
-
-    // Strip non-alphanumeric, uppercase, insert space after 3rd char
     const formatPostalCode = (raw) => {
         const clean = raw.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6);
         return clean.length > 3 ? clean.slice(0, 3) + " " + clean.slice(3) : clean;
     };
 
-    // Full Canadian postal code: L D L (space) D L D
     const POSTAL_REGEX = /^[A-Z]\d[A-Z] \d[A-Z]\d$/;
 
     const handlePostalCodeChange = (e) => {
         const formatted = formatPostalCode(e.target.value);
         setBillingAddress((prev) => ({ ...prev, postalCode: formatted }));
-        setPostalCodeTouched(true); // mark dirty so green border can appear
+        setPostalCodeTouched(true);
         if (postalCodeError) setPostalCodeError("");
     };
 
@@ -215,7 +211,6 @@ export default function CheckoutPage() {
         if (!billingAddress.street1 || !billingAddress.city || !billingAddress.postalCode)
             return alert("Please complete your billing address.");
 
-        // Validate Canadian postal code format A1A 1A1
         const POSTAL_RE = /^[A-Z]\d[A-Z] \d[A-Z]\d$/;
         if (!POSTAL_RE.test(billingAddress.postalCode.trim())) {
             setPostalCodeError("Must be in format A1A 1A1 (e.g. M5V 3A8).");
@@ -239,26 +234,69 @@ export default function CheckoutPage() {
             });
             if (result.error) { alert(result.error.message); return; }
 
+            /* =========================
+               BUILD CHECKOUT ITEMS
+               FIX: billingCycle, discountAmount and correct lineTotal
+               are now set on every recurring item.
+            ========================= */
+            const isYearly = billingCycle === "yearly" && pricing.hasRecurringItems;
             const checkoutItems = [];
-            plans.forEach(p => checkoutItems.push({
-                description: p.name, quantity: p.lines || 1,
-                unitPrice: p.pricePerLine || p.totalPrice || p.price || 0,
-                lineTotal: p.totalPrice || p.price || 0, itemType: "plan",
-                serviceType: p.serviceType, id: p.planId,
-                subscribers: p.subscribers?.map(s => s.fullName) || [],
-            }));
-            addOns.forEach(a => checkoutItems.push({
-                description: a.addOnName, quantity: 1,
-                unitPrice: a.monthlyPrice || a.price || 0,
-                lineTotal: a.monthlyPrice || a.price || 0,
-                itemType: "addon", serviceType: a.serviceType, id: a.addOnId,
-            }));
-            devices.forEach(d => checkoutItems.push({
-                description: `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
-                quantity: 1, unitPrice: d.totalPrice || 0, lineTotal: d.totalPrice || 0,
-                itemType: "device", phoneId: d.phoneId || d.id,
-                pricingType: d.pricingType, subscribers: [d.assignedSubscriberName],
-            }));
+
+            plans.forEach(p => {
+                const unitPrice  = p.pricePerLine || p.totalPrice || p.price || 0;
+                const qty        = p.lines || 1;
+                const gross      = unitPrice * qty * (isYearly ? 12 : 1);
+                const discount   = isYearly ? parseFloat((gross * 0.10).toFixed(2)) : 0;
+                const lineTotal  = parseFloat((gross - discount).toFixed(2));
+
+                checkoutItems.push({
+                    description:    p.name,
+                    quantity:       qty,
+                    unitPrice:      isYearly ? unitPrice * 12 : unitPrice,
+                    discountAmount: discount,
+                    lineTotal:      lineTotal,
+                    itemType:       "plan",
+                    serviceType:    p.serviceType,
+                    id:             p.planId,
+                    billingCycle:   billingCycle,
+                    subscribers:    p.subscribers?.map(s => s.fullName) || [],
+                });
+            });
+
+            addOns.forEach(a => {
+                const unitPrice  = a.monthlyPrice || a.price || 0;
+                const gross      = unitPrice * (isYearly ? 12 : 1);
+                const discount   = isYearly ? parseFloat((gross * 0.10).toFixed(2)) : 0;
+                const lineTotal  = parseFloat((gross - discount).toFixed(2));
+
+                checkoutItems.push({
+                    description:    a.addOnName,
+                    quantity:       1,
+                    unitPrice:      isYearly ? unitPrice * 12 : unitPrice,
+                    discountAmount: discount,
+                    lineTotal:      lineTotal,
+                    itemType:       "addon",
+                    serviceType:    a.serviceType,
+                    id:             a.addOnId,
+                    billingCycle:   billingCycle,
+                });
+            });
+
+            devices.forEach(d => {
+                const unitPrice = d.totalPrice || 0;
+                checkoutItems.push({
+                    description:    `${d.brand} ${d.model} (${d.storage}, ${d.color})`,
+                    quantity:       1,
+                    unitPrice:      unitPrice,
+                    discountAmount: 0,           // devices are never discounted
+                    lineTotal:      unitPrice,
+                    itemType:       "device",
+                    phoneId:        d.phoneId || d.id,
+                    pricingType:    d.pricingType,
+                    billingCycle:   billingCycle,
+                    subscribers:    [d.assignedSubscriberName],
+                });
+            });
 
             const invoiceRes = await apiFetch("/api/checkout/v1", {
                 method: "POST",
@@ -304,7 +342,6 @@ export default function CheckoutPage() {
                 }}
             >
                 <div style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
-                    {/* Success icon circle */}
                     <div
                         style={{
                             width: 80, height: 80, borderRadius: "50%",
@@ -375,7 +412,6 @@ export default function CheckoutPage() {
         >
             <Container style={{ maxWidth: 680 }}>
 
-                {/* ── Page title ── */}
                 <div className="mb-4">
                     <div className="tc-section-chip tc-section-chip-light mb-2">Secure Checkout</div>
                     <h2 className="fw-bold mb-0" style={{ fontSize: "clamp(1.6rem, 3vw, 2rem)" }}>
@@ -383,7 +419,6 @@ export default function CheckoutPage() {
                     </h2>
                 </div>
 
-                {/* ── Loading spinner ── */}
                 {loadingInvoice && (
                     <div className="text-center mb-4">
                         <Spinner animation="border" variant="primary" />
@@ -401,7 +436,6 @@ export default function CheckoutPage() {
                             <SectionLabel icon="🔁">Billing Cycle</SectionLabel>
 
                             <div className="d-flex gap-3 flex-wrap">
-                                {/* Monthly option */}
                                 <label
                                     className="d-flex align-items-start gap-3 flex-fill p-3"
                                     style={{
@@ -424,7 +458,6 @@ export default function CheckoutPage() {
                                     </div>
                                 </label>
 
-                                {/* Yearly option */}
                                 <label
                                     className="d-flex align-items-start gap-3 flex-fill p-3"
                                     style={{
@@ -444,7 +477,6 @@ export default function CheckoutPage() {
                                     <div>
                                         <div className="fw-semibold d-flex align-items-center gap-2" style={{ fontSize: "0.95rem" }}>
                                             Yearly
-                                            {/* tc-badge-hot: yellow→orange gradient chip */}
                                             <span
                                                 className="tc-badge-hot px-2 py-0"
                                                 style={{ fontSize: "0.65rem", borderRadius: "999px", fontWeight: 700, letterSpacing: "0.5px" }}
@@ -461,10 +493,7 @@ export default function CheckoutPage() {
                 )}
 
                 {/* ── Province ── */}
-                <Card
-                    className="mb-3 border-0 shadow-sm"
-                    style={{ borderRadius: "1rem" }}
-                >
+                <Card className="mb-3 border-0 shadow-sm" style={{ borderRadius: "1rem" }}>
                     <Card.Body className="p-4">
                         <SectionLabel icon="📍">Province</SectionLabel>
                         <Form.Select
@@ -482,10 +511,7 @@ export default function CheckoutPage() {
                 </Card>
 
                 {/* ── Billing Address ── */}
-                <Card
-                    className="mb-3 border-0 shadow-sm"
-                    style={{ borderRadius: "1rem" }}
-                >
+                <Card className="mb-3 border-0 shadow-sm" style={{ borderRadius: "1rem" }}>
                     <Card.Body className="p-4">
                         <SectionLabel icon="🏠">Billing Address</SectionLabel>
 
@@ -544,10 +570,10 @@ export default function CheckoutPage() {
                                     onBlur={handlePostalCodeBlur}
                                     maxLength={7}
                                     isInvalid={!!postalCodeError}
-                                    isValid={postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode)}
+                                    isValid={postalCodeTouched && !postalCodeError && POSTAL_REGEX.test(billingAddress.postalCode)}
                                     style={{
                                         borderRadius: "0.6rem",
-                                        border: `1.5px solid ${postalCodeError ? "#ef4444" : postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode) ? "#22c55e" : "#e5e7eb"}`,
+                                        border: `1.5px solid ${postalCodeError ? "#ef4444" : postalCodeTouched && !postalCodeError && POSTAL_REGEX.test(billingAddress.postalCode) ? "#22c55e" : "#e5e7eb"}`,
                                         fontFamily: "monospace",
                                         letterSpacing: "0.08em",
                                         textTransform: "uppercase",
@@ -558,7 +584,7 @@ export default function CheckoutPage() {
                                         <span>⚠</span> {postalCodeError}
                                     </div>
                                 )}
-                                {postalCodeTouched && !postalCodeError && /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(billingAddress.postalCode) && (
+                                {postalCodeTouched && !postalCodeError && POSTAL_REGEX.test(billingAddress.postalCode) && (
                                     <div style={{ fontSize: "0.75rem", color: "#16a34a", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
                                         <span>✓</span> Valid Canadian postal code
                                     </div>
@@ -568,11 +594,8 @@ export default function CheckoutPage() {
                     </Card.Body>
                 </Card>
 
-                {/* ── Payment Card (unchanged component) ── */}
-                <Card
-                    className="mb-3 border-0 shadow-sm"
-                    style={{ borderRadius: "1rem", overflow: "hidden" }}
-                >
+                {/* ── Payment Card ── */}
+                <Card className="mb-3 border-0 shadow-sm" style={{ borderRadius: "1rem", overflow: "hidden" }}>
                     <Card.Body className="p-4">
                         <SectionLabel icon="💳">Payment Method</SectionLabel>
                         <PaymentCardUI onCardSelect={setPaymentMethod} />
@@ -580,14 +603,10 @@ export default function CheckoutPage() {
                 </Card>
 
                 {/* ── Order Summary ── */}
-                <Card
-                    className="mb-4 border-0 shadow-sm"
-                    style={{ borderRadius: "1rem", overflow: "hidden" }}
-                >
+                <Card className="mb-4 border-0 shadow-sm" style={{ borderRadius: "1rem", overflow: "hidden" }}>
                     <Card.Body className="p-4">
                         <SectionLabel icon="🧾">Order Summary</SectionLabel>
 
-                        {/* Yearly breakdown rows */}
                         {billingCycle === "yearly" && pricing.hasRecurringItems && (
                             <>
                                 <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
@@ -611,13 +630,11 @@ export default function CheckoutPage() {
                             </>
                         )}
 
-                        {/* Subtotal */}
                         <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
                             <span className="tc-muted-light">Subtotal</span>
                             <span className="fw-semibold">${pricing.subtotal.toFixed(2)}</span>
                         </div>
 
-                        {/* Tax */}
                         <div className="d-flex justify-content-between mb-2" style={{ fontSize: "0.9rem" }}>
                             <span className="tc-muted-light">
                                 Tax ({((PROVINCE_TAX[province] || 0.13) * 100).toFixed(2)}%)
@@ -625,7 +642,6 @@ export default function CheckoutPage() {
                             <span className="fw-semibold">${pricing.tax.toFixed(2)}</span>
                         </div>
 
-                        {/* Divider + Total */}
                         <hr style={{ borderColor: "#f3f4f6", margin: "0.75rem 0" }} />
                         <div
                             className="d-flex justify-content-between align-items-center px-3 py-3"
@@ -678,7 +694,6 @@ export default function CheckoutPage() {
                     🔒 Pay ${(pricing.finalTotal ?? 0).toFixed(2)}
                 </Button>
 
-                {/* ── Trust badges ── */}
                 <div
                     className="d-flex justify-content-center gap-4 mt-3"
                     style={{ fontSize: "0.78rem", color: "#9ca3af" }}

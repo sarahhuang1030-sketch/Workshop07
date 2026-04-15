@@ -398,12 +398,11 @@ export function BillingModal({
                         {/* COUNTRY */}
                         <Form.Group className="mb-3">
                             <Form.Label>Country</Form.Label>
-                            <Form.Select
-                                value={draft.country}
-                                onChange={(e) => updateField("country", e.target.value)}
-                            >
-                                <option>Canada</option>
-                            </Form.Select>
+                            <Form.Control
+                                type="text"
+                                value="Canada"
+                                readOnly
+                            />
                         </Form.Group>
                     </>
                 )}
