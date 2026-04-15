@@ -1,780 +1,548 @@
 import React, { useEffect, useState } from "react";
 import {
-    Container,
-    Card,
-    Table,
-    Button,
-    Modal,
-    Form,
-    Row,
-    Col,
-    Alert,
-    Spinner,
+    Container, Card, Table, Form, Button, Spinner,
+    Modal, Row, Col, Alert
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../services/api";
-import {
-    digitsOnly,
-    formatPhoneFromDigits,
-    formatPostalCode,
-    postalCodeCA,
-} from "../validation/Validation";
 
-const emptyForm = {
-    customerType: "Individual",
-    firstName: "",
-    lastName: "",
-    businessName: "",
-    email: "",
-    homePhone: "",
-    status: "Active",
-
-    sameAsBilling: true,
-
-    billingStreet1: "",
-    billingStreet2: "",
-    billingCity: "",
-    billingProvince: "",
-    billingPostalCode: "",
-    billingCountry: "Canada",
-
-    serviceStreet1: "",
-    serviceStreet2: "",
-    serviceCity: "",
-    serviceProvince: "",
-    servicePostalCode: "",
-    serviceCountry: "Canada",
+// Canada Province → City mapping
+const provinceCityMap = {
+    Alberta: ["Calgary", "Edmonton", "Red Deer", "Lethbridge"],
+    "British Columbia": ["Vancouver", "Victoria", "Surrey", "Burnaby"],
+    Manitoba: ["Winnipeg", "Brandon"],
+    "New Brunswick": ["Fredericton", "Moncton"],
+    "Newfoundland and Labrador": ["St. John's", "Corner Brook"],
+    "Nova Scotia": ["Halifax", "Sydney"],
+    Ontario: ["Toronto", "Ottawa", "Mississauga", "Hamilton"],
+    "Prince Edward Island": ["Charlottetown"],
+    Quebec: ["Montreal", "Quebec City", "Laval"],
+    Saskatchewan: ["Saskatoon", "Regina"],
+    "Northwest Territories": ["Yellowknife"],
+    Nunavut: ["Iqaluit"],
+    Yukon: ["Whitehorse"]
 };
 
-export default function ManagerUsers({ darkMode = false }) {
-    const [customers, setCustomers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+// Empty form
+const emptyDraft = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    homePhone: "",
+    street1: "",
+    street2: "",
+    city: "",
+    province: "",
+    postalCode: "",
+    country: "Canada",
+    customerType: "",
+};
 
-    const [showModal, setShowModal] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    const [form, setForm] = useState(emptyForm);
+// Phone formatter
+const formatPhone = (value) => {
+    if (!value) return "";
+
+    const numbers = value.replace(/\D/g, "").slice(0, 10);
+    const match = numbers.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+
+    let result = "";
+
+    if (match[1]) result = `(${match[1]}`;
+    if (match[1]?.length === 3) result += ") ";
+    if (match[2]) result += match[2];
+    if (match[2]?.length === 3) result += "-";
+    if (match[3]) result += match[3];
+
+    return result;
+};
+
+// Canadian postal code formatter (AUTO FORMAT)
+const formatPostalCode = (value) => {
+    if (!value) return "";
+
+    // Remove all non-alphanumeric characters
+    let cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+    // Limit to 6 characters
+    cleaned = cleaned.slice(0, 6);
+
+    // Insert space after 3rd character
+    if (cleaned.length > 3) {
+        return cleaned.slice(0, 3) + " " + cleaned.slice(3);
+    }
+
+    return cleaned;
+};
+
+// Canadian postal code validation (A1A 1A1)
+const isValidPostalCode = (code) => {
+    return /^[A-Z]\d[A-Z] \d[A-Z]\d$/.test(code);
+};
+
+
+export default function SalesCustomers() {
 
     const navigate = useNavigate();
+
+    const [customers, setCustomers] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
 
+    const [showModal, setShowModal] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+    const [draft, setDraft] = useState(emptyDraft);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+
+    const [showTempPwdModal, setShowTempPwdModal] = useState(false);
+    const [tempPwdData, setTempPwdData] = useState(null);
+
+    const [copySuccess, setCopySuccess] = useState(false);
+    const [jsonError, setJsonError] = useState("");
+
+    // Load customers
+    useEffect(() => {
+        loadCustomers();
+    }, []);
+
     const loadCustomers = async () => {
+        setLoading(true);
+        setError("");
+
         try {
-            setLoading(true);
-            setError("");
-
-            const res = await apiFetch("/api/manager/customers");
-
-            if (!res.ok) {
-                throw new Error(`Failed to load customers: ${res.status}`);
-            }
+            const res = await apiFetch("/api/customers/all");
+            if (!res.ok) throw new Error("Failed to load customers");
 
             const data = await res.json();
-            setCustomers(data);
-        } catch (err) {
-            console.error(err);
+
+            setCustomers(
+                data.map(c => ({
+                    customerId: c.customerId ?? c.CustomerId,
+                    firstName: c.firstName ?? c.FirstName,
+                    lastName: c.lastName ?? c.LastName,
+                    email: c.email ?? c.Email,
+                    homePhone: c.homePhone ?? c.HomePhone,
+                    customerType: c.customerType ?? "",
+                }))
+            );
+        } catch (e) {
+            console.error(e);
             setError("Unable to load customers.");
         } finally {
             setLoading(false);
         }
     };
 
-    const loadCustomerAddresses = async (customerId) => {
-        const res = await apiFetch(`/api/manager/customers/${customerId}/address`);
-
-        if (res.status === 404) return [];
-        if (!res.ok) throw new Error(`Failed to load addresses: ${res.status}`);
-
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-    };
-
-    useEffect(() => {
-        loadCustomers();
-    }, []);
-
+    // Create
     const openCreate = () => {
-        setEditingId(null);
-        setForm({ ...emptyForm });
+        setSelectedCustomer(null);
+        setDraft(emptyDraft);
         setShowModal(true);
-    };
-
-    const openEdit = async (customer) => {
-        try {
-            setError("");
-
-            const addresses = await loadCustomerAddresses(customer.customerId);
-
-            const billing = addresses.find(
-                (a) => (a.addressType || "").toLowerCase() === "billing"
-            );
-
-            const service = addresses.find(
-                (a) => (a.addressType || "").toLowerCase() === "service"
-            );
-
-            const sameAsBilling = !service;
-
-            setEditingId(customer.customerId);
-            setForm({
-                customerType: customer.customerType ?? "Individual",
-                firstName: customer.firstName ?? "",
-                lastName: customer.lastName ?? "",
-                businessName: customer.businessName ?? "",
-                email: customer.email ?? "",
-                homePhone: formatPhoneFromDigits(digitsOnly(customer.homePhone ?? "")),
-                status: customer.status ?? "Active",
-
-                sameAsBilling,
-
-                billingStreet1: billing?.street1 ?? "",
-                billingStreet2: billing?.street2 ?? "",
-                billingCity: billing?.city ?? "",
-                billingProvince: billing?.province ?? "",
-                billingPostalCode: formatPostalCode(billing?.postalCode ?? ""),
-                billingCountry: billing?.country ?? "Canada",
-
-                serviceStreet1: service?.street1 ?? "",
-                serviceStreet2: service?.street2 ?? "",
-                serviceCity: service?.city ?? "",
-                serviceProvince: service?.province ?? "",
-                servicePostalCode: formatPostalCode(service?.postalCode ?? ""),
-                serviceCountry: service?.country ?? "Canada",
-            });
-
-            setShowModal(true);
-        } catch (err) {
-            console.error(err);
-            setError("Unable to load customer details.");
-        }
-    };
-
-    const closeModal = () => {
-        if (saving) return;
-        setShowModal(false);
         setError("");
     };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-
-        setForm((prev) => {
-            let nextValue = type === "checkbox" ? checked : value;
-
-            if (name === "homePhone") {
-                nextValue = formatPhoneFromDigits(digitsOnly(value));
-            }
-
-            if (name === "billingPostalCode" || name === "servicePostalCode") {
-                nextValue = formatPostalCode(value);
-            }
-
-            const next = {
-                ...prev,
-                [name]: nextValue,
-            };
-
-            if (name === "customerType" && value !== "Business") {
-                next.businessName = "";
-            }
-
-            return next;
-        });
-    };
-
-    const saveAddress = async (customerId, addressType, payload) => {
-        const res = await apiFetch(`/api/manager/customers/${customerId}/address`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                addressType,
-                street1: payload.street1,
-                street2: payload.street2 || null,
-                city: payload.city,
-                province: payload.province,
-                postalCode: payload.postalCode,
-                country: payload.country,
-                isPrimary: 1,
-            }),
-        });
-
-        if (!res.ok) {
-            throw new Error(`${addressType} address save failed: ${res.status}`);
-        }
-    };
-
-    const deleteServiceAddress = async (customerId) => {
-        const res = await apiFetch(`/api/manager/customers/${customerId}/address/Service`, {
-            method: "DELETE",
-        });
-
-        if (!res.ok && res.status !== 404) {
-            throw new Error(`Delete service address failed: ${res.status}`);
-        }
-    };
-
-    const validateCustomerForm = () => {
-        if (!form.customerType?.trim()) return "Customer type is required.";
-        if (!form.status?.trim()) return "Status is required.";
-        if (!form.firstName?.trim()) return "First name is required.";
-        if (!form.lastName?.trim()) return "Last name is required.";
-
-        if (form.customerType === "Business" && !form.businessName?.trim()) {
-            return "Business name is required.";
-        }
-
-        if (!form.email?.trim()) return "Email is required.";
-
-        if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(form.email.trim())) {
-            return "Enter a valid email address (e.g., name@email.com).";
-        }
-
-        const phoneDigits = digitsOnly(form.homePhone);
-        if (!phoneDigits) return "Phone is required.";
-        if (phoneDigits.length !== 10) {
-            return "Phone must be 10 digits (e.g., (403) 555-1234).";
-        }
-
-        if (!form.billingStreet1?.trim()) return "Billing street 1 is required.";
-        if (!form.billingCity?.trim()) return "Billing city is required.";
-        if (!form.billingProvince?.trim()) return "Billing province is required.";
-        if (!form.billingCountry?.trim()) return "Billing country is required.";
-        if (!form.billingPostalCode?.trim()) return "Billing postal code is required.";
-
-        if (
-            form.billingCountry?.trim().toLowerCase() === "canada" &&
-            !postalCodeCA.test(form.billingPostalCode.trim())
-        ) {
-            return "Enter a valid billing postal code (e.g., T2P 1A1).";
-        }
-
-        if (!form.sameAsBilling) {
-            if (!form.serviceStreet1?.trim()) return "Service street 1 is required.";
-            if (!form.serviceCity?.trim()) return "Service city is required.";
-            if (!form.serviceProvince?.trim()) return "Service province is required.";
-            if (!form.serviceCountry?.trim()) return "Service country is required.";
-            if (!form.servicePostalCode?.trim()) return "Service postal code is required.";
-
-            if (
-                form.serviceCountry?.trim().toLowerCase() === "canada" &&
-                !postalCodeCA.test(form.servicePostalCode.trim())
-            ) {
-                return "Enter a valid service postal code (e.g., T2P 1A1).";
-            }
-        }
-
-        return "";
-    };
-
-    const handleSave = async (e) => {
-        e.preventDefault();
+    // Edit
+    const openModal = async (customerId) => {
+        setError("");
 
         try {
-            setSaving(true);
-            setError("");
+            const res = await apiFetch(`/api/customers/${customerId}/detail`);
+            if (!res.ok) throw new Error("Failed to load customer");
 
-            const validationMessage = validateCustomerForm();
-            if (validationMessage) {
-                setError(validationMessage);
-                setSaving(false);
-                return;
-            }
+            const data = await res.json();
 
-            const url = editingId
-                ? `/api/manager/customers/${editingId}`
-                : "/api/manager/customers";
+            setSelectedCustomer({ customerId });
 
-            const method = editingId ? "PUT" : "POST";
+            setDraft({
+                firstName: data.firstName ?? "",
+                lastName: data.lastName ?? "",
+                email: data.email ?? "",
+                homePhone: data.homePhone ?? "",
+                street1: data.street1 ?? "",
+                street2: data.street2 ?? "",
+                city: data.city ?? "",
+                province: data.province ?? "",
+                postalCode: data.postalCode ?? "",
+                country: "Canada",
+                customerType: data.customerType ?? "",
+            });
 
-            const customerPayload = {
-                customerType: form.customerType,
-                firstName: form.firstName.trim(),
-                lastName: form.lastName.trim(),
-                businessName:
-                    form.customerType === "Business"
-                        ? form.businessName?.trim() || null
-                        : null,
-                email: form.email.trim(),
-                homePhone: digitsOnly(form.homePhone),
-                status: form.status,
-            };
+            setShowModal(true);
+
+        } catch (e) {
+            console.error(e);
+            setError("Failed to load customer details.");
+        }
+    };
+
+    // SAVE
+    const handleSave = async () => {
+        setSaving(true);
+        setError("");
+        setJsonError("");
+
+        // Frontend postal code validation
+        if (draft.postalCode && !isValidPostalCode(draft.postalCode)) {
+            setError("Invalid Canadian postal code (Format: A1A 1A1)");
+            setSaving(false);
+            return;
+        }
+
+        try {
+            const url = selectedCustomer
+                ? `/api/customers/${selectedCustomer.customerId}`
+                : "/api/customers";
+
+            const method = selectedCustomer ? "PUT" : "POST";
 
             const res = await apiFetch(url, {
                 method,
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(customerPayload),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(draft),
             });
 
             if (!res.ok) {
-                throw new Error(`Save failed: ${res.status}`);
+                const text = await res.text();
+                throw new Error(text || "Save failed");
             }
 
-            const savedCustomer = await res.json();
-            const customerId = editingId || savedCustomer.customerId;
+            let data = null;
 
-            await saveAddress(customerId, "Billing", {
-                street1: form.billingStreet1.trim(),
-                street2: form.billingStreet2?.trim() || "",
-                city: form.billingCity.trim(),
-                province: form.billingProvince.trim(),
-                postalCode: form.billingPostalCode.trim(),
-                country: form.billingCountry.trim(),
-            });
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            }
 
-            if (form.sameAsBilling) {
-                await deleteServiceAddress(customerId);
-            } else {
-                await saveAddress(customerId, "Service", {
-                    street1: form.serviceStreet1.trim(),
-                    street2: form.serviceStreet2?.trim() || "",
-                    city: form.serviceCity.trim(),
-                    province: form.serviceProvince.trim(),
-                    postalCode: form.servicePostalCode.trim(),
-                    country: form.serviceCountry.trim(),
-                });
+            // Only show temp password on CREATE
+            if (!selectedCustomer && data) {
+                setTempPwdData(data);
+                setShowTempPwdModal(true);
             }
 
             setShowModal(false);
-            setForm({ ...emptyForm });
-            setEditingId(null);
             await loadCustomers();
-        } catch (err) {
-            console.error(err);
-            setError("Unable to save customer.");
+
+        } catch (e) {
+            console.error(e);
+            setError(e.message || "Save failed");
+            setJsonError("Server response invalid or malformed JSON");
         } finally {
             setSaving(false);
         }
     };
 
+    // DELETE
     const handleDelete = async (customerId) => {
-        const confirmed = window.confirm("Delete this customer?");
-        if (!confirmed) return;
+
+        if (!window.confirm("Are you sure you want to delete this customer?")) return;
 
         try {
-            setError("");
-
-            const res = await apiFetch(`/api/manager/customers/${customerId}`, {
+            const res = await apiFetch(`/api/customers/${customerId}`, {
                 method: "DELETE",
             });
 
-            if (!res.ok) {
-                throw new Error(`Delete failed: ${res.status}`);
-            }
+            if (!res.ok) throw new Error("Delete failed");
 
             await loadCustomers();
-        } catch (err) {
-            console.error(err);
-            setError("Unable to delete customer. This customer may already be used by other records.");
+
+        } catch (e) {
+            console.error(e);
+            setError("Failed to delete customer.");
         }
     };
 
-    const cardBase = darkMode ? "bg-dark text-light border-secondary" : "bg-white text-dark";
+    // ==========================
+    // COPY (NEW UX)
+    // ==========================
+    const handleCopy = async (text) => {
+        try {
+            if (!text) return;
 
-    const filteredCustomers = customers.filter((cust) => {
-        const keyword = search.toLowerCase();
+            await navigator.clipboard.writeText(text);
 
-        return (
-            String(cust.customerId ?? "").toLowerCase().includes(keyword) ||
-            String(cust.customerType ?? "").toLowerCase().includes(keyword) ||
-            String(cust.firstName ?? "").toLowerCase().includes(keyword) ||
-            String(cust.lastName ?? "").toLowerCase().includes(keyword) ||
-            String(cust.businessName ?? "").toLowerCase().includes(keyword) ||
-            String(cust.email ?? "").toLowerCase().includes(keyword) ||
-            String(cust.homePhone ?? "").toLowerCase().includes(keyword) ||
-            String(cust.status ?? "").toLowerCase().includes(keyword)
-        );
-    });
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+
+        } catch (err) {
+            console.error(err);
+            setError("Copy failed");
+        }
+    };
+
+    // ==========================
+    // FILTER
+    // ==========================
+    const filtered = customers.filter(c =>
+        `${c.firstName} ${c.lastName} ${c.email}`
+            .toLowerCase()
+            .includes(search.toLowerCase())
+    );
 
     return (
         <Container className="py-4">
+
+            {/* Header */}
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
-                    <h2 className="mb-1">Manage Customers</h2>
-                    <div className={darkMode ? "text-light-50" : "text-muted"}>
-                        Create, update, and remove customer records.
-                    </div>
+                    <h2>Customers</h2>
+                    <div className="text-muted">Canada Customer Management</div>
                 </div>
 
                 <div className="d-flex gap-2">
                     <Form.Control
-                        className="w-auto"
-                        type="text"
-                        placeholder="Search customer..."
+                        placeholder="Search..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        style={{ minWidth: "240px" }}
+                        onChange={e => setSearch(e.target.value)}
                     />
-                    <Button onClick={openCreate} style={{ borderRadius: 12 }}>
-                        Add Customer
-                    </Button>
-                    <Button
-                        variant="outline-secondary"
-                        onClick={() => navigate("/manager")}
-                        style={{ borderRadius: 12 }}
-                    >
-                        Go Back
+
+                    <Button onClick={openCreate}>Add</Button>
+                    <Button variant="outline-secondary" onClick={() => navigate(-1)}>
+                        Back
                     </Button>
                 </div>
             </div>
 
+            {error && <Alert variant="danger">{error}</Alert>}
 
-
-            <Card className={cardBase} style={{ borderRadius: 18 }}>
+            {/* Table */}
+            <Card>
                 <Card.Body>
                     {loading ? (
-                        <div className="py-4 text-center">
-                            <Spinner animation="border" />
-                        </div>
+                        <Spinner animation="border" />
                     ) : (
-                        <Table responsive hover className="align-middle mb-0">
+                        <Table hover>
                             <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Type</th>
                                 <th>Name</th>
-                                <th>Business Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
-                                <th>Status</th>
-                                <th style={{ width: 180 }}>Actions</th>
+                                <th>Type</th>
+                                <th>Actions</th>
                             </tr>
                             </thead>
+
                             <tbody>
-                            {filteredCustomers.length === 0 ? (
-                                <tr>
-                                    <td colSpan="8" className="text-center py-4">
-                                        No customers found.
+                            {filtered.map(c => (
+                                <tr key={c.customerId}>
+                                    <td>{c.customerId}</td>
+                                    <td>{c.firstName} {c.lastName}</td>
+                                    <td>{c.email}</td>
+                                    <td>{c.homePhone || "—"}</td>
+                                    <td>{c.customerType || "—"}</td>
+
+                                    <td className="d-flex gap-2">
+                                        <Button size="sm" onClick={() => openModal(c.customerId)}>
+                                            Edit
+                                        </Button>
+
+                                        <Button size="sm" variant="danger"
+                                                onClick={() => handleDelete(c.customerId)}>
+                                            Delete
+                                        </Button>
                                     </td>
                                 </tr>
-                            ) : (
-                                filteredCustomers.map((customer) => (
-                                    <tr key={customer.customerId}>
-                                        <td>{customer.customerId}</td>
-                                        <td>{customer.customerType || "—"}</td>
-                                        <td>{customer.firstName} {customer.lastName}</td>
-                                        <td>{customer.businessName || "—"}</td>
-                                        <td>{customer.email}</td>
-                                        <td>{customer.homePhone || "—"}</td>
-                                        <td>{customer.status || "—"}</td>
-                                        <td>
-                                            <div className="d-flex gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline-primary"
-                                                    onClick={() => openEdit(customer)}
-                                                >
-                                                    Edit
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline-danger"
-                                                    onClick={() => handleDelete(customer.customerId)}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                             </tbody>
                         </Table>
                     )}
                 </Card.Body>
             </Card>
 
-            <Modal show={showModal} onHide={closeModal} centered size="lg">
-                <Form onSubmit={handleSave}>
-                    <Modal.Header closeButton={!saving}>
-                        <Modal.Title>{editingId ? "Edit Customer" : "Add Customer"}</Modal.Title>
-                    </Modal.Header>
+            {/* ================= MODAL ================= */}
+            <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+                <Modal.Header closeButton={!saving}>
+                    <Modal.Title>
+                        {selectedCustomer ? "Edit Customer" : "Add Customer"}
+                    </Modal.Title>
+                </Modal.Header>
 
-                    <Modal.Body>
-                        {error && <Alert variant="danger">{error}</Alert>}
-                        <Row className="g-3">
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Customer Type</Form.Label>
-                                    <Form.Select
-                                        name="customerType"
-                                        value={form.customerType}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="Individual">Individual</option>
-                                        <option value="Business">Business</option>
-                                    </Form.Select>
-                                </Form.Group>
-                            </Col>
+                <Modal.Body>
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Status</Form.Label>
-                                    <Form.Select
-                                        name="status"
-                                        value={form.status}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="Active">Active</option>
-                                        <option value="Inactive">Inactive</option>
-                                    </Form.Select>
-                                </Form.Group>
-                            </Col>
+                    {error && <Alert variant="danger">{error}</Alert>}
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>First Name</Form.Label>
-                                    <Form.Control
-                                        name="firstName"
-                                        value={form.firstName}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                    <Row className="g-3">
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Last Name</Form.Label>
-                                    <Form.Control
-                                        name="lastName"
-                                        value={form.lastName}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>First Name</Form.Label>
+                            <Form.Control
+                                value={draft.firstName}
+                                onChange={e => setDraft(d => ({ ...d, firstName: e.target.value }))}
+                            />
+                        </Col>
 
-                            {form.customerType === "Business" && (
-                                <Col md={12}>
-                                    <Form.Group>
-                                        <Form.Label>Business Name</Form.Label>
-                                        <Form.Control
-                                            name="businessName"
-                                            value={form.businessName}
-                                            onChange={handleChange}
-                                            required
-                                        />
-                                    </Form.Group>
-                                </Col>
-                            )}
+                        <Col md={6}>
+                            <Form.Label>Last Name</Form.Label>
+                            <Form.Control
+                                value={draft.lastName}
+                                onChange={e => setDraft(d => ({ ...d, lastName: e.target.value }))}
+                            />
+                        </Col>
 
-                            <Col md={12}>
-                                <Form.Group>
-                                    <Form.Label>Email</Form.Label>
-                                    <Form.Control
-                                        type="email"
-                                        name="email"
-                                        value={form.email}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>Email</Form.Label>
+                            <Form.Control
+                                value={draft.email}
+                                onChange={e => setDraft(d => ({ ...d, email: e.target.value }))}
+                            />
+                        </Col>
 
-                            <Col md={12}>
-                                <Form.Group>
-                                    <Form.Label>Phone</Form.Label>
-                                    <Form.Control
-                                        name="homePhone"
-                                        value={form.homePhone}
-                                        onChange={handleChange}
-                                        required
-                                        maxLength={14}
-                                        placeholder="(403) 555-1234"
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>Phone</Form.Label>
+                            <Form.Control
+                                value={draft.homePhone}
+                                onChange={e => setDraft(d => ({
+                                    ...d,
+                                    homePhone: formatPhone(e.target.value)
+                                }))}
+                            />
+                        </Col>
 
-                            <Col md={12}>
-                                <hr className="my-2" />
-                                <h5 className="mb-3">Billing Address</h5>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>Customer Type</Form.Label>
+                            <Form.Select
+                                value={draft.customerType}
+                                onChange={e => setDraft(d => ({ ...d, customerType: e.target.value }))}
+                            >
+                                <option value="">Select</option>
+                                <option value="Individual">Individual</option>
+                                <option value="Business">Business</option>
+                            </Form.Select>
+                        </Col>
 
-                            <Col md={12}>
-                                <Form.Group>
-                                    <Form.Label>Street 1</Form.Label>
-                                    <Form.Control
-                                        name="billingStreet1"
-                                        value={form.billingStreet1}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={12}><hr /></Col>
 
-                            <Col md={12}>
-                                <Form.Group>
-                                    <Form.Label>Street 2</Form.Label>
-                                    <Form.Control
-                                        name="billingStreet2"
-                                        value={form.billingStreet2}
-                                        onChange={handleChange}
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>Street 1</Form.Label>
+                            <Form.Control
+                                value={draft.street1}
+                                onChange={e => setDraft(d => ({ ...d, street1: e.target.value }))}
+                            />
+                        </Col>
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>City</Form.Label>
-                                    <Form.Control
-                                        name="billingCity"
-                                        value={form.billingCity}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={6}>
+                            <Form.Label>Street 2</Form.Label>
+                            <Form.Control
+                                value={draft.street2}
+                                onChange={e => setDraft(d => ({ ...d, street2: e.target.value }))}
+                            />
+                        </Col>
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Province</Form.Label>
-                                    <Form.Control
-                                        name="billingProvince"
-                                        value={form.billingProvince}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={4}>
+                            <Form.Label>Province</Form.Label>
+                            <Form.Select
+                                value={draft.province}
+                                onChange={e => setDraft(d => ({
+                                    ...d,
+                                    province: e.target.value,
+                                    city: ""
+                                }))}
+                            >
+                                <option value="">Select Province</option>
+                                {Object.keys(provinceCityMap).map(p => (
+                                    <option key={p} value={p}>{p}</option>
+                                ))}
+                            </Form.Select>
+                        </Col>
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Postal Code</Form.Label>
-                                    <Form.Control
-                                        name="billingPostalCode"
-                                        value={form.billingPostalCode}
-                                        onChange={handleChange}
-                                        required
-                                        maxLength={7}
-                                        placeholder="T2P 1A1"
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={4}>
+                            <Form.Label>City</Form.Label>
+                            <Form.Select
+                                value={draft.city}
+                                onChange={e => setDraft(d => ({ ...d, city: e.target.value }))}
+                                disabled={!draft.province}
+                            >
+                                <option value="">Select City</option>
+                                {(provinceCityMap[draft.province] || []).map(city => (
+                                    <option key={city}>{city}</option>
+                                ))}
+                            </Form.Select>
+                        </Col>
 
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Country</Form.Label>
-                                    <Form.Control
-                                        name="billingCountry"
-                                        value={form.billingCountry}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                        <Col md={4}>
+                            <Form.Label>Postal Code</Form.Label>
+                            <Form.Control
+                                value={draft.postalCode}
+                                onChange={e => setDraft(d => ({
+                                    ...d,
+                                    postalCode: formatPostalCode(e.target.value)
+                                }))}
+                                placeholder="A1A 1A1"
+                            />
+                        </Col>
 
-                            <Col md={12}>
-                                <Form.Check
-                                    type="checkbox"
-                                    name="sameAsBilling"
-                                    label="Service address is the same as billing address"
-                                    checked={form.sameAsBilling}
-                                    onChange={handleChange}
-                                    className="mt-2"
-                                />
-                            </Col>
+                        <Col md={4}>
+                            <Form.Label>Country</Form.Label>
+                            <Form.Control value="Canada" disabled />
+                        </Col>
 
-                            {!form.sameAsBilling && (
-                                <>
-                                    <Col md={12}>
-                                        <hr className="my-2" />
-                                        <h5 className="mb-3">Service Address</h5>
-                                    </Col>
+                    </Row>
 
-                                    <Col md={12}>
-                                        <Form.Group>
-                                            <Form.Label>Street 1</Form.Label>
-                                            <Form.Control
-                                                name="serviceStreet1"
-                                                value={form.serviceStreet1}
-                                                onChange={handleChange}
-                                                required={!form.sameAsBilling}
-                                            />
-                                        </Form.Group>
-                                    </Col>
+                </Modal.Body>
 
-                                    <Col md={12}>
-                                        <Form.Group>
-                                            <Form.Label>Street 2</Form.Label>
-                                            <Form.Control
-                                                name="serviceStreet2"
-                                                value={form.serviceStreet2}
-                                                onChange={handleChange}
-                                            />
-                                        </Form.Group>
-                                    </Col>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowModal(false)} disabled={saving}>
+                        Cancel
+                    </Button>
 
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>City</Form.Label>
-                                            <Form.Control
-                                                name="serviceCity"
-                                                value={form.serviceCity}
-                                                onChange={handleChange}
-                                                required={!form.sameAsBilling}
-                                            />
-                                        </Form.Group>
-                                    </Col>
-
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>Province</Form.Label>
-                                            <Form.Control
-                                                name="serviceProvince"
-                                                value={form.serviceProvince}
-                                                onChange={handleChange}
-                                                required={!form.sameAsBilling}
-                                            />
-                                        </Form.Group>
-                                    </Col>
-
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>Postal Code</Form.Label>
-                                            <Form.Control
-                                                name="servicePostalCode"
-                                                value={form.servicePostalCode}
-                                                onChange={handleChange}
-                                                required={!form.sameAsBilling}
-                                                maxLength={7}
-                                                placeholder="T2P 1A1"
-                                            />
-                                        </Form.Group>
-                                    </Col>
-
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>Country</Form.Label>
-                                            <Form.Control
-                                                name="serviceCountry"
-                                                value={form.serviceCountry}
-                                                onChange={handleChange}
-                                                required={!form.sameAsBilling}
-                                            />
-                                        </Form.Group>
-                                    </Col>
-                                </>
-                            )}
-                        </Row>
-                    </Modal.Body>
-
-                    <Modal.Footer>
-                        <Button variant="secondary" onClick={closeModal} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={saving}>
-                            {saving ? "Saving..." : editingId ? "Update" : "Create"}
-                        </Button>
-                    </Modal.Footer>
-                </Form>
+                    <Button onClick={handleSave} disabled={saving}>
+                        {saving ? "Saving..." : selectedCustomer ? "Update" : "Create"}
+                    </Button>
+                </Modal.Footer>
             </Modal>
+
+            {/* ================= TEMP PASSWORD MODAL ================= */}
+            <Modal show={showTempPwdModal} centered onHide={() => setShowTempPwdModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>User Created Successfully</Modal.Title>
+                </Modal.Header>
+
+                <Modal.Body>
+
+                    {jsonError && <Alert variant="danger">{jsonError}</Alert>}
+
+                    <div className="mb-2">
+                        <b>Username:</b> {tempPwdData?.username}
+                    </div>
+
+                    <div>
+                        <b>Temporary Password:</b>
+
+                        <div
+                            style={{
+                                marginTop: 8,
+                                fontFamily: "monospace",
+                                background: "#f4f4f4",
+                                padding: 10,
+                                borderRadius: 6,
+                                display: "flex",
+                                justifyContent: "space-between"
+                            }}
+                        >
+                            <span>{tempPwdData?.tempPassword}</span>
+
+                            <Button size="sm" onClick={() => handleCopy(tempPwdData?.tempPassword)}>
+                                Copy
+                            </Button>
+                        </div>
+
+                        {copySuccess && (
+                            <div style={{ color: "green", marginTop: 8 }}>
+                                Copied to clipboard ✔
+                            </div>
+                        )}
+                    </div>
+
+                </Modal.Body>
+
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowTempPwdModal(false)}>
+                        Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
         </Container>
     );
 }

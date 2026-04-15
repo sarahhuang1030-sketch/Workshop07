@@ -14,7 +14,50 @@ import React, { useState, useEffect } from "react";
 import { Card, Button, Form, Badge } from "react-bootstrap";
 import { apiFetch } from "../services/api";
 
-const DEFAULT_AVATAR = "/uploads/avatars/default.jpg";
+/* --------------------------------------------------
+   Backend base URL
+   Change this if needed for Azure / production
+--------------------------------------------------- */
+const API_BASE =
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://localhost:8080";
+
+/* --------------------------------------------------
+   Default avatar must point to backend, not frontend
+--------------------------------------------------- */
+const DEFAULT_AVATAR = `${API_BASE}/uploads/avatars/default.jpg`;
+
+/* --------------------------------------------------
+   Convert any avatar path to a browser-safe URL
+   - full URL stays unchanged
+   - blob URL stays unchanged
+   - relative "/uploads/..." becomes backend URL
+--------------------------------------------------- */
+function resolveAvatarUrl(url) {
+    if (!url) return null;
+
+    if (
+        url.startsWith("http://") ||
+        url.startsWith("https://") ||
+        url.startsWith("blob:")
+    ) {
+        return url;
+    }
+
+    if (url.startsWith("/")) {
+        return `${API_BASE}${url}`;
+    }
+
+    return `${API_BASE}/${url}`;
+}
+
+/* --------------------------------------------------
+   Add cache buster so browser refreshes avatar
+--------------------------------------------------- */
+function withCacheBuster(url) {
+    if (!url) return url;
+    return `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+}
 
 export function AvatarCard({
                                profile,
@@ -60,9 +103,9 @@ export function AvatarCard({
     -------------------------- */
     useEffect(() => {
         if (savedAvatarUrl) {
-            setAvatarUrl(savedAvatarUrl);
+            setAvatarUrl(resolveAvatarUrl(savedAvatarUrl));
         } else if (oauthPictureUrl) {
-            setAvatarUrl(oauthPictureUrl);
+            setAvatarUrl(resolveAvatarUrl(oauthPictureUrl));
         } else {
             setAvatarUrl(DEFAULT_AVATAR);
         }
@@ -74,6 +117,7 @@ export function AvatarCard({
     function onPickAvatar(file) {
         if (!file) return;
         setAvatarFile(file);
+        setError(null);
         setAvatarUrl(URL.createObjectURL(file));
     }
 
@@ -98,9 +142,11 @@ export function AvatarCard({
                 return;
             }
 
-            const data = await res.json(); // { avatarUrl: "..." }
+            const data = await res.json(); // expects { avatarUrl: "..." }
 
-            const freshUrl = `${data.avatarUrl}${data.avatarUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+            const freshUrl = withCacheBuster(
+                resolveAvatarUrl(data?.avatarUrl || DEFAULT_AVATAR)
+            );
 
             setAvatarUrl(freshUrl);
             setAvatarFile(null);
@@ -129,16 +175,12 @@ export function AvatarCard({
 
             setAvatarFile(null);
 
-            if (oauthPictureUrl) {
-                setAvatarUrl(oauthPictureUrl);
-            } else {
-                setAvatarUrl(DEFAULT_AVATAR);
-            }
+            const fallbackUrl = oauthPictureUrl
+                ? resolveAvatarUrl(oauthPictureUrl)
+                : withCacheBuster(DEFAULT_AVATAR);
 
-            if (onDeleteAvatar) {
-                onDeleteAvatar();
-            }
-
+            setAvatarUrl(fallbackUrl);
+            onDeleteAvatar?.();
             setError(null);
         } catch (err) {
             setError("Delete failed");
@@ -156,7 +198,6 @@ export function AvatarCard({
         };
     }, [avatarUrl]);
 
-
     // -------------change the badge color and label based on role----------------//
     const roleKey = String(profile?.role ?? "").toUpperCase();
 
@@ -167,20 +208,29 @@ export function AvatarCard({
                 ? "Customer"
                 : "Guest";
 
-    let badgeVariant = "secondary"; // default grey
+    let badgeVariant = "secondary";
 
     if (roleKey === "EMPLOYEE") {
-        badgeVariant = "info";        // light blue
+        badgeVariant = "info";
     } else if (roleKey === "CUSTOMER") {
-        badgeVariant = "secondary";   // grey
+        badgeVariant = "secondary";
     } else {
-        badgeVariant = "light";       // guest (very light)
+        badgeVariant = "light";
     }
 
-    // console.log("profile =", profile);
-    // console.log("savedAvatarUrl =", savedAvatarUrl);
-    // console.log("oauthPictureUrl =", oauthPictureUrl);
-    // console.log("avatarUrl state =", avatarUrl);
+    function resetAvatarPreview() {
+        setAvatarFile(null);
+
+        if (savedAvatarUrl) {
+            setAvatarUrl(resolveAvatarUrl(savedAvatarUrl));
+        } else if (oauthPictureUrl) {
+            setAvatarUrl(resolveAvatarUrl(oauthPictureUrl));
+        } else {
+            setAvatarUrl(DEFAULT_AVATAR);
+        }
+
+        setError(null);
+    }
 
     return (
         <Card className={`${cardBase} mt-4 p-3`} style={{ borderRadius: 22 }}>
@@ -197,9 +247,11 @@ export function AvatarCard({
                     }}
                     onError={(e) => {
                         console.error("Avatar failed to load:", avatarUrl);
+                        e.currentTarget.onerror = null;
                         e.currentTarget.src = DEFAULT_AVATAR;
                     }}
                 />
+
                 {/* Right Information */}
                 <div className="flex-grow-1">
                     <div
@@ -208,7 +260,7 @@ export function AvatarCard({
                     >
                         {profile?.firstName} {profile?.lastName}
                     </div>
-                    {/* ----------------- Email & Phone ----------------- */}
+
                     {profile?.email && (
                         <div className={`mt-1 small ${mutedClass}`}>
                             Email: {profile.email}
@@ -224,16 +276,13 @@ export function AvatarCard({
                     </div>
 
                     <div className="mt-1">
-                        <Badge bg={badgeVariant}>
-                            {roleLabel}
-                        </Badge>
+                        <Badge bg={badgeVariant}>{roleLabel}</Badge>
                     </div>
                 </div>
             </div>
 
             {/* ------------------- Upload Avatar Control ------------------- */}
             <Form.Group className="mt-3 text-center">
-
                 <Form.Control
                     type="file"
                     accept="image/*"
@@ -254,16 +303,7 @@ export function AvatarCard({
                     <Button
                         variant="outline-secondary"
                         size="sm"
-                        onClick={() => {
-                            setAvatarFile(null);
-                            if (savedAvatarUrl) {
-                                setAvatarUrl(savedAvatarUrl);
-                            } else if (oauthPictureUrl) {
-                                setAvatarUrl(oauthPictureUrl);
-                            } else {
-                                setAvatarUrl(DEFAULT_AVATAR);
-                            }
-                        }}
+                        onClick={resetAvatarPreview}
                         disabled={!avatarFile}
                     >
                         Cancel
