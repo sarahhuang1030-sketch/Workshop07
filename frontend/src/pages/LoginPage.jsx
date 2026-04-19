@@ -48,9 +48,15 @@ export default function LoginPage({ refreshMe }) {
                 body: JSON.stringify({ username, password }),
             });
 
+            // ❗ HANDLE ERROR HERE
             if (!res.ok) {
-                const text = await res.text().catch(() => "");
-                setError(text || "Invalid username or password");
+                if (res.status === 401 || res.status === 500) {
+                    setError("Invalid username or password.");
+                } else if (res.status === 403) {
+                    setError("Your account is inactive. Please contact your manager.");
+                } else {
+                    setError("Something went wrong. Please try again.");
+                }
                 return;
             }
 
@@ -97,8 +103,10 @@ export default function LoginPage({ refreshMe }) {
             } else {
                 navigate("/profile", { replace: true });
             }
+
         } catch (err) {
-            setError(err?.message || "Unexpected error");
+            console.error(err);
+            setError("Network error. Please try again.");
         } finally {
             setLoading(false);
         }

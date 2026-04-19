@@ -84,12 +84,7 @@ public class AuthService {
             Employee emp = employeeRepository.findById(ua.getEmployeeId())
                     .orElseThrow(() -> new IllegalArgumentException("Employee record not found"));
 
-            if (emp.getActive() == null || emp.getActive() == 0) {
-                throw new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Your account is inactive. Please contact manager."
-                );
-            }
+            boolean employeeActive = emp.getActive() != null && emp.getActive() == 1;
 
             return new LoginResponseDTO(
                     null,
@@ -100,7 +95,7 @@ public class AuthService {
                     ua.getUsername(),
                     ua.getRole() != null ? ua.getRole().getRoleName() : null,
                     ua.getMustChangePassword(),
-                    true
+                    employeeActive   // ✅ THIS is the key change
             );
         }
 

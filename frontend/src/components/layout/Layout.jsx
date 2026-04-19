@@ -83,7 +83,7 @@ export default function Layout({ user, setUser, onLogout }) {
             if (!showReviewModal || !user?.customerId) return;
 
             try {
-                const res = await apiFetch("/api/customer/review-plans");
+                const res = await apiFetch("/api/me/plans");
 
                 if (!res.ok) {
                     setCustomerPlans([]);
@@ -92,16 +92,14 @@ export default function Layout({ user, setUser, onLogout }) {
 
                 const data = await res.json();
 
-                const normalizedPlans = Array.isArray(data)
-                    ? data.map((p) => ({
-                        ...p,
-                        planId: p.planId ?? p.id,
+                setCustomerPlans(
+                    (data ?? []).map((p) => ({
+                        planId: String(p.planId ?? p.id),
                         planName: p.planName ?? p.name,
                     }))
-                    : [];
-
-                setCustomerPlans(normalizedPlans);
-            } catch {
+                );
+            } catch (err) {
+                console.error("Failed to load customer plans:", err);
                 setCustomerPlans([]);
             }
         }

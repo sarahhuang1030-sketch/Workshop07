@@ -104,7 +104,11 @@ export default function PlansPage() {
     const [selectedPlanReviewTitle,  setSelectedPlanReviewTitle]  = useState("");
 
     const getPlanReviews = (planId) =>
-        (reviews ?? []).filter((r) => r.targetType === "plan" && String(r.targetId) === String(planId));
+        (reviews ?? []).filter(
+            (r) =>
+                String(r.targetType).toLowerCase() === "plan" &&
+                String(r.targetId) === String(planId)
+        );
 
     const openPlanReviews = (plan) => {
         setSelectedPlanReviewTitle(plan.name);
@@ -380,7 +384,13 @@ export default function PlansPage() {
                                                             {p.features.map((feature, i) => (
                                                                 <div key={i} className="d-flex align-items-start gap-2" style={{ fontSize:"0.96rem", fontWeight:500 }}>
                                                                     <FeatureTypeIcon size={16} style={{ color:"#8b5cf6", marginTop:"3px", flexShrink:0 }} />
-                                                                    <span>{feature}</span>
+                                                                    <span>
+                                                                      {typeof feature === "string"
+                                                                          ? feature
+                                                                          : `${feature.featureName ?? ""}${
+                                                                              feature.featureValue ? `: ${feature.featureValue}` : ""
+                                                                          }${feature.unit ? ` ${feature.unit}` : ""}`}
+                                                                    </span>
                                                                 </div>
                                                             ))}
                                                         </div>

@@ -1,5 +1,5 @@
 import { Modal, Button, Form, Row, Col, Alert, Spinner } from "react-bootstrap";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function ReviewModal({
                                         show,
@@ -8,6 +8,22 @@ export default function ReviewModal({
                                         user,
                                         customerPlans = [],
                                     }) {
+    const normalizedCustomerPlans = useMemo(() => {
+        const seen = new Set();
+
+        return (customerPlans || [])
+            .map((plan, index) => {
+                const planId = String(plan.planId ?? plan.id ?? "");
+                const planName = plan.planName || plan.name || `Plan ${index + 1}`;
+                return { planId, planName };
+            })
+            .filter((plan) => {
+                if (!plan.planId || seen.has(plan.planId)) return false;
+                seen.add(plan.planId);
+                return true;
+            });
+    }, [customerPlans]);
+
     const [formData, setFormData] = useState({
         name: "",
         selectedTarget: "company",
@@ -35,7 +51,7 @@ export default function ReviewModal({
 
         setError("");
         setSubmitting(false);
-    }, [show, user, customerPlans]);
+    }, [show, user, normalizedCustomerPlans]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -84,25 +100,19 @@ export default function ReviewModal({
             const selectedPlan =
                 formData.selectedTarget === "company"
                     ? null
-                    : customerPlans.find(
-                        (plan) =>
-                            String(plan.planId ?? plan.id) === String(formData.selectedTarget)
+                    : normalizedCustomerPlans.find(
+                        (plan) => String(plan.planId) === String(formData.selectedTarget)
                     );
 
             onSubmit({
                 id: Date.now(),
                 name: formData.name,
-                role:
-                    selectedPlan?.planName ||
-                    selectedPlan?.name ||
-                    "SJY Telecom Customer",
+                role: selectedPlan?.planName || "SJY Telecom Customer",
                 review: cleanedReview,
                 rating: formData.rating,
                 targetType: selectedPlan ? "plan" : "company",
-                targetId: selectedPlan ? String(selectedPlan.planId ?? selectedPlan.id) : null,
-                targetLabel: selectedPlan
-                    ? selectedPlan.planName || selectedPlan.name
-                    : "SJY Telecom",
+                targetId: selectedPlan ? String(selectedPlan.planId) : null,
+                targetLabel: selectedPlan ? selectedPlan.planName : "SJY Telecom",
             });
 
             setFormData({
@@ -146,17 +156,11 @@ export default function ReviewModal({
                             >
                                 <option value="company">SJY Telecom</option>
 
-                                {customerPlans.map((plan, index) => {
-                                    const planId = plan.planId ?? plan.id;
-                                    const planName =
-                                        plan.planName || plan.name || `Plan ${index + 1}`;
-
-                                    return (
-                                        <option key={planId ?? index} value={String(planId)}>
-                                            {planName}
-                                        </option>
-                                    );
-                                })}
+                                {normalizedCustomerPlans.map((plan) => (
+                                    <option key={plan.planId} value={plan.planId}>
+                                        {plan.planName}
+                                    </option>
+                                ))}
                             </Form.Select>
                         </Col>
 
