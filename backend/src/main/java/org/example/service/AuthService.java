@@ -32,7 +32,7 @@ public class AuthService {
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
     private final EmployeeRepository employeeRepository;
-    //  private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JavaMailSender mailSender;
 
@@ -47,7 +47,7 @@ public class AuthService {
         this.userAccountRepository = userAccountRepository;
         this.customerRepository = customerRepository;
         this.employeeRepository = employeeRepository;
-        //    this.passwordEncoder = passwordEncoder;
+        this.passwordEncoder = passwordEncoder;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.mailSender = mailSender;
     }
@@ -58,7 +58,7 @@ public class AuthService {
         UserAccount ua = userAccountRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
 
-        if (!passwordRaw.equals(ua.getPasswordHash())) {
+        if (!passwordEncoder.matches(passwordRaw, ua.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid username or password");
         }
 
@@ -227,9 +227,9 @@ public class AuthService {
 
 
         //hash password
-//        ua.setPasswordHash(passwordEncoder.encode(newPassword));
+        ua.setPasswordHash(passwordEncoder.encode(newPassword));
         //raw password
-        ua.setPasswordHash(newPassword);
+//        ua.setPasswordHash(newPassword);
         ua.setMustChangePassword(false);
         ua.setTempPasswordExpiresAt(null);
         ua.setPasswordChangedAt(LocalDateTime.now());
@@ -266,7 +266,8 @@ public class AuthService {
             throw new IllegalArgumentException("Temporary password has expired");
         }
 
-        if (req.getCurrentPassword() == null || !req.getCurrentPassword().equals(ua.getPasswordHash())) {
+        if (req.getCurrentPassword() == null ||
+                !passwordEncoder.matches(req.getCurrentPassword(), ua.getPasswordHash())) {
             throw new IllegalArgumentException("Temporary password is incorrect");
         }
 
@@ -278,7 +279,7 @@ public class AuthService {
             throw new IllegalArgumentException("Passwords do not match");
         }
 
-        ua.setPasswordHash(req.getNewPassword()); // later replace with passwordEncoder.encode(...)
+        ua.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         ua.setMustChangePassword(false);
         ua.setTempPasswordExpiresAt(null);
         ua.setPasswordChangedAt(LocalDateTime.now());

@@ -37,6 +37,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import java.util.LinkedHashMap;
 
 import static org.springframework.security.config.Customizer.withDefaults;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Profile("!azuretest")
 @EnableWebSecurity
@@ -49,11 +50,14 @@ public class SecurityConfig {
     /**
      * Password encoder (NOT secure, used for testing only)
      */
+//    @Bean
+//    public PasswordEncoder passwordEncoder() {
+//        return NoOpPasswordEncoder.getInstance();
+//    }
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return NoOpPasswordEncoder.getInstance();
+        return new BCryptPasswordEncoder();
     }
-
     /**
      * Authentication manager
      */

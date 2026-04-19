@@ -19,7 +19,7 @@ public class CustomerRegistrationService {
     private final CustomerAddressRepository addressRepo;
     private final UserAccountRepository userAccountRepo;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    //private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
 
     public CustomerRegistrationService(CustomerRepository customerRepo,
@@ -30,7 +30,7 @@ public class CustomerRegistrationService {
         this.customerRepo = customerRepo;
         this.addressRepo = addressRepo;
         this.userAccountRepo = userAccountRepo;
-      //  this.passwordEncoder = passwordEncoder;
+        this.passwordEncoder = passwordEncoder;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.roleRepository=roleRepository;
     }
@@ -65,11 +65,11 @@ public class CustomerRegistrationService {
         c.setStatus("Active");
 
         // login password stored in useraccounts and customers -- hash password stored
-//        String hash = passwordEncoder.encode(req.password);
+        String hash = passwordEncoder.encode(req.password);
 //        c.setPasswordHash(hash);
         //storing raw passwords
-        String rawPassword = req.password;
-        c.setPasswordHash(rawPassword);
+//        String rawPassword = req.password;
+//        c.setPasswordHash(hash);
 
         Customer saved = customerRepo.save(c);
 
@@ -117,7 +117,7 @@ public class CustomerRegistrationService {
         //hash password set
 //        ua.setPasswordHash(hash);
         //storing raw passwords
-        ua.setPasswordHash(rawPassword);
+        ua.setPasswordHash(hash);
 //        ua.setRole("Customer");
         Role customerRole = roleRepository.findByRoleName("Customer")
                 .orElseThrow(() -> new RuntimeException("Customer role not found"));
