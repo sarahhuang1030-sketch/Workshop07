@@ -3,6 +3,7 @@ package org.example.service.ai;
 import org.example.dto.ai.PlanAdvisorRequestDTO;
 import org.example.dto.ai.PlanAdvisorResponseDTO;
 import org.example.repository.PlanRepository;
+import org.example.repository.ai.AiPlanCacheRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -17,12 +18,22 @@ import static org.mockito.Mockito.when;
 class AiPlanServiceTest {
 
     private PlanRepository repo;
+    private AiPlanCacheRepository cacheRepository;
+    private PromptModerationService moderationService;
     private AiPlanService service;
 
     @BeforeEach
     void setUp() {
         repo = Mockito.mock(PlanRepository.class);
-        service = new AiPlanService(repo);
+        cacheRepository = Mockito.mock(AiPlanCacheRepository.class);
+        moderationService = Mockito.mock(PromptModerationService.class);
+
+        when(moderationService.moderate(Mockito.anyString()))
+                .thenReturn(PromptModerationResult.allowed());
+        when(cacheRepository.findByCacheKey(Mockito.anyString()))
+                .thenReturn(java.util.Optional.empty());
+
+        service = new AiPlanService(repo, cacheRepository, moderationService);
     }
 
     @Test
