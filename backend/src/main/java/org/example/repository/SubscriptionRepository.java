@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -228,4 +229,14 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
             @Param("start") LocalDate start,
             @Param("end") LocalDate end
     );
+
+//    @Query(value = "SELECT s.* FROM subscriptions s " +
+//            "JOIN invoices i ON i.subscription_id = s.SubscriptionId " +
+//            "JOIN useraccounts ua ON ua.CustomerId = i.CustomerId " +
+//            "WHERE ua.EmployeeId = :employeeId",
+//            nativeQuery = true)
+//    List<Subscription> findByEmployeeId(@Param("employeeId") Integer employeeId);
+
+    @Query("SELECT s FROM Subscription s WHERE s.soldByEmployeeId = :employeeId")
+    List<Subscription> findAllBySoldByEmployeeId(@Param("employeeId") Integer employeeId);
 }

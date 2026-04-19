@@ -18,10 +18,11 @@ export default function SalesEmployeeSales({ darkMode = false }) {
         try {
             setLoading(true);
             setError("");
-            // const res = await apiFetch("/api/invoices/all");
-            const res = await apiFetch("/api/invoices/my-sales");
+            const res = await apiFetch("/api/invoices/my-sales/all");
+            // const res = await apiFetch("/api/invoices/my-sales");
             if (!res.ok) throw new Error("Failed to load invoices");
             const data = await res.json();
+            console.log("invoices data:", data);
             setInvoices(Array.isArray(data) ? data : []);
         } catch (err) {
             setError(err.message || "Failed to load invoices");
@@ -43,7 +44,9 @@ export default function SalesEmployeeSales({ darkMode = false }) {
     }, [invoices, search]);
 
     const totalRevenue = useMemo(() => {
-        return filteredInvoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
+        return filteredInvoices
+            .filter(inv => inv.status?.toUpperCase() === "PAID")
+            .reduce((sum, inv) => sum + Number(inv.total || 0), 0);
     }, [filteredInvoices]);
 
     const statusColor = (status) => {

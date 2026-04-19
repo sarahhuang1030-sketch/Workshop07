@@ -159,6 +159,9 @@ public class InvoiceService {
 
         Subscription savedSubscription = subscriptionRepository.save(subscription);
 
+        savedInvoice.setSubscriptionId(savedSubscription.getSubscriptionId());
+        invoiceRepository.save(savedInvoice);
+
         // ── Add-ons ──
         body.getItems().stream()
                 .filter(i -> i != null && "addon".equalsIgnoreCase(i.getType()))
@@ -382,4 +385,19 @@ public class InvoiceService {
 
         return invoiceRepository.findBySubscriptionIdIn(subIds);
     }
+
+    public List<Invoices> findByEmployeeId(Integer employeeId) {
+        if (employeeId == null) return List.of();
+
+        List<Integer> subIds = subscriptionRepository
+                .findAllBySoldByEmployeeId(employeeId)
+                .stream()
+                .map(Subscription::getSubscriptionId)
+                .toList();
+
+        if (subIds.isEmpty()) return List.of();
+
+        return invoiceRepository.findBySubscriptionIdIn(subIds);
+    }
+
 }

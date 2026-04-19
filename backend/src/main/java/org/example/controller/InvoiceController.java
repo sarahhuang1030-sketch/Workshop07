@@ -170,6 +170,29 @@ public class InvoiceController {
         return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/my-sales/all")
+    public ResponseEntity<List<InvoiceDTO>> getAllMySalesInvoices(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated())
+            return ResponseEntity.status(401).build();
+
+        UserAccount ua = userAccountRepo
+                .findByUsernameIgnoreCase(authentication.getName())
+                .orElse(null);
+
+        if (ua == null) return ResponseEntity.status(404).build();
+
+        List<Invoices> invoices;
+        if (ua.getEmployeeId() != null) {
+            invoices = invoiceService.findByEmployeeId(ua.getEmployeeId());
+        } else {
+            invoices = invoiceService.findAllInvoices();
+        }
+
+        return ResponseEntity.ok(invoices.stream()
+                .map(invoiceService::convertToDTO)
+                .toList());
+    }
+
     // Get invoices sold by current logged-in employee this month
     @GetMapping("/my-sales")
     public ResponseEntity<List<InvoiceDTO>> getMySalesInvoices(Authentication authentication) {

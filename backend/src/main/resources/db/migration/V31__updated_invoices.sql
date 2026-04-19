@@ -1,0 +1,1 @@
+UPDATE invoices SET subscription_id = 3 WHERE invoiceId IN (1, 2);
