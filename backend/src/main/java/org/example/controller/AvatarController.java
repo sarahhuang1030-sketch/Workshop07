@@ -2,7 +2,9 @@ package org.example.controller;
 
 import org.example.model.UserAccount;
 import org.example.repository.UserAccountRepository;
-import org.example.service.AvatarStorageService;
+//this is for local file storage, we will replace it with Azure Blob Storage
+//import org.example.service.AvatarStorageService;
+import org.example.service.AzureBlobService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,12 +26,16 @@ import java.util.Map;
 public class AvatarController {
 
     private final UserAccountRepository userAccountRepo;
-    private final AvatarStorageService avatarStorageService;
+//    private final AvatarStorageService avatarStorageService;
+    private final AzureBlobService azureBlobService;
+
 
     public AvatarController(UserAccountRepository userAccountRepo,
-                            AvatarStorageService avatarStorageService) {
+//                            AvatarStorageService avatarStorageService,
+                            AzureBlobService azureBlobService) {
         this.userAccountRepo = userAccountRepo;
-        this.avatarStorageService = avatarStorageService;
+//        this.avatarStorageService = avatarStorageService;
+        this.azureBlobService=azureBlobService;
     }
 
     @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -48,27 +54,39 @@ public class AvatarController {
         UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        String publicUrl = avatarStorageService.saveUploadedAvatar(ua, avatar);
+//        String publicUrl = avatarStorageService.saveUploadedAvatar(ua, avatar);
+        String publicUrl = azureBlobService.saveUploadedAvatar(ua, avatar);
         return Map.of("avatarUrl", publicUrl);
     }
 
     @DeleteMapping("/avatar")
-    public Map<String, Boolean> deleteAvatar(
+    public ResponseEntity<?> deleteAvatar(
             Principal principal,
             Authentication auth,
             @AuthenticationPrincipal OAuth2User oauthUser
-    ) throws IOException {
+    ) {
+        try {
+            if (principal == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            }
 
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            String key = resolveLoginKey(principal, auth, oauthUser);
+            UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+            azureBlobService.deleteAvatar(ua);
+
+            return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "message", "Avatar deleted successfully"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "ok", false,
+                            "message", "Delete failed: " + e.getMessage()
+                    ));
         }
-
-        String key = resolveLoginKey(principal, auth, oauthUser);
-        UserAccount ua = userAccountRepo.findByUsernameIgnoreCase(key)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-
-        avatarStorageService.deleteAvatar(ua);
-        return Map.of("ok", true);
     }
 
 

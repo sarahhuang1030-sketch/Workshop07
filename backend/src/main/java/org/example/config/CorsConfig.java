@@ -1,10 +1,3 @@
-/**
- Description: This Controller class is responsible for configuring Cross-Origin
- Resource Sharing (CORS) settings for the application.
-
- Created by: Sarah
- Created on: February 2026
- **/
 package org.example.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -26,21 +19,18 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // origin
-        config.setAllowedOrigins(List.of(frontendOrigin));
+        config.setAllowedOrigins(List.of(
+                frontendOrigin,
+                "http://localhost:5173",
+                "http://localhost:3000"
+        ));
 
-        // method
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+        ));
 
-        // headers
         config.setAllowedHeaders(List.of("*"));
-
-        // header（selection）
-        config.setExposedHeaders(List.of());
-
-        // session cookie
         config.setAllowCredentials(true);
-
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

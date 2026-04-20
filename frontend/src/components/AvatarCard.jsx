@@ -25,8 +25,9 @@ const API_BASE =
 /* --------------------------------------------------
    Default avatar must point to backend, not frontend
 --------------------------------------------------- */
-const DEFAULT_AVATAR = `${API_BASE}/uploads/avatars/default.jpg`;
-
+// const DEFAULT_AVATAR = `${API_BASE}/uploads/avatars/default.jpg`;
+const DEFAULT_AVATAR =
+    "https://teleconnectstorage123.blob.core.windows.net/avatars/default.jpg";
 /* --------------------------------------------------
    Convert any avatar path to a browser-safe URL
    - full URL stays unchanged
@@ -309,11 +310,19 @@ export function AvatarCard({
                         Cancel
                     </Button>
 
+                    {/*<Button*/}
+                    {/*    variant="outline-danger"*/}
+                    {/*    size="sm"*/}
+                    {/*    onClick={deleteAvatarFromBackend}*/}
+                    {/*    disabled={!savedAvatarUrl}*/}
+                    {/*>*/}
+                    {/*    Delete*/}
+                    {/*</Button>*/}
                     <Button
                         variant="outline-danger"
                         size="sm"
                         onClick={deleteAvatarFromBackend}
-                        disabled={!savedAvatarUrl}
+                        disabled={!!avatarFile}
                     >
                         Delete
                     </Button>
