@@ -97,8 +97,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 // Enable CORS
-                .cors(withDefaults())
-
+//                .cors(withDefaults())
+                .cors(cors -> {})
                 // Disable HTTP Basic auth
                 .httpBasic(b -> b.disable())
 
