@@ -3,40 +3,72 @@ package org.example.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * DTO returned by GET /api/service/tickets (technician path).
+ *
+ * FIX: Added addressText field.
+ *      convertToTicketDTO() in ServiceDashboardService never populated an address,
+ *      so the Android app always received null and displayed "—".
+ *      The field is populated by joining CustomerAddress on the customer's
+ *      primary address (see ServiceDashboardService fix).
+ */
 public class ServiceTicketDTO {
-    private Integer requestId;
-    private String customerName;
-    private String requestType;
-    private String status;
-    private String priority;
-    private LocalDateTime createdAt;
-    private String description;
 
-    // appointments (work orders under ticket)
+    private Integer requestId;
+    private Integer customerId;
+    private Integer technicianUserId;
+    private String  customerName;
+    private String  technicianName;
+
+    // FIX: new field — must be set in ServiceDashboardService#convertToTicketDTO()
+    private String  addressText;
+
+    private String  requestType;
+    private String  priority;
+    private String  status;
+    private String  description;
+    private LocalDateTime createdAt;
+
     private List<ServiceWorkOrderDTO> appointments;
 
-    public Integer getRequestId() { return requestId; }
-    public void setRequestId(Integer requestId) { this.requestId = requestId; }
+    // -------------------------------------------------------------------------
+    // Getters & Setters
+    // -------------------------------------------------------------------------
 
-    public String getCustomerName() { return customerName; }
-    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    public Integer getRequestId()               { return requestId; }
+    public void setRequestId(Integer v)         { this.requestId = v; }
 
-    public String getRequestType() { return requestType; }
-    public void setRequestType(String requestType) { this.requestType = requestType; }
+    public Integer getCustomerId()              { return customerId; }
+    public void setCustomerId(Integer v)        { this.customerId = v; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public Integer getTechnicianUserId()        { return technicianUserId; }
+    public void setTechnicianUserId(Integer v)  { this.technicianUserId = v; }
 
-    public String getPriority() { return priority; }
-    public void setPriority(String priority) { this.priority = priority; }
+    public String getCustomerName()             { return customerName; }
+    public void setCustomerName(String v)       { this.customerName = v; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getTechnicianName()           { return technicianName; }
+    public void setTechnicianName(String v)     { this.technicianName = v; }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    /** FIX: getter/setter for the new address field. */
+    public String getAddressText()              { return addressText; }
+    public void setAddressText(String v)        { this.addressText = v; }
 
+    public String getRequestType()              { return requestType; }
+    public void setRequestType(String v)        { this.requestType = v; }
 
-    public List<ServiceWorkOrderDTO> getAppointments() { return appointments; }
-    public void setAppointments(List<ServiceWorkOrderDTO> appointments) { this.appointments = appointments; }
+    public String getPriority()                 { return priority; }
+    public void setPriority(String v)           { this.priority = v; }
+
+    public String getStatus()                   { return status; }
+    public void setStatus(String v)             { this.status = v; }
+
+    public String getDescription()              { return description; }
+    public void setDescription(String v)        { this.description = v; }
+
+    public LocalDateTime getCreatedAt()         { return createdAt; }
+    public void setCreatedAt(LocalDateTime v)   { this.createdAt = v; }
+
+    public List<ServiceWorkOrderDTO> getAppointments()          { return appointments; }
+    public void setAppointments(List<ServiceWorkOrderDTO> v)    { this.appointments = v; }
 }

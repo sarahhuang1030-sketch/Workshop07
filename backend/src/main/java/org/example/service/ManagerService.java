@@ -16,21 +16,23 @@ public class ManagerService {
     }
 
     public ManagerSummaryDTO getSummary() {
-        long customers = managerRepository.countCustomers();
-        long activeSubs = managerRepository.countActiveSubscriptions();
-        long pastDueInvoices = managerRepository.countPastDueInvoices();
+        long customers           = managerRepository.countCustomers();
+        long activeSubs          = managerRepository.countActiveSubscriptions();
+        long pastDueInvoices     = managerRepository.countPastDueInvoices();
         BigDecimal monthlyRevenue = managerRepository.calculateMonthlyRevenue();
-        long addOns = managerRepository.countAddOns();
-        long planFeatures = managerRepository.countPlanFeatures();
-        long location = managerRepository.countActiveLocations();
-        long serviceRequests = managerRepository.countServiceRequests();
+        long addOns              = managerRepository.countAddOns();
+        long planFeatures        = managerRepository.countPlanFeatures();
+        long location            = managerRepository.countActiveLocations();
+        long serviceRequests     = managerRepository.countServiceRequests();
         long serviceAppointments = managerRepository.countServiceAppointments();
+        long totalEmployees      = managerRepository.countEmployees();
 
         if (monthlyRevenue == null) {
             monthlyRevenue = BigDecimal.ZERO;
         }
 
         System.out.println("pastDueInvoices = " + pastDueInvoices);
+        System.out.println("totalEmployees  = " + totalEmployees);
 
         return new ManagerSummaryDTO(
                 (int) customers,
@@ -41,7 +43,8 @@ public class ManagerService {
                 planFeatures,
                 location,
                 serviceRequests,
-                serviceAppointments
+                serviceAppointments,
+                totalEmployees
         );
     }
 }

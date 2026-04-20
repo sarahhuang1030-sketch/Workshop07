@@ -1,5 +1,3 @@
-//for manager dashboard
-
 package org.example.repository;
 
 import org.example.model.Subscription;
@@ -37,23 +35,24 @@ public interface ManagerRepository extends JpaRepository<Subscription, Integer> 
     """, nativeQuery = true)
     BigDecimal calculateMonthlyRevenue();
 
+    @Query(value = "SELECT COUNT(*) FROM addons", nativeQuery = true)
+    long countAddOns();
 
-@Query(value = "SELECT COUNT(*) FROM addons", nativeQuery = true)
-long countAddOns();
+    @Query(value = "SELECT COUNT(*) FROM locations", nativeQuery = true)
+    long countLocations();
 
-@Query(value = "SELECT COUNT(*) FROM locations", nativeQuery = true)
-long countLocations();
+    @Query(value = "SELECT COUNT(*) FROM planfeatures", nativeQuery = true)
+    long countPlanFeatures();
 
-@Query(value = "SELECT COUNT(*) FROM planfeatures", nativeQuery = true)
-long countPlanFeatures();
+    @Query(value = "SELECT COUNT(*) FROM locations WHERE IsActive = 1", nativeQuery = true)
+    long countActiveLocations();
 
-@Query(value = "SELECT COUNT(*) FROM locations WHERE IsActive = 1", nativeQuery = true)
-long countActiveLocations();
+    @Query(value = "SELECT COUNT(*) FROM servicerequests", nativeQuery = true)
+    long countServiceRequests();
 
-@Query(value = "SELECT COUNT(*) FROM servicerequests", nativeQuery = true)
-long countServiceRequests();
+    @Query(value = "SELECT COUNT(*) FROM serviceappointments", nativeQuery = true)
+    long countServiceAppointments();
 
-@Query(value = "SELECT COUNT(*) FROM serviceappointments", nativeQuery = true)
-long countServiceAppointments();
-
+    @Query(value = "SELECT COUNT(*) FROM employees", nativeQuery = true)
+    long countEmployees();
 }
