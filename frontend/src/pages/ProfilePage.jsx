@@ -246,9 +246,10 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
     const billingAddress  = profile.billing?.address       || {};
     const paymentMethod   = profile.billing?.paymentMethod || {};
     // hasPlan: true when we have a real plan object, OR as fallback when any invoice exists
+
     const hasPlan = currentPlan != null
-        ? currentPlan !== null   // explicit plan loaded
-        : (profile.billing?.invoices?.length > 0); // fallback before plan API responds
+        ? currentPlan !== null
+        : (profile.billing?.invoices?.length > 0);
 
     const hasBillingAddress =
         !isBlank(billingAddress.street1) && !isBlank(billingAddress.city) &&
@@ -256,8 +257,9 @@ export default function ProfilePage({ user: userProp, onLogout, darkMode = false
         !isBlank(billingAddress.country);
 
     const hasPaymentMethod       = !isBlank(paymentMethod.method) && !isBlank(paymentMethod.last4);
-    const hasCompletedBillingSetup = hasBillingAddress && hasPaymentMethod;
-
+    // const hasCompletedBillingSetup = hasBillingAddress && hasPaymentMethod;
+    const hasCompletedBillingSetup =
+        hasBillingAddress && hasPaymentMethod && hasPlan;
     /* ── loading ── */
     if (loading) {
         return (

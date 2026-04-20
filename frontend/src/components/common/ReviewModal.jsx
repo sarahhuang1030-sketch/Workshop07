@@ -62,16 +62,20 @@ export default function ReviewModal({
     };
 
     const validateReviewWithAI = async (reviewText) => {
+        const token = localStorage.getItem("token");
+
         const response = await fetch("/api/reviews/validate", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ text: reviewText }),
         });
 
         if (!response.ok) {
-            throw new Error("Failed to validate review.");
+            const errorText = await response.text();
+            throw new Error(errorText || "Failed to validate review.");
         }
 
         return await response.json();

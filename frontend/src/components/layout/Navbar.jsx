@@ -8,7 +8,7 @@
 
 import React from "react";
 import { Signal, Moon, Sun, ShoppingCart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { Badge } from "react-bootstrap";
 import { useCart } from "../../context/CartContext";
@@ -18,19 +18,12 @@ import verticalLogo from "../../../public/verticallogo.png";
 
 export default function AppNavbar({ user, setUser, onLogout }) {
     const { darkMode, toggleDarkMode } = useTheme();
+    const { plans, addOns, devices } = useCart();
+    const location = useLocation();
 
-  const { plans, addOns, devices } = useCart();
-
-const planCount = plans.reduce(
-  (sum, p) => sum + (p.lines ?? 1),
-  0
-);
-
-const deviceCount = devices.length;
-
-const cartCount = planCount + deviceCount;
-
-
+    const planCount = plans.reduce((sum, p) => sum + (p.lines ?? 1), 0);
+    const deviceCount = devices.length;
+    const cartCount = planCount + deviceCount;
 
     // Role-based UI config
     const roleKey = roleKeyFromUser(user);
@@ -46,11 +39,9 @@ const cartCount = planCount + deviceCount;
         user?.email ||
         "there";
 
-    // Optional: only show cart for Customer (change if you want)
     const showCart = !user || roleKey === "customer";
     const showWeather = true;
 
-    // Fix navbar collapse positioning on mobile
     const [isLgUp, setIsLgUp] = React.useState(false);
 
     React.useEffect(() => {
@@ -59,6 +50,20 @@ const cartCount = planCount + deviceCount;
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
     }, []);
+
+    const closeNavbar = () => {
+        if (window.innerWidth < 992) {
+            const navbarCollapse = document.getElementById("teleconnectNavbar");
+            if (navbarCollapse && navbarCollapse.classList.contains("show")) {
+                navbarCollapse.classList.remove("show");
+            }
+        }
+    };
+
+    // Optional extra safety: close navbar on route change
+    React.useEffect(() => {
+        closeNavbar();
+    }, [location.pathname]);
 
     return (
         <nav
@@ -75,50 +80,18 @@ const cartCount = planCount + deviceCount;
         >
             <div className="container-xl px-3 py-2 position-relative">
                 {/* Brand */}
-                <Link className="navbar-brand d-flex align-items-center gap-3" to="/">
+                <Link
+                    className="navbar-brand d-flex align-items-center gap-3"
+                    to="/"
+                    onClick={closeNavbar}
+                >
                     <img
                         src={verticalLogo}
                         alt="SJY Telecom Logo"
-                        style={{ height: "45px", objectFit: "contain"  }}
+                        style={{ height: "45px", objectFit: "contain" }}
                     />
-
-                    {/*<div*/}
-                    {/*    className="d-flex align-items-center justify-content-center shadow"*/}
-                    {/*    style={{*/}
-                    {/*        width: 48,*/}
-                    {/*        height: 48,*/}
-                    {/*        borderRadius: 16,*/}
-                    {/*        background:*/}
-                    {/*            "linear-gradient(135deg, rgb(168,85,247), rgb(236,72,153), rgb(249,115,22))",*/}
-                    {/*    }}*/}
-                    {/*>*/}
-                    {/*    <Signal size={22} color="white" />*/}
-                    {/*</div>*/}
-                    {/*<div className="lh-sm">*/}
-                    {/*    <div*/}
-                    {/*        className="fw-black"*/}
-                    {/*        style={{*/}
-                    {/*            fontSize: "1.35rem",*/}
-                    {/*            fontWeight: 900,*/}
-                    {/*            background:*/}
-                    {/*                "linear-gradient(90deg, rgb(147,51,234), rgb(236,72,153))",*/}
-                    {/*            WebkitBackgroundClip: "text",*/}
-                    {/*            color: "transparent",*/}
-                    {/*        }}*/}
-                    {/*    >*/}
-                    {/*        TeleConnect*/}
-                    {/*    </div>*/}
-                    {/*    <div*/}
-                    {/*        className={*/}
-                    {/*            darkMode*/}
-                    {/*                ? "text-secondary small fw-semibold"*/}
-                    {/*                : "text-muted small fw-semibold"*/}
-                    {/*        }*/}
-                    {/*    >*/}
-                    {/*        Stay Connected, Stay You*/}
-                    {/*    </div>*/}
-                    {/*</div>*/}
                 </Link>
+
                 {/* Weather pill */}
                 {showWeather && (
                     <div
@@ -170,15 +143,15 @@ const cartCount = planCount + deviceCount;
                     {/* Left group */}
                     <ul className="navbar-nav ms-lg-auto mt-0 gap-2">
                         <li className="nav-item">
-                            <Link className="nav-link fw-semibold" to="/plans">
+                            <Link className="nav-link fw-semibold" to="/plans" onClick={closeNavbar}>
                                 Plans
                             </Link>
                         </li>
+
                         {!user ? (
                             <>
-
                                 <li className="nav-item">
-                                    <Link className="nav-link fw-semibold" to="/login">
+                                    <Link className="nav-link fw-semibold" to="/login" onClick={closeNavbar}>
                                         Login
                                     </Link>
                                 </li>
@@ -186,7 +159,11 @@ const cartCount = planCount + deviceCount;
                         ) : (
                             ui.nav.map((item) => (
                                 <li className="nav-item" key={item.to}>
-                                    <Link className="nav-link fw-semibold" to={item.to}>
+                                    <Link
+                                        className="nav-link fw-semibold"
+                                        to={item.to}
+                                        onClick={closeNavbar}
+                                    >
                                         {item.label}
                                     </Link>
                                 </li>
@@ -202,6 +179,7 @@ const cartCount = planCount + deviceCount;
                             <Link
                                 className="btn text-white fw-bold px-4 py-2"
                                 to="/register"
+                                onClick={closeNavbar}
                                 style={{
                                     borderRadius: 999,
                                     background: "linear-gradient(90deg, #7c3aed, #ec4899)",
@@ -211,15 +189,15 @@ const cartCount = planCount + deviceCount;
                             </Link>
                         ) : (
                             <>
-                <span
-                    className={
-                        darkMode
-                            ? "text-light fw-semibold me-lg-2"
-                            : "text-dark fw-semibold me-lg-2"
-                    }
-                >
-                  Hi, {displayName}
-                </span>
+                                <span
+                                    className={
+                                        darkMode
+                                            ? "text-light fw-semibold me-lg-2"
+                                            : "text-dark fw-semibold me-lg-2"
+                                    }
+                                >
+                                    Hi, {displayName}
+                                </span>
                                 <button
                                     type="button"
                                     className={
@@ -227,7 +205,10 @@ const cartCount = planCount + deviceCount;
                                             ? "btn btn-outline-light fw-bold"
                                             : "btn btn-outline-secondary fw-bold"
                                     }
-                                    onClick={onLogout}
+                                    onClick={() => {
+                                        closeNavbar();
+                                        onLogout();
+                                    }}
                                 >
                                     Logout
                                 </button>
@@ -250,6 +231,7 @@ const cartCount = planCount + deviceCount;
                         {showCart && (
                             <Link
                                 to="/cart"
+                                onClick={closeNavbar}
                                 className={[
                                     "btn d-inline-flex align-items-center justify-content-center position-relative",
                                     darkMode ? "btn-outline-light" : "btn-outline-secondary",

@@ -185,7 +185,7 @@ export default function SubscriptionPage({ darkMode = false }) {
 
     return (
         <Card
-            className={`border-0 shadow-sm ${darkMode ? "tc-card-dark" : "bg-white"}`}
+            className={`mt-4 border-0 shadow-sm ${darkMode ? "tc-card-dark" : "bg-white"}`}
             style={{ borderRadius: "1rem", overflow: "hidden" }}
         >
             {/* Gradient top bar */}
