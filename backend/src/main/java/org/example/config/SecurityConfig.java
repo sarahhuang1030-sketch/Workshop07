@@ -36,8 +36,10 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.util.LinkedHashMap;
 
-import static org.springframework.security.config.Customizer.withDefaults;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import static org.springframework.security.config.Customizer.withDefaults;
+
 
 @Profile("!azuretest")
 @EnableWebSecurity
@@ -95,8 +97,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 // Enable CORS
-                .cors(withDefaults())
-
+//                .cors(withDefaults())
+                .cors(cors -> {})
                 // Disable HTTP Basic auth
                 .httpBasic(b -> b.disable())
 
@@ -244,4 +246,6 @@ public class SecurityConfig {
         provider.setPasswordEncoder(encoder);
         return provider;
     }
+
+
 }
